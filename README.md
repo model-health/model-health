@@ -56,9 +56,9 @@ if case .verificationRequired = result {
 // 2. Create session and calibrate cameras
 let session = try await service.createSession()
 let checkerboard = CheckerboardDetails(
-    rows: 7, 
-    columns: 9, 
-    squareSize: 25, 
+    rows: 4, 
+    columns: 5, 
+    squareSize: 35, 
     placement: .perpendicular
 )
 try await service.calibrateCamera(session, checkerboardDetails: checkerboard)
@@ -113,7 +113,7 @@ Videos are automatically uploaded during recording and processed in the cloud. R
 - iOS 15.0+
 - Swift 5.7+
 - Internet connection for cloud processing
-- Printed checkerboard pattern for calibration (8×10 recommended)
+- Printed checkerboard pattern for calibration (4×5 recommended)
 
 ## Documentation
 
@@ -142,7 +142,7 @@ make docs-markdown
 
 ## License
 
-Proprietary - See LICENSE file for details
+See LICENSE file for details
 
 ---
 

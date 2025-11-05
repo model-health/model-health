@@ -33,7 +33,7 @@ import Foundation
 ///
 /// // Create session and calibrate
 /// let session = try await service.createSession()
-/// let details = CheckerboardDetails(rows: 7, columns: 9, squareSize: 25, placement: .perpendicular)
+/// let details = CheckerboardDetails(rows: 4, columns: 5, squareSize: 35, placement: .perpendicular)
 /// try await service.calibrateCamera(session, checkerboardDetails: details)
 ///
 /// // Capture neutral pose
@@ -235,9 +235,9 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// // Proceed with calibration
     /// let details = CheckerboardDetails(
-    ///     rows: 7,
-    ///     columns: 9,
-    ///     squareSize: 25,
+    ///     rows: 4,
+    ///     columns: 5,
+    ///     squareSize: 35,
     ///     placement: .perpendicular
     /// )
     /// try await service.calibrateCamera(session, checkerboardDetails: details)
@@ -255,7 +255,7 @@ public final class ModelHealthService: ObservableObject {
     /// determines the camera's intrinsic parameters and corrects for lens distortion.
     ///
     /// **Requirements:**
-    /// - A printed checkerboard pattern (standard 8×10 board recommended)
+    /// - A printed checkerboard pattern (standard 4×5 board recommended)
     /// - Accurate measurement of square size in millimeters
     /// - Multiple views of the checkerboard from different angles
     ///
@@ -266,9 +266,9 @@ public final class ModelHealthService: ObservableObject {
     /// let session = try await service.createSession()
     ///
     /// let details = CheckerboardDetails(
-    ///     rows: 7,           // Internal corners, not squares (for 8×10 board)
-    ///     columns: 9,        // Internal corners, not squares (for 8×10 board)
-    ///     squareSize: 25,    // Measured in millimeters
+    ///     rows: 4,           // Internal corners, not squares (for 4×5 board)
+    ///     columns: 5,        // Internal corners, not squares (for 4×5 board)
+    ///     squareSize: 35,    // Measured in millimeters
     ///     placement: .perpendicular
     /// )
     ///

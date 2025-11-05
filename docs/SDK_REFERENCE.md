@@ -36,12 +36,12 @@ let service = ModelHealthService()
 // Authenticate
 let loginResult = try await service.login(username: "user@example.com", password: "pass")
 if case .verificationRequired = loginResult {
-try await service.verify(code: "123456", rememberDevice: true)
+    try await service.verify(code: "123456", rememberDevice: true)
 }
 
 // Create session and calibrate
 let session = try await service.createSession()
-let details = CheckerboardDetails(rows: 7, columns: 9, squareSize: 25, placement: .perpendicular)
+let details = CheckerboardDetails(rows: 4, columns: 5, squareSize: 35, placement: .perpendicular)
 try await service.calibrateCamera(session, checkerboardDetails: details)
 
 // Capture neutral pose
@@ -96,14 +96,14 @@ registered email address. Complete authentication by calling ``verify(code:remem
 let result = try await service.login(username: "user@example.com", password: "secure_pass")
 
 switch result {
-case .ok:
-// Authentication complete, proceed with SDK usage
-print("Login successful")
+    case .ok:
+        // Authentication complete, proceed with SDK usage
+        print("Login successful")
 
-case .verificationRequired:
-// Prompt user for email verification code
-let code = await promptUserForCode()
-try await service.verify(code: code, rememberDevice: true)
+    case .verificationRequired:
+        // Prompt user for email verification code
+        let code = await promptUserForCode()
+        try await service.verify(code: code, rememberDevice: true)
 }
 ```
 
@@ -148,7 +148,7 @@ contains demographic information, physical measurements, and categorization tags
 ```swift
 let subjects = try await service.subjectList()
 for subject in subjects {
-print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
+    print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
 }
 
 // Filter by tags
@@ -176,9 +176,9 @@ let completed = trials.filter { $0.status == "completed" }
 
 // Access videos and results
 for trial in completed {
-print("Trial: \(trial.name ?? trial.id)")
-print("Videos: \(trial.videos.count)")
-print("Results: \(trial.results.count)")
+    print("Trial: \(trial.name ?? trial.id)")
+    print("Videos: \(trial.videos.count)")
+    print("Results: \(trial.results.count)")
 }
 ```
 
@@ -199,11 +199,6 @@ let videos = try await service.videoList()
 
 // Group by trial
 let videosByTrial = Dictionary(grouping: videos) { $0.trial }
-
-// Download a specific video
-if let videoUrl = videos.first?.videoUrl {
-// Use videoUrl to download the video file
-}
 ```
 
 - Returns: An array of ``Video`` objects
@@ -227,10 +222,10 @@ let session = try await service.createSession()
 
 // Proceed with calibration
 let details = CheckerboardDetails(
-rows: 7,
-columns: 9,
-squareSize: 25,
-placement: .perpendicular
+    rows: 4,
+    columns: 5,
+    squareSize: 35,
+    placement: .perpendicular
 )
 try await service.calibrateCamera(session, checkerboardDetails: details)
 ```
@@ -248,7 +243,7 @@ Camera calibration is essential for accurate 3D reconstruction. This process
 determines the camera's intrinsic parameters and corrects for lens distortion.
 
 **Requirements:**
-- A printed checkerboard pattern (standard 8×10 board recommended)
+- A printed checkerboard pattern (standard 4×5 board recommended)
 - Accurate measurement of square size in millimeters
 - Multiple views of the checkerboard from different angles
 
@@ -259,10 +254,10 @@ sufficient checkerboard views are captured.
 let session = try await service.createSession()
 
 let details = CheckerboardDetails(
-rows: 7,           // Internal corners, not squares (for 8×10 board)
-columns: 9,        // Internal corners, not squares (for 8×10 board)
-squareSize: 25,    // Measured in millimeters
-placement: .perpendicular
+    rows: 4,           // Internal corners, not squares (for 4×5 board)
+    columns: 5,        // Internal corners, not squares (for 4×5 board)
+    squareSize: 35,    // Measured in millimeters
+    placement: .perpendicular
 )
 
 // Start calibration - show checkerboard to camera from various angles
@@ -348,10 +343,9 @@ try await service.stopRecording(trialId: "trial-abc-123")
 
 // Wait for processing (check status periodically)
 let trials = try await service.trialList()
-if let trial = trials.first(where: { $0.id == trialId }),
-trial.status == "completed" {
-// Analysis ready
-let data = try await service.fetchAnalysis(trialId: trialId)
+if let trial = trials.first(where: { $0.id == trialId }), trial.status == "completed" {
+    // Analysis ready
+    let data = try await service.fetchAnalysis(trialId: trialId)
 }
 ```
 
@@ -382,8 +376,8 @@ let csvData = try await service.fetchAnalysis(trialId: "trial-abc-123")
 
 // Parse CSV data
 if let csvString = String(data: csvData, encoding: .utf8) {
-let rows = csvString.components(separatedBy: .newlines)
-// Process biomechanical data...
+    let rows = csvString.components(separatedBy: .newlines)
+    // Process biomechanical data...
 }
 
 // Or save to file
@@ -467,15 +461,15 @@ rows: 4, columns: 5, squareSize: 35, placement: .perpendicular
 Configuration for a calibration checkerboard pattern.
 
 **Important:** Row and column counts refer to internal corners, not squares.
-For a standard 8×10 checkerboard, use `rows: 4, columns: 5`.
+For a standard 4×5 checkerboard, use `rows: 4, columns: 5`.
 Square size must be measured precisely in millimeters for accurate calibration.
 
 ```swift
 let details = CheckerboardDetails(
-rows: 4,
-columns: 5,
-squareSize: 35,
-placement: .perpendicular
+    rows: 4,
+    columns: 5,
+    squareSize: 35,
+    placement: .perpendicular
 )
 try await service.calibrateCamera(session, checkerboardDetails: details)
 ```
@@ -491,7 +485,7 @@ Indicates whether additional email verification is required to complete authenti
 let result = try await service.login(username: "user@example.com", password: "pass")
 
 if case .verificationRequired = result {
-let code = await promptForVerificationCode()
-try await service.verify(code: code, rememberDevice: true)
+    let code = await promptForVerificationCode()
+    try await service.verify(code: code, rememberDevice: true)
 }
 ```
