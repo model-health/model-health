@@ -4,11 +4,11 @@ import Foundation
 
 /// A calibration session for grouping camera calibration workflows.
 ///
-/// Create with ``ModelHealthSDK/createSession()`` before performing camera calibration.
+/// Create with ``ModelHealthService/createSession()`` before performing camera calibration.
 ///
 /// ```swift
-/// let session = try await sdk.createSession()
-/// try await sdk.calibrateCamera(session, checkerboardDetails: details)
+/// let session = try await service.createSession()
+/// try await service.calibrateCamera(session, checkerboardDetails: details)
 /// ```
 public struct Session: Decodable, Identifiable, Sendable {
     public let id: String
@@ -19,7 +19,7 @@ public struct Session: Decodable, Identifiable, Sendable {
 /// An individual being monitored or assessed in the ModelHealth system.
 ///
 /// ```swift
-/// let subjects = try await sdk.subjectList()
+/// let subjects = try await service.subjectList()
 /// let filtered = subjects.filter { $0.subjectTags.contains("high-risk") }
 /// ```
 public struct Subject: Decodable, Identifiable, Sendable {
@@ -113,7 +113,7 @@ public struct Result: Decodable, Sendable {
 /// processing to final analysis.
 ///
 /// ```swift
-/// let trials = try await sdk.trialList()
+/// let trials = try await service.trialList()
 /// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
 /// ```
 public struct Trial: Decodable, Sendable {
@@ -201,7 +201,7 @@ public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable 
 ///     squareSize: 35,
 ///     placement: .perpendicular
 /// )
-/// try await sdk.calibrateCamera(session, checkerboardDetails: details)
+/// try await service.calibrateCamera(session, checkerboardDetails: details)
 /// ```
 public struct CheckerboardDetails: Sendable {
     /// Number of internal corners (rows). For 5×6 squares, use 4
@@ -230,11 +230,11 @@ public struct CheckerboardDetails: Sendable {
 /// Indicates whether additional email verification is required to complete authentication.
 ///
 /// ```swift
-/// let result = try await sdk.login(username: "user@example.com", password: "pass")
+/// let result = try await service.login(username: "user@example.com", password: "pass")
 ///
 /// if case .verificationRequired = result {
 ///     let code = await promptForVerificationCode()
-///     try await sdk.verify(code: code, rememberDevice: true)
+///     try await service.verify(code: code, rememberDevice: true)
 /// }
 /// ```
 public enum LoginResult: Sendable {
@@ -247,6 +247,6 @@ public enum LoginResult: Sendable {
     /// Email verification required to complete login.
     ///
     /// A verification code has been sent to the user's registered email address.
-    /// Call ``ModelHealthSDK/verify(code:rememberDevice:)`` to complete authentication.
+    /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
     case verificationRequired
 }

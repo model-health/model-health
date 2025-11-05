@@ -2,7 +2,7 @@ import Foundation
 
 /// The primary interface for ModelHealth's movement analysis platform.
 ///
-/// ModelHealthSDK enables you to measure and analyze human movement from smartphone
+/// ModelHealthService enables you to measure and analyze human movement from smartphone
 /// videos. It provides a complete workflow for:
 /// - Authentication and session management
 /// - Multi-camera calibration
@@ -23,29 +23,29 @@ import Foundation
 /// ## Usage Example
 ///
 /// ```swift
-/// let sdk = ModelHealthSDK()
+/// let service = ModelHealthService()
 ///
 /// // Authenticate
-/// let loginResult = try await sdk.login(username: "user@example.com", password: "pass")
+/// let loginResult = try await service.login(username: "user@example.com", password: "pass")
 /// if case .verificationRequired = loginResult {
-///     try await sdk.verify(code: "123456", rememberDevice: true)
+///     try await service.verify(code: "123456", rememberDevice: true)
 /// }
 ///
 /// // Create session and calibrate
-/// let session = try await sdk.createSession()
+/// let session = try await service.createSession()
 /// let details = CheckerboardDetails(rows: 7, columns: 9, squareSize: 25, placement: .perpendicular)
-/// try await sdk.calibrateCamera(session, checkerboardDetails: details)
+/// try await service.calibrateCamera(session, checkerboardDetails: details)
 ///
 /// // Capture neutral pose
-/// try await sdk.calibrateNeutralPose()
+/// try await service.calibrateNeutralPose()
 ///
 /// // Record a movement trial
-/// try await sdk.recordTrial(named: "squat-session-1")
+/// try await service.recordTrial(named: "squat-session-1")
 /// let trialId = "..." // From your trial tracking
-/// try await sdk.stopRecording(trialId: trialId)
+/// try await service.stopRecording(trialId: trialId)
 ///
 /// // Fetch analysis results
-/// let analysisData = try await sdk.fetchAnalysis(trialId: trialId)
+/// let analysisData = try await service.fetchAnalysis(trialId: trialId)
 /// ```
 ///
 /// ## Topics
@@ -68,7 +68,7 @@ import Foundation
 /// - ``recordTrial(named:)``
 /// - ``stopRecording(trialId:)``
 /// - ``fetchAnalysis(trialId:)``
-public final class ModelHealthSDK: ObservableObject {
+public final class ModelHealthService: ObservableObject {
     private let backendService: BackendService
 
     /// Creates a new ModelHealth SDK instance.
@@ -77,8 +77,8 @@ public final class ModelHealthSDK: ObservableObject {
     /// ``login(username:password:)`` to authenticate.
     ///
     /// ```swift
-    /// let sdk = ModelHealthSDK()
-    /// try await sdk.login(username: "user@example.com", password: "pass")
+    /// let service = ModelHealthService()
+    /// try await service.login(username: "user@example.com", password: "pass")
     /// ```
     public init() {
         self.backendService = BackendServiceImpl()
@@ -102,7 +102,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// registered email address. Complete authentication by calling ``verify(code:rememberDevice:)``.
     ///
     /// ```swift
-    /// let result = try await sdk.login(username: "user@example.com", password: "secure_pass")
+    /// let result = try await service.login(username: "user@example.com", password: "secure_pass")
     ///
     /// switch result {
     /// case .ok:
@@ -112,7 +112,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// case .verificationRequired:
     ///     // Prompt user for email verification code
     ///     let code = await promptUserForCode()
-    ///     try await sdk.verify(code: code, rememberDevice: true)
+    ///     try await service.verify(code: code, rememberDevice: true)
     /// }
     /// ```
     ///
@@ -135,7 +135,7 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // After receiving .verificationRequired from login
-    /// try await sdk.verify(code: "123456", rememberDevice: true)
+    /// try await service.verify(code: "123456", rememberDevice: true)
     /// // Authentication now complete, SDK ready for use
     /// ```
     ///
@@ -155,7 +155,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// contains demographic information, physical measurements, and categorization tags.
     ///
     /// ```swift
-    /// let subjects = try await sdk.subjectList()
+    /// let subjects = try await service.subjectList()
     /// for subject in subjects {
     ///     print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
     /// }
@@ -177,7 +177,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// fetch analysis for completed trials.
     ///
     /// ```swift
-    /// let trials = try await sdk.trialList()
+    /// let trials = try await service.trialList()
     ///
     /// // Find completed trials ready for analysis
     /// let completed = trials.filter { $0.status == "completed" }
@@ -202,7 +202,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// such as timestamps, processing status, and download URLs.
     ///
     /// ```swift
-    /// let videos = try await sdk.videoList()
+    /// let videos = try await service.videoList()
     ///
     /// // Group by trial
     /// let videosByTrial = Dictionary(grouping: videos) { $0.trial }
@@ -231,7 +231,7 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // Create session
-    /// let session = try await sdk.createSession()
+    /// let session = try await service.createSession()
     ///
     /// // Proceed with calibration
     /// let details = CheckerboardDetails(
@@ -240,7 +240,7 @@ public final class ModelHealthSDK: ObservableObject {
     ///     squareSize: 25,
     ///     placement: .perpendicular
     /// )
-    /// try await sdk.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details)
     /// ```
     ///
     /// - Returns: A ``Session`` object with a unique identifier
@@ -263,7 +263,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// sufficient checkerboard views are captured.
     ///
     /// ```swift
-    /// let session = try await sdk.createSession()
+    /// let session = try await service.createSession()
     ///
     /// let details = CheckerboardDetails(
     ///     rows: 7,           // Internal corners, not squares (for 8×10 board)
@@ -273,7 +273,7 @@ public final class ModelHealthSDK: ObservableObject {
     /// )
     ///
     /// // Start calibration - show checkerboard to camera from various angles
-    /// try await sdk.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details)
     /// // Calibration complete, proceed to neutral pose
     /// ```
     ///
@@ -300,7 +300,7 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // After successful camera calibration
-    /// try await sdk.calibrateNeutralPose()
+    /// try await service.calibrateNeutralPose()
     /// // Model now scaled, ready to record movement trials
     /// ```
     ///
@@ -325,11 +325,11 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // Record a squat session
-    /// try await sdk.recordTrial(named: "squat-baseline-2024")
+    /// try await service.recordTrial(named: "squat-baseline-2024")
     /// // Subject performs squats while cameras record
     ///
     /// // When complete, stop recording
-    /// try await sdk.stopRecording(trialId: trialId)
+    /// try await service.stopRecording(trialId: trialId)
     /// ```
     ///
     /// - Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
@@ -350,14 +350,14 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // After recording is complete
-    /// try await sdk.stopRecording(trialId: "trial-abc-123")
+    /// try await service.stopRecording(trialId: "trial-abc-123")
     ///
     /// // Wait for processing (check status periodically)
-    /// let trials = try await sdk.trialList()
+    /// let trials = try await service.trialList()
     /// if let trial = trials.first(where: { $0.id == trialId }),
     ///    trial.status == "completed" {
     ///     // Analysis ready
-    ///     let data = try await sdk.fetchAnalysis(trialId: trialId)
+    ///     let data = try await service.fetchAnalysis(trialId: trialId)
     /// }
     /// ```
     ///
@@ -383,7 +383,7 @@ public final class ModelHealthSDK: ObservableObject {
     ///
     /// ```swift
     /// // Fetch analysis for completed trial
-    /// let csvData = try await sdk.fetchAnalysis(trialId: "trial-abc-123")
+    /// let csvData = try await service.fetchAnalysis(trialId: "trial-abc-123")
     ///
     /// // Parse CSV data
     /// if let csvString = String(data: csvData, encoding: .utf8) {

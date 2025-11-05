@@ -10,7 +10,7 @@ struct LoginView: View {
     @State private var isVerified = false
     @State private var isLoggedIn = false
 
-    @EnvironmentObject private var modelHealthSDK: ModelHealthSDK
+    @EnvironmentObject private var modelHealth: ModelHealthService
 
     var body: some View {
         NavigationStack {
@@ -103,7 +103,7 @@ struct LoginView: View {
 
         Task {
             do {
-                let result = try await modelHealthSDK.login(
+                let result = try await modelHealth.login(
                     username: username,
                     password: password
                 )
@@ -131,5 +131,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView()
-        .environmentObject(ModelHealthSDK())
+        .environmentObject(ModelHealthService())
 }

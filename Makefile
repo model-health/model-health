@@ -50,6 +50,7 @@ docs-export: docs-build
 
 docs-markdown:
 	@echo "Generating markdown documentation..."
+	@mkdir -p docs
 	@chmod +x scripts/extract_docs.py
 	@python3 scripts/extract_docs.py Sources/ModelHealth docs/SDK_REFERENCE.md
 	@echo "Markdown reference generated at: docs/SDK_REFERENCE.md"
@@ -65,5 +66,4 @@ test:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf .build
-	rm -rf docs
 	@echo "Clean complete"

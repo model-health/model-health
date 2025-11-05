@@ -8,7 +8,7 @@ struct CameraCalibrationView: View {
     @State private var placement: CheckerboardPlacement = .perpendicular
     @State private var isCalibrating = false
 
-    @EnvironmentObject private var modelHealthSDK: ModelHealthSDK
+    @EnvironmentObject private var modelHealth: ModelHealthService
 
     var body: some View {
         NavigationView {
@@ -97,7 +97,7 @@ struct CameraCalibrationView: View {
                 placement: placement
             )
 
-            try await modelHealthSDK.calibrateCamera(
+            try await modelHealth.calibrateCamera(
                 Session.shared,
                 checkerboardDetails: calibrationDetails
             )
@@ -109,5 +109,5 @@ struct CameraCalibrationView: View {
 
 #Preview {
     CameraCalibrationView()
-        .environmentObject(ModelHealthSDK())
+        .environmentObject(ModelHealthService())
 }

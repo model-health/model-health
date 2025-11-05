@@ -3,7 +3,7 @@ import ModelHealth
 
 struct VerificationView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject private var modelHealthSDK: ModelHealthSDK
+    @EnvironmentObject private var modelHealth: ModelHealthService
     @Binding var isVerified: Bool
     
     @State private var verificationCode = ""
@@ -67,7 +67,7 @@ struct VerificationView: View {
         
         Task {
             do {
-                try await modelHealthSDK.verify(code: verificationCode)
+                try await modelHealth.verify(code: verificationCode)
                 
                 await MainActor.run {
                     isLoading = false
@@ -86,5 +86,5 @@ struct VerificationView: View {
 
 #Preview {
     VerificationView(isVerified: .constant(false))
-        .environmentObject(ModelHealthSDK())
+        .environmentObject(ModelHealthService())
 }
