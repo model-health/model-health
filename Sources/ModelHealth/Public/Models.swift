@@ -12,6 +12,42 @@ import Foundation
 /// ```
 public struct Session: Decodable, Identifiable, Sendable {
     public let id: String
+    public let user: Int
+    public let `public`: Bool
+    public let name: String
+    public let sessionName: String
+    public let qrcode: String?
+    public let trials: [String]
+    public let server: String?
+    public let subject: Int?
+    public let trialsCount: Int
+}
+
+extension Session: Equatable {
+    public static func == (lhs: Session, rhs: Session) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+extension Session: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+public extension Session {
+    public static let forPreview = Session(
+        id: "",
+        user: 0,
+        public: false,
+        name: "",
+        sessionName: "",
+        qrcode: nil,
+        trials: [],
+        server: nil,
+        subject: nil,
+        trialsCount: 0
+    )
 }
 
 // MARK: - Subject

@@ -1,9 +1,5 @@
 import Foundation
 
-public extension Session {
-    @MainActor static let shared = Session(id: "a4e7f3af-92a9-407e-a5a9-465fa4314248")
-}
-
 enum HTTPMethod: String {
     case get
     case post

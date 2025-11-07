@@ -59,7 +59,13 @@ actor BackendServiceImpl: BackendService {
     }
 
     func createSession() async throws -> Session {
-        try await get(Backend.createSession)
+        let response: [Session] = try await get(Backend.createSession)
+
+        guard let session = response.first else {
+            throw URLError(.badServerResponse)
+        }
+
+        return session
     }
 
     func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws {
@@ -149,7 +155,7 @@ extension BackendServiceImpl {
             throw URLError(.userAuthenticationRequired)
         }
 
-        let request = URLRequest.get(Backend.subjects, token: token)
+        let request = URLRequest.get(url, token: token)
         return try await URLSession.shared.decode(from: request)
     }
 }

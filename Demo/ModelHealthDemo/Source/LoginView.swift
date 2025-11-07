@@ -18,15 +18,17 @@ struct LoginView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Image("AppIcon")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
+                    Image("model-health")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
 
                     Text("Welcome")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                 }
-                .padding(.bottom, 40)
+
+                Spacer()
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Username")
@@ -57,6 +59,8 @@ struct LoginView: View {
                         .padding(.horizontal)
                 }
 
+                Spacer()
+
                 Button(action: handleLogin) {
                     if isLoading {
                         ProgressView()
@@ -77,7 +81,7 @@ struct LoginView: View {
                 Spacer()
             }
             .navigationDestination(isPresented: $isLoggedIn) {
-                CameraCalibrationView()
+                CreateSessionView()
             }
             .sheet(isPresented: $showVerification) {
                 VerificationView(isVerified: $isVerified)

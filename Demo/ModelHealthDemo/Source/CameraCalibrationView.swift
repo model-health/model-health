@@ -2,6 +2,8 @@ import SwiftUI
 import ModelHealth
 
 struct CameraCalibrationView: View {
+    let session: Session
+
     @State private var rows: String = "4"
     @State private var columns: String = "5"
     @State private var squareSize: String = "35"
@@ -98,7 +100,7 @@ struct CameraCalibrationView: View {
             )
 
             try await modelHealth.calibrateCamera(
-                Session.shared,
+                session,
                 checkerboardDetails: calibrationDetails
             )
         } catch {
@@ -108,6 +110,6 @@ struct CameraCalibrationView: View {
 }
 
 #Preview {
-    CameraCalibrationView()
+    CameraCalibrationView(session: .forPreview)
         .environmentObject(ModelHealthService())
 }
