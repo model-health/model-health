@@ -112,21 +112,9 @@ public struct Subject: Decodable, Identifiable, Sendable {
 
 ### TypeScript
 ```typescript
-export enum Gender {
-  Woman = "woman",
-  Man = "man",
-  Transgender = "transgender",
-  NonBinary = "non-binary",
-  NoResponse = "prefer-not-respond"
-}
+export type Gender = "woman" | "man" | "transgender" | "non-binary" | "prefer-not-respond";
 
-export enum Sex {
-  Woman = "woman",
-  Man = "man",
-  Intersect = "intersect",
-  NotListed = "not-listed",
-  NoResponse = "prefer-not-respond"
-}
+export type Sex = "woman" | "man" | "intersect" | "not-listed" | "prefer-not-respond";
 
 export interface Subject {
   id: number;
@@ -300,10 +288,7 @@ public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable 
 
 ### TypeScript
 ```typescript
-export enum CheckerboardPlacement {
-  Perpendicular = "perpendicular",
-  Parallel = "parallel"
-}
+export type CheckerboardPlacement = "perpendicular" | "parallel";
 ```
 
 ---
@@ -351,7 +336,5 @@ public enum LoginResult: Sendable {
 
 ### TypeScript
 ```typescript
-export type LoginResult = 
-  | { type: "ok" }
-  | { type: "verificationRequired" };
+export type LoginResult = "ok" | "verificationRequired";
 ```
