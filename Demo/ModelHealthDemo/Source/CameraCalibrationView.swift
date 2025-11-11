@@ -68,7 +68,7 @@ struct CameraCalibrationView: View {
         }
         .navigationTitle("Checkerboard Details")
         .navigationDestination(isPresented: $calibrationComplete) {
-            NeutralPoseCalibrationView(session: session)
+            SubjectSelectionView(session: session)
         }
         .padding()
     }

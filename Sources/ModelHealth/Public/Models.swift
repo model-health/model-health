@@ -35,7 +35,7 @@ extension Session: Hashable {
     }
 }
 
-public extension Session {
+extension Session {
     public static let forPreview = Session(
         id: "",
         user: 0,
@@ -105,6 +105,29 @@ public struct Subject: Decodable, Identifiable, Sendable {
 
     /// Tags for categorization and filtering
     public let subjectTags: [String]
+}
+
+extension Subject: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+extension Subject {
+    public static let forPreview = Subject(
+        id: 42,
+        name: "Subject: THX 1138",
+        weight: nil,
+        height: nil,
+        age: 42,
+        birthYear: 1983,
+        gender: .man,
+        genderDisplay: "Man",
+        sexAtBirth: .man,
+        sexDisplay: "Man",
+        characteristics: "",
+        subjectTags: []
+    )
 }
 
 // MARK: - Video

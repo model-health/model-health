@@ -2,6 +2,7 @@ import SwiftUI
 import ModelHealth
 
 struct NeutralPoseCalibrationView: View {
+    let subject: Subject
     let session: Session
 
     @State private var isCalibrating = false
@@ -56,7 +57,10 @@ struct NeutralPoseCalibrationView: View {
         calibrationComplete = false
 
         do {
-            try await modelHealth.calibrateNeutralPose(session)
+            try await modelHealth.calibrateNeutralPose(
+                for: subject,
+                in: session
+            )
             calibrationComplete = true
         } catch {
             print("Calibration failed: \(error.localizedDescription)")
@@ -68,7 +72,7 @@ struct NeutralPoseCalibrationView: View {
 
 #Preview {
     NavigationStack {
-        NeutralPoseCalibrationView(session: .forPreview)
+        NeutralPoseCalibrationView(subject: .forPreview, session: .forPreview)
             .environmentObject(ModelHealthService())
     }
 }

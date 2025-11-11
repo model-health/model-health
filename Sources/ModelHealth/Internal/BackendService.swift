@@ -17,8 +17,8 @@ protocol BackendService {
     func videoList() async throws -> [Video]
     func createSession() async throws -> Session
     func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws
-    func calibrateNeutralPose(_ session: Session) async throws
-    func recordTrial(named name: String, in session: Session) async throws -> Trial
+    func calibrateNeutralPose(for subject: Subject, in session: Session) async throws
+    func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial
     func stopRecording(trialId: String) async throws
     func fetchAnalysis(trialId: String) async throws -> Data
 }
@@ -127,14 +127,14 @@ actor BackendServiceImpl: BackendService {
         async let _: SessionStatus = try await URLSession.shared.decode(from: sessionStatusRequest)
     }
 
-    func calibrateNeutralPose(_ session: Session) async throws {
+    func calibrateNeutralPose(for subject: Subject, in session: Session) async throws {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
     }
 
-    func recordTrial(named name: String, in session: Session) async throws -> Trial {
+    func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
