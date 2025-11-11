@@ -17,7 +17,7 @@ protocol BackendService {
     func videoList() async throws -> [Video]
     func createSession() async throws -> Session
     func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws
-    func calibrateNeutralPose(for subject: Subject, in session: Session) async throws
+    func calibrateNeutralPose(for subject: Subject, in session: Session, statusUpdate: @Sendable (CalibrationStatus) -> Void) async throws
     func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial
     func stopRecording(trialId: String) async throws
     func fetchAnalysis(trialId: String) async throws -> Data
@@ -127,11 +127,95 @@ actor BackendServiceImpl: BackendService {
         async let _: SessionStatus = try await URLSession.shared.decode(from: sessionStatusRequest)
     }
 
-    func calibrateNeutralPose(for subject: Subject, in session: Session) async throws {
+    func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
+        //        let metadataRequest = URLRequest.get(
+        //            Backend.setMetadata(id: session.id),
+        //            token: token,
+        //            parameters: [
+        //                "settings_data_sharing": settings.dataSharing,
+        //                "settings_scaling_setup": settings.scalingSetup,
+        //                "settings_framerate": String(settings.framerate),
+        //                "settings_session_name": settings.sessionName ?? "",
+        //                "settings_openSimModel": settings.openSimModel,
+        //                "settings_augmenter_model": settings.augmenterModel,
+        //                "settings_filter_frequency": settings.filterFrequency
+        //            ]
+        //        )
+        //
+        //        let _: Session = try await URLSession.shared.decode(from: metadataRequest)
+
+        let subjectRequest = URLRequest.get(
+            Backend.setSubject(id: session.id),
+            token: token,
+            parameters: ["subject_id": "\(subject.id)"]
+        )
+
+        let _: Session = try await URLSession.shared.decode(from: subjectRequest)
+
+        let recordingRequest = URLRequest.get(
+            Backend.startRecording(id: session.id),
+            token: token,
+            parameters: [
+                "name": "neutral",
+                "subject_id": "\(subject.id)"
+            ]
+        )
+        
+        let trial: Trial = try await URLSession.shared.decode(from: recordingRequest)
+
+        let neutralImgRequest = URLRequest.get(
+            Backend.neutralImg(id: session.id),
+            token: token
+        )
+
+        while true {
+            let response: NeutralImgResponse = try await URLSession.shared.decode(from: neutralImgRequest)
+
+            switch response.status {
+            case .done:
+                statusUpdate(.done)
+                return
+
+            case .error:
+                // TODO: Introduce correct error handling
+                throw URLError(.unknown)
+
+            case .recording:
+                statusUpdate(.recording)
+
+            case .uploading:
+                let statusRequest = URLRequest.get(
+                    Backend.sessionStatus(id: session.id),
+                    token: token,
+                    parameters: ["device_id": DeviceIdentifier.getDeviceIdentifier()]
+                )
+
+                let sessionStatus: SessionStatus = try await URLSession.shared.decode(from: statusRequest)
+
+                statusUpdate(
+                    .uploading(
+                        uploaded: sessionStatus.nVideosUploaded,
+                        total: sessionStatus.nCamerasConnected
+                    )
+                )
+
+            case .processing:
+                statusUpdate(.processing(percent: response.progressInfo?.percent))
+
+            default:
+                break
+            }
+
+            try await Task.sleep(for: .seconds(1))
+        }
     }
 
     func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial {

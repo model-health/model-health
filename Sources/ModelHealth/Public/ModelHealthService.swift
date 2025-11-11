@@ -307,8 +307,16 @@ public final class ModelHealthService: ObservableObject {
     /// - Parameters:
     ///   - session: The session created with ``createSession()``
     /// - Throws: An error if pose capture fails (subject not detected, poor lighting, etc.)
-    public func calibrateNeutralPose(for subject: Subject, in session: Session) async throws {
-        try await backendService.calibrateNeutralPose(for: subject, in: session)
+    public func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        try await backendService.calibrateNeutralPose(
+            for: subject,
+            in: session,
+            statusUpdate: statusUpdate
+        )
     }
 
     // MARK: - Recording & Analysis

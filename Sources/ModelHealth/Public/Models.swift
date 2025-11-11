@@ -309,3 +309,56 @@ public enum LoginResult: Sendable {
     /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
     case verificationRequired
 }
+
+/// Represents the current status of a calibration process.
+///
+/// This enum tracks the progression of either camera calibration or neutral pose calibration,
+/// providing real-time feedback on the recording, upload, and processing stages.
+///
+/// ## Usage
+/// ```swift
+/// try await service.calibrateNeutralPose(
+///     for: subject,
+///     in: session
+/// ) { status in
+///     switch status {
+///     case .recording:
+///         print("Recording...")
+///
+///     case .uploading(let uploaded, let total):
+///         print("Uploading: \(uploaded)/\(total)")
+///
+///     case .processing(let percent):
+///         print("Processing: \(percent ?? 0)%")
+///
+///     case .done(let images):
+///         print("Complete! \(images.count) videos processed")
+///     }
+/// }
+/// ```
+public enum CalibrationStatus: Sendable {
+    /// The recording phase is in progress.
+    ///
+    /// During this phase, all connected cameras are actively recording.
+    /// If calibrating the neutral pose he subject should remain still and hold their pose until this phase completes.
+    case recording
+
+    /// Videos are being uploaded from cameras.
+    ///
+    /// - Parameters:
+    ///   - uploaded: The number of videos successfully uploaded so far.
+    ///   - total: The total number of videos expected from all calibrated cameras.
+    ///
+    /// Use this status to display upload progress to users. The subject can relax
+    /// during this phase as recording has completed.
+    case uploading(uploaded: Int, total: Int)
+
+    /// The server is processing the uploaded videos.
+    ///
+    /// - Parameter percent: The processing completion percentage (0-100), or `nil` if
+    ///   processing has not yet started or progress is unavailable.
+    case processing(percent: Int?)
+
+    /// Calibration has completed successfully.
+    case done
+}

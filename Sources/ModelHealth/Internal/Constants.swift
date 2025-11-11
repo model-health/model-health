@@ -49,4 +49,12 @@ enum Backend {
     static func calibrationImg(id: String) -> URL {
         URL(string: "\(session(id))calibration_img/")!
     }
+
+    static func setMetadata(id: String) -> URL {
+        URL(string: "\(session(id))set_metadata/")!
+    }
+
+    static func neutralImg(id: String) -> URL {
+        URL(string: "\(session(id))neutral_img/")!
+    }
 }

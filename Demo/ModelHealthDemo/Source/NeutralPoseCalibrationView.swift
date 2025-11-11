@@ -60,7 +60,9 @@ struct NeutralPoseCalibrationView: View {
             try await modelHealth.calibrateNeutralPose(
                 for: subject,
                 in: session
-            )
+            ) { _ in
+            }
+            
             calibrationComplete = true
         } catch {
             print("Calibration failed: \(error.localizedDescription)")
