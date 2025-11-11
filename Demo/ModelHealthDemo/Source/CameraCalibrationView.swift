@@ -9,74 +9,68 @@ struct CameraCalibrationView: View {
     @State private var squareSize: String = "35"
     @State private var placement: CheckerboardPlacement = .perpendicular
     @State private var isCalibrating = false
+    @State private var calibrationComplete = false
 
     @EnvironmentObject private var modelHealth: ModelHealthService
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section {
-                    HStack {
-                        Text("Rows")
-                            .frame(width: 100, alignment: .leading)
-                        TextField("4", text: $rows)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-
-                    HStack {
-                        Text("Columns")
-                            .frame(width: 100, alignment: .leading)
-                        TextField("5", text: $columns)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-
-                    HStack {
-                        Text("Square Size")
-                            .frame(width: 100, alignment: .leading)
-                        TextField("35", text: $squareSize)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                        Text("mm")
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Section {
-                    Picker("Placement on Floor", selection: $placement) {
-                        ForEach(CheckerboardPlacement.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            await performCalibration()
-                        }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if isCalibrating {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .padding(.trailing, 8)
-                            } else {
-                                Text("Calibrate")
-                                    .fontWeight(.semibold)
-                            }
-                            Spacer()
-                        }
-                    }
-                    .disabled(isCalibrating)
-                    .foregroundColor(isCalibrating ? .gray : .accentColor)
-                }
-                .navigationTitle("Checkerboard Details")
-                .navigationBarTitleDisplayMode(.inline)
+        VStack(spacing: 20) {
+            HStack {
+                Text("Rows")
+                    .frame(width: 100, alignment: .leading)
+                TextField("4", text: $rows)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
             }
+
+            HStack {
+                Text("Columns")
+                    .frame(width: 100, alignment: .leading)
+                TextField("5", text: $columns)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            HStack {
+                Text("Square Size")
+                    .frame(width: 100, alignment: .leading)
+                TextField("35", text: $squareSize)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                Text("mm")
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Text("Placement on Floor")
+
+                Spacer()
+
+                Picker("Placement on Floor", selection: $placement) {
+                    ForEach(CheckerboardPlacement.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+            }
+
+            Spacer()
+
+            LoadingButton (
+                title: "Calibrate",
+                isLoading: isCalibrating,
+                isDisabled: isCalibrating
+            ) {
+                Task {
+                    await performCalibration()
+                }
+            }
+            .padding(.bottom, 12)
         }
+        .navigationTitle("Checkerboard Details")
+        .navigationDestination(isPresented: $calibrationComplete) {
+            SubjectSelectionView(session: session)
+        }
+        .padding()
     }
 
     private func performCalibration() async {
@@ -103,6 +97,8 @@ struct CameraCalibrationView: View {
                 session,
                 checkerboardDetails: calibrationDetails
             )
+
+            calibrationComplete = true
         } catch {
             print(error.localizedDescription)
         }
@@ -110,6 +106,8 @@ struct CameraCalibrationView: View {
 }
 
 #Preview {
-    CameraCalibrationView(session: .forPreview)
-        .environmentObject(ModelHealthService())
+    NavigationStack {
+        CameraCalibrationView(session: .forPreview)
+            .environmentObject(ModelHealthService())
+    }
 }

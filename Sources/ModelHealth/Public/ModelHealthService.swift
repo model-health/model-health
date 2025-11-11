@@ -304,9 +304,19 @@ public final class ModelHealthService: ObservableObject {
     /// // Model now scaled, ready to record movement trials
     /// ```
     ///
+    /// - Parameters:
+    ///   - session: The session created with ``createSession()``
     /// - Throws: An error if pose capture fails (subject not detected, poor lighting, etc.)
-    public func calibrateNeutralPose() async throws {
-        try await backendService.calibrateNeutralPose()
+    public func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        try await backendService.calibrateNeutralPose(
+            for: subject,
+            in: session,
+            statusUpdate: statusUpdate
+        )
     }
 
     // MARK: - Recording & Analysis
@@ -334,8 +344,8 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// - Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
-    public func recordTrial(named name: String) async throws {
-        try await backendService.recordTrial(named: name)
+    public func recordTrial(for subject: Subject, in session: Session, named name: String) async throws {
+        try await backendService.recordTrial(for: subject, in: session, named: name)
     }
 
     /// Stops recording for a movement trial and initiates processing.
