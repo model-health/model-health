@@ -1,5 +1,14 @@
 import Foundation
 
+extension Trial: ISODateDecodable {
+}
+
+extension Video: ISODateDecodable {
+}
+
+extension Result: ISODateDecodable {
+}
+
 protocol BackendService {
     func login(username: String,password: String) async throws -> LoginResult
     func verify(code: String, rememberDevice: Bool) async throws
@@ -8,8 +17,8 @@ protocol BackendService {
     func videoList() async throws -> [Video]
     func createSession() async throws -> Session
     func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws
-    func calibrateNeutralPose() async throws
-    func recordTrial(named name: String) async throws
+    func calibrateNeutralPose(_ session: Session) async throws
+    func recordTrial(named name: String, in session: Session) async throws -> Trial
     func stopRecording(trialId: String) async throws
     func fetchAnalysis(trialId: String) async throws -> Data
 }
@@ -101,7 +110,7 @@ actor BackendServiceImpl: BackendService {
             parameters: ["name": "calibration"]
         )
 
-        let _: Session = try await URLSession.shared.decode(from: calibrationRequest)
+        let _: Trial = try await URLSession.shared.decode(from: calibrationRequest)
 
         let calibrationImgRequest = URLRequest.get(
             Backend.calibrationImg(id: session.id),
@@ -118,18 +127,36 @@ actor BackendServiceImpl: BackendService {
         async let _: SessionStatus = try await URLSession.shared.decode(from: sessionStatusRequest)
     }
 
-    func calibrateNeutralPose() async throws {
+    func calibrateNeutralPose(_ session: Session) async throws {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
     }
 
-    func recordTrial(named name: String) async throws {
+    func recordTrial(named name: String, in session: Session) async throws -> Trial {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
+        return Trial(
+            id: "",
+            session: session.id,
+            name: name,
+            status: "recording",
+            videos: [],
+            results: [],
+            createdAt: Date(),
+            updatedAt: Date(),
+            server: "",
+            isDocker: false,
+            hostname: "",
+            processedDuration: "0:00",
+            processedCount: 0,
+            gitCommit: "",
+            trashed: false,
+            trashedAt: nil
+        )
     }
 
     func stopRecording(trialId: String) async throws {
@@ -245,12 +272,47 @@ extension JSONDecoder {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
 
+        return decoder
+    }
+
+    static var snakeCaseWithSimpleDate: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         decoder.dateDecodingStrategy = .formatted(formatter)
 
         return decoder
     }
+
+    static var snakeCaseWithISO8601: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date string \(dateString)"
+            )
+        }
+
+        return decoder    }
 }
 
 // MARK: - URLSession Extension
@@ -272,6 +334,24 @@ extension URLSession {
             throw URLError(.zeroByteResource)
         }
 
-        return try decoder.decode(T.self, from: data)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            print("Decoding error: \(error.localizedDescription)")
+            print("Response data: \(String(data: data, encoding: .utf8) ?? "N/A")")
+            throw error
+        }
+    }
+
+    func decode<T: SimpleDateDecodable>(
+        from request: URLRequest
+    ) async throws -> T {
+        try await decode(from: request, using: .snakeCaseWithSimpleDate)
+    }
+
+    func decode<T: ISODateDecodable>(
+        from request: URLRequest
+    ) async throws -> T {
+        try await decode(from: request, using: .snakeCaseWithISO8601)
     }
 }

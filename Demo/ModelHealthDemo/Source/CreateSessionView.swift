@@ -32,38 +32,25 @@ struct CreateSessionView: View {
 
             Spacer()
 
-            // Action Button
-            Button(action: {
+            LoadingButton(
+                title: createdSession != nil ? "Continue" : "Create Session",
+                isLoading: isLoading,
+                isDisabled: isLoading,
+            ) {
                 if createdSession != nil {
                     sessionForNavigation = createdSession
                 } else {
-                    // Create session
                     Task {
                         await createSession()
                     }
                 }
-            }) {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                } else {
-                    Text(createdSession != nil ? "Continue" : "Create Session")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
             }
-            .background(Color.accentColor)
-            .cornerRadius(10)
             .padding()
-            .disabled(isLoading)
             .navigationDestination(item: $sessionForNavigation) { session in
                 CameraCalibrationView(session: session)
             }
         }
+        .navigationTitle("Create a session")
     }
 }
 
