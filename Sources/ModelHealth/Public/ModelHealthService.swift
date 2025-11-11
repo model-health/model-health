@@ -344,7 +344,7 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// - Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
-    public func recordTrial(for subject: Subject, in session: Session, named name: String) async throws {
+    public func recordTrial(for subject: Subject, in session: Session, named name: String) async throws  -> Trial {
         try await backendService.recordTrial(for: subject, in: session, named: name)
     }
 

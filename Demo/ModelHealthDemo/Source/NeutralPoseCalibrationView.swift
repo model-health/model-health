@@ -50,6 +50,9 @@ struct NeutralPoseCalibrationView: View {
         }
         .padding()
         .navigationTitle("Neutral Pose Calibration")
+        .navigationDestination(isPresented: $calibrationComplete) {
+            RecordTrialView(subject: subject, session: session)
+        }
     }
 
     private func performCalibration() async {

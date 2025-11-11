@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LoadingButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let isLoading: Bool
     let isDisabled: Bool
     let action: () -> Void
