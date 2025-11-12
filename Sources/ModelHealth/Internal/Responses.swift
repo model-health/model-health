@@ -30,10 +30,17 @@ struct VideosResponse: Decodable {
 struct EmptyResponse: Decodable {
 }
 
+enum ImgResponseStatus: String, Decodable {
+    case recording
+    case uploading
+    case processing
+    case done
+    case error
+}
+
 struct CalibrationImgResponse: Decodable {
-    let status: String
-    let nCamerasConnected: Int
-    let nVideosUploaded: Int
+    let status: ImgResponseStatus
+    let images: [String]?
 }
 
 struct NeutralPoseSettings {
@@ -62,15 +69,20 @@ struct ProgressInfo: Decodable {
 }
 
 struct NeutralImgResponse: Decodable {
-    enum Status: String, Decodable {
-        case recording
-        case uploading
-        case processing
-        case done
-        case error
-    }
-
-    let status: Status
+    let status: ImgResponseStatus
     let images: [String]?
     let progressInfo: ProgressInfo?
+}
+
+struct CalibratedCamerasResponse: Decodable {
+    let data: Int  // Number of successfully calibrated cameras
+}
+
+struct SessionStatusResponse: Decodable, Sendable {
+    let status: String
+    let trial: String
+    let framerate: Int
+    let nCamerasConnected: Int
+    let nVideosUploaded: Int
+    let nCalibratedCameras: Int?
 }

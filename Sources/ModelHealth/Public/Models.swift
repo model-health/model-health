@@ -17,7 +17,7 @@ public struct Session: Decodable, Identifiable, Sendable {
     public let name: String
     public let sessionName: String
     public let qrcode: String?
-    public let trials: [String]
+    public let trials: [Trial]
     public let server: String?
     public let subject: Int?
     public let trialsCount: Int
@@ -143,8 +143,6 @@ public struct Video: Decodable, Sendable {
     public let video: String?
     public let videoUrl: String?
     public let videoThumb: String?
-    public let createdAt: Date
-    public let updatedAt: Date
 }
 
 // MARK: - Result
@@ -154,14 +152,10 @@ public struct Video: Decodable, Sendable {
 /// Results include biomechanical data, visualizations, and reports.
 /// Use `mediaUrl` to access result files.
 public struct Result: Decodable, Sendable {
-    public let id: String
+    public let id: Int
     public let trial: String
     public let tag: String?
-    public let media: String?
-    public let mediaUrl: String?
     public let deviceId: String?
-    public let createdAt: Date
-    public let updatedAt: Date
 }
 
 // MARK: - Trial
@@ -196,32 +190,6 @@ public struct Trial: Decodable, Sendable {
 
     /// Number of processing attempts
     public let processedCount: Int?
-
-    /// Git commit hash of the processing server version
-    public let gitCommit: String?
-
-    public let trashed: Bool
-    public let trashedAt: Date?
-}
-
-// MARK: - Session Status
-
-/// Real-time status and progress information for a calibration session.
-public struct SessionStatus: Decodable, Sendable {
-    /// Current status: "active", "completed", or "pending"
-    public let status: String
-
-    /// Trial identifier grouping multiple sessions for analysis
-    public let trial: String
-
-    /// Video capture frame rate in fps
-    public let frameRate: Int
-
-    /// Number of cameras currently connected
-    public let nCamerasConnected: Int
-
-    /// Number of videos uploaded for this session
-    public let nVideosUploaded: Int
 }
 
 // MARK: - Checkerboard Placement

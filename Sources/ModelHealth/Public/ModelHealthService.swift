@@ -281,8 +281,16 @@ public final class ModelHealthService: ObservableObject {
     ///   - session: The session created with ``createSession()``
     ///   - checkerboardDetails: Configuration of the calibration checkerboard
     /// - Throws: An error if calibration fails (insufficient views, pattern not detected, etc.)
-    public func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws {
-        try await backendService.calibrateCamera(session, checkerboardDetails: checkerboardDetails)
+    public func calibrateCamera(
+        _ session: Session,
+        checkerboardDetails: CheckerboardDetails,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        try await backendService.calibrateCamera(
+            session,
+            checkerboardDetails: checkerboardDetails,
+            statusUpdate: statusUpdate
+        )
     }
 
     /// Captures the subject's neutral standing pose for model scaling.

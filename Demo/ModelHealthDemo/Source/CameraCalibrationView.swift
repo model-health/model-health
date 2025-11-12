@@ -96,7 +96,8 @@ struct CameraCalibrationView: View {
             try await modelHealth.calibrateCamera(
                 session,
                 checkerboardDetails: calibrationDetails
-            )
+            ) { _ in
+            }
 
             calibrationComplete = true
         } catch {
