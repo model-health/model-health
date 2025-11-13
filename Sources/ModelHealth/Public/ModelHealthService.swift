@@ -333,7 +333,7 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// After completing calibration steps (camera calibration and neutral pose),
     /// use this method to begin recording a movement activity such as squats,
-    /// jumps, walking, or any other motion.
+    /// jumps, walking or any other motion.
     ///
     /// Videos are automatically uploaded to the cloud for processing. Multiple
     /// cameras can record simultaneously if configured.
@@ -343,46 +343,36 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// ```swift
     /// // Record a squat session
-    /// try await service.recordTrial(named: "squat-baseline-2024")
+    /// let trial = try await service.record(trialNamed: "squat-baseline-2024", in: session)
     /// // Subject performs squats while cameras record
     ///
     /// // When complete, stop recording
-    /// try await service.stopRecording(trialId: trialId)
+    /// try await service.stopRecording(trial: trial)
     /// ```
     ///
-    /// - Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
+    /// - Parameters:
+    ///   - trialName: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
+    ///   - session: The session this trial is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
-    public func recordTrial(for subject: Subject, in session: Session, named name: String) async throws  -> Trial {
-        try await backendService.recordTrial(for: subject, in: session, named: name)
+    public func record(trialNamed name: String, in session: Session) async throws  -> Trial {
+        try await backendService.record(trialNamed: name, in: session)
     }
 
-    /// Stops recording for a movement trial and initiates processing.
+    /// Stops recording of a movement trial.
     ///
     /// Call this method when the subject has completed the movement activity.
     /// Recorded videos are finalized and uploaded to the cloud for biomechanical
     /// analysis.
     ///
-    /// Processing typically takes a few minutes depending on video length and
-    /// complexity. Use ``trialList()`` to check the trial's status, or
-    /// ``fetchAnalysis(trialId:)`` to retrieve results once processing is complete.
-    ///
     /// ```swift
     /// // After recording is complete
-    /// try await service.stopRecording(trialId: "trial-abc-123")
-    ///
-    /// // Wait for processing (check status periodically)
-    /// let trials = try await service.trialList()
-    /// if let trial = trials.first(where: { $0.id == trialId }),
-    ///    trial.status == "completed" {
-    ///     // Analysis ready
-    ///     let data = try await service.fetchAnalysis(trialId: trialId)
-    /// }
+    /// try await service.stopRecording(trial: trial)
     /// ```
     ///
-    /// - Parameter trialId: The unique identifier of the trial to stop
+    /// - Parameter trial: The trial to stop
     /// - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
-    public func stopRecording(trialId: String) async throws {
-        try await backendService.stopRecording(trialId: trialId)
+    public func stopRecording(_ session: Session) async throws {
+        try await backendService.stopRecording(session)
     }
 
     /// Fetches biomechanical analysis results for a completed trial.
@@ -416,7 +406,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Parameter trialId: The unique identifier of the trial
     /// - Returns: CSV-formatted biomechanical data as `Data`
     /// - Throws: An error if analysis is not ready or retrieval fails
-    public func fetchAnalysis(trialId: String) async throws -> Data {
-        try await backendService.fetchAnalysis(trialId: trialId)
+    public func fetchAnalysis(for trial: Trial) async throws -> Data {
+        try await backendService.fetchAnalysis(for: trial)
     }
 }

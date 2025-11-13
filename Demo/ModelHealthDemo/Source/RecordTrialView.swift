@@ -6,11 +6,14 @@ struct RecordTrialView: View {
     let session: Session
 
     @State private var activityName: String = ""
-    @State private var isRecording = false
     @State private var currentTrial: Trial?
     @State private var errorMessage: String?
 
     @EnvironmentObject private var modelHealth: ModelHealthService
+
+    private var isRecording: Bool {
+        currentTrial != nil
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -32,7 +35,7 @@ struct RecordTrialView: View {
                         .foregroundStyle(.red)
                         .symbolEffect(.pulse)
 
-                    Text("Recording in progress")
+                    Text("Recording trial: \"\(activityName)\"")
                         .font(.headline)
 
                     Text("Have the subject perform the activity")
@@ -75,36 +78,27 @@ struct RecordTrialView: View {
 
     private func startRecordingTrial() async {
         errorMessage = nil
-        isRecording = true
 
         do {
-            let trial = try await modelHealth.recordTrial(
-                for: subject,
-                in: session,
-                named: activityName
+            currentTrial = try await modelHealth.record(
+                trialNamed: activityName,
+                in: session
             )
-            currentTrial = trial
         } catch {
             errorMessage = "Failed to start recording: \(error.localizedDescription)"
-            isRecording = false
+            currentTrial = nil
         }
     }
 
     private func stopRecordingTrial() async {
-        guard let trialId = currentTrial?.id else {
-            return
-        }
-
         do {
-            try await modelHealth.stopRecording(trialId: trialId)
-
-            activityName = ""
-            currentTrial = nil
-            isRecording = false
+            try await modelHealth.stopRecording(session)
         } catch {
             errorMessage = "Failed to stop recording: \(error.localizedDescription)"
-            isRecording = false
         }
+
+        activityName = ""
+        currentTrial = nil
     }
 }
 

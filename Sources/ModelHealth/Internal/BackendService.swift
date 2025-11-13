@@ -3,15 +3,6 @@ import Foundation
 extension Session: ISODateDecodable {
 }
 
-extension Trial: ISODateDecodable {
-}
-
-extension Video: ISODateDecodable {
-}
-
-extension Result: ISODateDecodable {
-}
-
 extension CheckerboardDetails {
     var parameters: [String: String] {
         [
@@ -30,9 +21,9 @@ protocol BackendService {
     func trialList() async throws -> [Trial]
     func videoList() async throws -> [Video]
     func createSession() async throws -> Session
-    func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial
-    func stopRecording(trialId: String) async throws
-    func fetchAnalysis(trialId: String) async throws -> Data
+    func record(trialNamed name: String, in session: Session) async throws -> Trial
+    func stopRecording(_ session: Session) async throws
+    func fetchAnalysis(for trial: Trial) async throws -> Data
 
     func calibrateCamera(
         _ session: Session,
@@ -83,12 +74,12 @@ actor BackendServiceImpl: BackendService {
 
     func trialList() async throws -> [Trial] {
         let response: TrialsResponse = try await get(Backend.trials)
-        return response.trials
+        return response.trials.map { $0.model }
     }
 
     func videoList() async throws -> [Video] {
         let response: VideosResponse = try await get(Backend.videos)
-        return response.videos
+        return response.videos.map { $0.model }
     }
 
     func createSession() async throws -> Session {
@@ -141,7 +132,6 @@ actor BackendServiceImpl: BackendService {
             )
 
             let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
-            print("session status: \(sessionStatus.status)")
 
             switch response.status {
             case .done:
@@ -151,9 +141,8 @@ actor BackendServiceImpl: BackendService {
                 )
 
                 let calibratedResponse: CalibratedCamerasResponse = try await URLSession.shared.decode(from: calibratedRequest)
-                print("Calibrated cameras: \(calibratedResponse.data)")
 
-                guard calibratedResponse.data >= 1 else {
+                guard calibratedResponse.calibratedCamerasCount >= 2 else {
                     // TODO: Introduce correct error handling
                     throw URLError(.unknown)
                 }
@@ -172,8 +161,6 @@ actor BackendServiceImpl: BackendService {
                 )
 
                 let trialStatus: Trial = try await URLSession.shared.decode(from: trialRequest)
-
-                print("Trial status: \(trialStatus.status)")
 
                 if trialStatus.status == "stopped" || trialStatus.status == "processing" {
                     let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
@@ -265,7 +252,7 @@ actor BackendServiceImpl: BackendService {
                     token: token
                 )
 
-                let trialStatus: Trial = try await URLSession.shared.decode(from: trialRequest)
+                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
 
                 if trialStatus.status == "stopped" || trialStatus.status == "processing" {
                     let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
@@ -293,37 +280,34 @@ actor BackendServiceImpl: BackendService {
         }
     }
 
-    func recordTrial(for subject: Subject, in session: Session, named name: String) async throws -> Trial {
+    func record(trialNamed name: String, in session: Session) async throws -> Trial {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
-        return Trial(
-            id: "",
-            session: session.id,
-            name: name,
-            status: "recording",
-            videos: [],
-            results: [],
-            createdAt: Date(),
-            updatedAt: Date(),
-            server: "",
-            isDocker: false,
-            hostname: "",
-            processedDuration: "0:00",
-            processedCount: 0
+        let recordingRequest = URLRequest.get(
+            Backend.startRecording(id: session.id),
+            token: token,
+            parameters: ["name": name]
         )
+
+        return try await URLSession.shared.decode(from: recordingRequest)
     }
 
-    func stopRecording(trialId: String) async throws {
+    func stopRecording(_ session: Session) async throws {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
-        let _: SessionStatusResponse = try await get(Backend.stopRecording(id: trialId))
+        let request = try await URLRequest.get(
+            Backend.stopRecording(id: session.id),
+            token: token
+        )
+
+        let _: TrialResponse = try await URLSession.shared.decode(from: request)
     }
 
-    func fetchAnalysis(trialId: String) async throws -> Data {
+    func fetchAnalysis(for trial: Trial) async throws -> Data {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }

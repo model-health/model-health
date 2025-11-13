@@ -18,7 +18,6 @@ public struct Session: Decodable, Identifiable, Sendable {
     public let sessionName: String
     public let qrcode: String?
     public let trials: [Trial]
-    public let server: String?
     public let subject: Int?
     public let trialsCount: Int
 }
@@ -44,7 +43,6 @@ extension Session {
         sessionName: "",
         qrcode: nil,
         trials: [],
-        server: nil,
         subject: nil,
         trialsCount: 0
     )
@@ -139,23 +137,9 @@ extension Subject {
 public struct Video: Decodable, Sendable {
     public let id: String
     public let trial: String
-    public let deviceId: String
     public let video: String?
     public let videoUrl: String?
     public let videoThumb: String?
-}
-
-// MARK: - Result
-
-/// Analysis results for a trial.
-///
-/// Results include biomechanical data, visualizations, and reports.
-/// Use `mediaUrl` to access result files.
-public struct Result: Decodable, Sendable {
-    public let id: Int
-    public let trial: String
-    public let tag: String?
-    public let deviceId: String?
 }
 
 // MARK: - Trial
@@ -173,23 +157,8 @@ public struct Trial: Decodable, Sendable {
     public let id: String
     public let session: String
     public let name: String?
-
-    /// Current processing status: "pending", "processing", "completed", or "failed"
     public let status: String
-
     public let videos: [Video]
-    public let results: [Result]
-    public let createdAt: Date
-    public let updatedAt: Date
-    public let server: String?
-    public let isDocker: Bool?
-    public let hostname: String?
-
-    /// Total time spent processing this trial
-    public let processedDuration: String?
-
-    /// Number of processing attempts
-    public let processedCount: Int?
 }
 
 // MARK: - Checkerboard Placement
@@ -308,14 +277,14 @@ public enum CalibrationStatus: Sendable {
     /// The recording phase is in progress.
     ///
     /// During this phase, all connected cameras are actively recording.
-    /// If calibrating the neutral pose he subject should remain still and hold their pose until this phase completes.
+    /// If calibrating the neutral pose the subject should remain still and hold their pose until this phase completes.
     case recording
 
     /// Videos are being uploaded from cameras.
     ///
     /// - Parameters:
     ///   - uploaded: The number of videos successfully uploaded so far.
-    ///   - total: The total number of videos expected from all calibrated cameras.
+    ///   - total: The total number of videos expected from all cameras.
     ///
     /// Use this status to display upload progress to users. The subject can relax
     /// during this phase as recording has completed.

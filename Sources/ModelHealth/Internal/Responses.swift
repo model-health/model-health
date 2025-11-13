@@ -20,11 +20,11 @@ struct SubjectsResponse: Decodable {
 }
 
 struct TrialsResponse: Decodable {
-    let trials: [Trial]
+    let trials: [TrialResponse]
 }
 
 struct VideosResponse: Decodable {
-    let videos: [Video]
+    let videos: [VideoResponse]
 }
 
 struct EmptyResponse: Decodable {
@@ -75,9 +75,12 @@ struct NeutralImgResponse: Decodable {
 }
 
 struct CalibratedCamerasResponse: Decodable {
-    let data: Int  // Number of successfully calibrated cameras
-}
+    let calibratedCamerasCount: Int
 
+    enum CodingKeys: String, CodingKey {
+        case calibratedCamerasCount = "data"
+    }
+}
 struct SessionStatusResponse: Decodable, Sendable {
     let status: String
     let trial: String
@@ -85,4 +88,52 @@ struct SessionStatusResponse: Decodable, Sendable {
     let nCamerasConnected: Int
     let nVideosUploaded: Int
     let nCalibratedCameras: Int?
+}
+
+struct VideoResponse: Decodable, Sendable {
+    let id: String
+    let trial: String
+    let deviceId: String
+    let video: String?
+    let videoUrl: String?
+    let videoThumb: String?
+}
+
+extension VideoResponse {
+    var model: Video {
+        Video(
+            id: id,
+            trial: trial,
+            video: video,
+            videoUrl: videoUrl,
+            videoThumb: videoThumb
+        )
+    }
+}
+
+struct Result: Decodable, Sendable {
+    let id: Int
+    let trial: String
+    let tag: String?
+}
+
+struct TrialResponse: Decodable, Sendable {
+    let id: String
+    let session: String
+    let name: String?
+    let status: String
+    let videos: [VideoResponse]
+    let results: [Result]
+}
+
+extension TrialResponse {
+    var model: Trial {
+        Trial(
+            id: id,
+            session: session,
+            name: name,
+            status: status,
+            videos: videos.map { $0.model }
+        )
+    }
 }
