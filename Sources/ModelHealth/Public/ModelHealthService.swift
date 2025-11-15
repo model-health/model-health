@@ -518,3 +518,25 @@ public final class ModelHealthService: ObservableObject {
         )
     }
 }
+
+/// Errors that may be thrown by ModelHealthService
+public enum ModelHealthError: Error, Sendable {
+    /// Errors specific to camera or neutral pose calibration
+    public enum CalibrationError: Sendable {
+        /// The calibration step did not use the minimul number of cameras required, which is at least 2
+        case notEnoughCameras
+
+        /// Calibration capture occurred byt there was a failure when processing the calibration data
+        case calibrationFailed
+    }
+
+    /// Errors that occur in the URL Error domain
+    case url(URLError.Code)
+
+    /// Errors that occur during calibration
+    case calibration(CalibrationError)
+
+    /// An internal SDK error occurred
+    case internalError
+}
+

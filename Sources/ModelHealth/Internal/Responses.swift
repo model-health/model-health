@@ -3,9 +3,6 @@ import Foundation
 protocol SimpleDateDecodable: Decodable {
 }
 
-protocol ISODateDecodable: Decodable {
-}
-
 struct LoginResponse: SimpleDateDecodable {
     let token: String
     let userId: Int

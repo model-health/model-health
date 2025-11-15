@@ -1,8 +1,5 @@
 import Foundation
 
-extension Session: ISODateDecodable {
-}
-
 extension CheckerboardDetails {
     var parameters: [String: String] {
         [
@@ -69,7 +66,7 @@ actor BackendServiceImpl: BackendService {
 
     func verify(code: String, rememberDevice: Bool = false) async throws {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let request = URLRequest.post(
@@ -100,7 +97,7 @@ actor BackendServiceImpl: BackendService {
         let response: [Session] = try await get(Backend.createSession)
 
         guard let session = response.first else {
-            throw URLError(.badServerResponse)
+            throw ModelHealthError.url(.badServerResponse)
         }
 
         return session
@@ -112,7 +109,7 @@ actor BackendServiceImpl: BackendService {
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let metadataRequest = URLRequest.get(
@@ -157,16 +154,14 @@ actor BackendServiceImpl: BackendService {
                 let calibratedResponse: CalibratedCamerasResponse = try await URLSession.shared.decode(from: calibratedRequest)
 
                 guard calibratedResponse.calibratedCamerasCount >= 2 else {
-                    // TODO: Introduce correct error handling
-                    throw URLError(.unknown)
+                    throw ModelHealthError.calibration(.notEnoughCameras)
                 }
 
                 statusUpdate(.done)
                 return
 
             case .error:
-                // TODO: Introduce correct error handling
-                throw URLError(.unknown)
+                throw ModelHealthError.calibration(.calibrationFailed)
 
             default:
                 let trialRequest = URLRequest.get(
@@ -202,7 +197,7 @@ actor BackendServiceImpl: BackendService {
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let metadataRequest = URLRequest.get(
@@ -254,8 +249,7 @@ actor BackendServiceImpl: BackendService {
                 return
 
             case .error:
-                // TODO: Introduce correct error handling
-                throw URLError(.unknown)
+                throw ModelHealthError.calibration(.calibrationFailed)
 
             case .recording:
                 statusUpdate(.recording)
@@ -296,7 +290,7 @@ actor BackendServiceImpl: BackendService {
 
     func record(trialNamed name: String, in session: Session) async throws -> Trial {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let recordingRequest = URLRequest.get(
@@ -310,7 +304,7 @@ actor BackendServiceImpl: BackendService {
 
     func stopRecording(_ session: Session) async throws {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let request = try await URLRequest.get(
@@ -323,7 +317,7 @@ actor BackendServiceImpl: BackendService {
 
     func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let trialRequest = URLRequest.get(
@@ -369,11 +363,13 @@ actor BackendServiceImpl: BackendService {
         in session: Session
     ) async throws -> AnalysisTask {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         guard let trialName = trial.name else {
-            throw URLError(.badURL)
+
+            // TODO
+            throw ModelHealthError.url(.badURL)
         }
 
         let invokeRequest = URLRequest.post(
@@ -392,7 +388,7 @@ actor BackendServiceImpl: BackendService {
 
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let resultRequest = URLRequest.get(
@@ -403,7 +399,7 @@ actor BackendServiceImpl: BackendService {
         let (data, response) = try await URLSession.shared.data(for: resultRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
+            throw ModelHealthError.url(.badServerResponse)
         }
 
         switch httpResponse.statusCode {
@@ -431,7 +427,7 @@ actor BackendServiceImpl: BackendService {
             }
 
         default:
-            throw URLError(.badServerResponse)
+            throw ModelHealthError.url(.badServerResponse)
         }
     }
 
@@ -440,17 +436,17 @@ actor BackendServiceImpl: BackendService {
         resultTag: String
     ) async throws -> Data {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         // Find the result with matching tag
         guard let result = trial.results.first(where: { $0.tag == resultTag }) else {
-            throw URLError(.fileDoesNotExist)
+            throw ModelHealthError.url(.fileDoesNotExist)
         }
 
         // Download from media URL
         guard let media = result.media, let mediaURL = URL(string: media) else {
-            throw URLError(.badURL)
+            throw ModelHealthError.url(.badURL)
         }
 
         let downloadRequest = URLRequest.get(mediaURL, token: token)
@@ -458,7 +454,7 @@ actor BackendServiceImpl: BackendService {
 
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
-            throw URLError(.badServerResponse)
+            throw ModelHealthError.url(.badServerResponse)
         }
 
         return data
@@ -468,7 +464,7 @@ actor BackendServiceImpl: BackendService {
 extension BackendServiceImpl {
     private func get<T: Decodable & Sendable>(_ url: URL) async throws -> T {
         guard let token else {
-            throw URLError(.userAuthenticationRequired)
+            throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
         let request = URLRequest.get(url, token: token)
@@ -574,34 +570,6 @@ extension JSONDecoder {
 
         return decoder
     }
-
-    static var snakeCaseWithISO8601: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let container = try decoder.singleValueContainer()
-            let dateString = try container.decode(String.self)
-
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-            if let date = formatter.date(from: dateString) {
-                return date
-            }
-
-            formatter.formatOptions = [.withInternetDateTime]
-            if let date = formatter.date(from: dateString) {
-                return date
-            }
-
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Cannot decode date string \(dateString)"
-            )
-        }
-
-        return decoder    }
 }
 
 // MARK: - URLSession Extension
@@ -616,11 +584,11 @@ extension URLSession {
             let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else {
-            throw URLError(.badServerResponse)
+            throw ModelHealthError.url(.badServerResponse)
         }
 
         guard !data.isEmpty else {
-            throw URLError(.zeroByteResource)
+            throw ModelHealthError.url(.zeroByteResource)
         }
 
         do {
@@ -628,7 +596,7 @@ extension URLSession {
         } catch {
             print("Decoding error: \(error.localizedDescription)")
             print("Response data: \(String(data: data, encoding: .utf8) ?? "N/A")")
-            throw error
+            throw ModelHealthError.internalError
         }
     }
 
@@ -636,12 +604,6 @@ extension URLSession {
         from request: URLRequest
     ) async throws -> T {
         try await decode(from: request, using: .snakeCaseWithSimpleDate)
-    }
-
-    func decode<T: ISODateDecodable>(
-        from request: URLRequest
-    ) async throws -> T {
-        try await decode(from: request, using: .snakeCaseWithISO8601)
     }
 }
 
