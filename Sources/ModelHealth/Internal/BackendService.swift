@@ -23,7 +23,6 @@ protocol BackendService {
     func createSession() async throws -> Session
     func record(trialNamed name: String, in session: Session) async throws -> Trial
     func stopRecording(_ session: Session) async throws
-    func fetchAnalysis(for trial: Trial) async throws -> Data
 
     func calibrateCamera(
         _ session: Session,
@@ -36,6 +35,21 @@ protocol BackendService {
         in session: Session,
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws
+
+    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
+
+    func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask
+
+    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
+
+    func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> Data
 }
 
 actor BackendServiceImpl: BackendService {
@@ -204,7 +218,7 @@ actor BackendServiceImpl: BackendService {
                 "settings_filter_frequency": "default"
             ]
         )
-        
+
         let _: Session = try await URLSession.shared.decode(from: metadataRequest)
 
         let subjectRequest = URLRequest.get(
@@ -307,12 +321,147 @@ actor BackendServiceImpl: BackendService {
         let _: TrialResponse = try await URLSession.shared.decode(from: request)
     }
 
-    func fetchAnalysis(for trial: Trial) async throws -> Data {
+    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
         guard let token else {
             throw URLError(.userAuthenticationRequired)
         }
 
-        return Data()
+        let trialRequest = URLRequest.get(
+            Backend.trial(id: trial.id),
+            token: token
+        )
+
+        let updatedTrial: Trial = try await URLSession.shared.decode(from: trialRequest)
+
+        switch updatedTrial.status {
+        case "done":
+            return .ready
+
+        case "error":
+            return .failed
+
+        case "stopped", "processing":
+            let isUploadingVideos = updatedTrial.videos.contains { $0.video == nil }
+
+            if isUploadingVideos {
+                let sessionStatusRequest = URLRequest.get(
+                    Backend.sessionStatus(id: updatedTrial.session),
+                    token: token
+                )
+
+                let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+
+                return .uploading(
+                    uploaded: sessionStatus.nVideosUploaded,
+                    total: sessionStatus.nCamerasConnected
+                )
+            } else {
+                return .processing
+            }
+        default:
+            return .processing
+        }
+    }
+
+    func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask {
+        guard let token else {
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        guard let trialName = trial.name else {
+            throw URLError(.badURL)
+        }
+
+        let invokeRequest = URLRequest.post(
+            Backend.invokeAnalysis(functionId: analysisType.id),
+            token: token,
+            body: [
+                "session_id": session.id,
+                "specific_trial_names": [trialName]
+            ]
+        )
+
+        let response: InvokeAnalysisResponse = try await URLSession.shared.decode(from: invokeRequest)
+
+        return AnalysisTask(taskId: response.taskId)
+    }
+
+    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
+        guard let token else {
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        let resultRequest = URLRequest.get(
+            Backend.analysisResult(taskId: task.taskId),
+            token: token
+        )
+
+        let (data, response) = try await URLSession.shared.data(for: resultRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        switch httpResponse.statusCode {
+        case 202:
+            // Still processing
+            return .processing
+
+        case 200:
+            // Complete - decode the response
+            let result: AnalysisResultResponse = try JSONDecoder.snakeCase.decode(
+                AnalysisResultResponse.self,
+                from: data
+            )
+
+            switch result.state {
+            case .successful:
+                let tags = result.results?.map { $0.tag } ?? []
+                return .completed(resultTags: tags)
+
+            case .failed:
+                return .failed
+
+            default:
+                return .processing
+            }
+
+        default:
+            throw URLError(.badServerResponse)
+        }
+    }
+
+    func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> Data {
+        guard let token else {
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        // Find the result with matching tag
+        guard let result = trial.results.first(where: { $0.tag == resultTag }) else {
+            throw URLError(.fileDoesNotExist)
+        }
+
+        // Download from media URL
+        guard let media = result.media, let mediaURL = URL(string: media) else {
+            throw URLError(.badURL)
+        }
+
+        let downloadRequest = URLRequest.get(mediaURL, token: token)
+        let (data, response) = try await URLSession.shared.data(for: downloadRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        return data
     }
 }
 
@@ -493,5 +642,14 @@ extension URLSession {
         from request: URLRequest
     ) async throws -> T {
         try await decode(from: request, using: .snakeCaseWithISO8601)
+    }
+}
+
+private extension AnalysisType {
+    var id: String {
+        switch self {
+        case .counterMovementJump:
+            "8"
+        }
     }
 }

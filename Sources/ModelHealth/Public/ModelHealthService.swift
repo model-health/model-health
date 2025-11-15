@@ -34,18 +34,22 @@ import Foundation
 /// // Create session and calibrate
 /// let session = try await service.createSession()
 /// let details = CheckerboardDetails(rows: 4, columns: 5, squareSize: 35, placement: .perpendicular)
-/// try await service.calibrateCamera(session, checkerboardDetails: details)
+/// try await service.calibrateCamera(session, checkerboardDetails: details) { status in }
 ///
 /// // Capture neutral pose
-/// try await service.calibrateNeutralPose()
+/// try await service.calibrateNeutralPose(for: subject, in: session) { status in }
 ///
 /// // Record a movement trial
-/// try await service.recordTrial(named: "squat-session-1")
-/// let trialId = "..." // From your trial tracking
-/// try await service.stopRecording(trialId: trialId)
+/// let trial = try await service.record(trialNamed: "cmj-1", in: session)
+/// // Subject performs movement...
+/// try await service.stopRecording(session)
 ///
-/// // Fetch analysis results
-/// let analysisData = try await service.fetchAnalysis(trialId: trialId)
+/// // Poll for processing completion, then analyze
+/// let status = try await service.getStatus(forTrial: trial)
+/// if case .ready = status {
+///     let task = try await service.startAnalysis(.counterMovementJump, for: trial, in: session)
+///     // Poll for analysis completion...
+/// }
 /// ```
 ///
 /// ## Topics
@@ -62,12 +66,27 @@ import Foundation
 /// ### Session & Calibration
 /// - ``createSession()``
 /// - ``calibrateCamera(_:checkerboardDetails:)``
-/// - ``calibrateNeutralPose()``
+/// - ``calibrateNeutralPose(for:in:)``
 ///
 /// ### Recording & Analysis
-/// - ``recordTrial(named:)``
-/// - ``stopRecording(trialId:)``
-/// - ``fetchAnalysis(trialId:)``
+/// - ``record(trialNamed:in:)``
+/// - ``stopRecording(_:)``
+/// - ``getStatus(forTrial:)``
+
+/// - ``startAnalysis(_:for:in:)``
+/// - ``getAnalysisStatus(for:)``
+/// - ``downloadAnalysisResult(forTrial:resultTag:)``
+///
+/// ## Special Note for SwiftUI Previews
+///
+/// Helpers are provided to populate Previews in SwiftUI, These are only available in DEBUG builds. You will need to wrap your previews:
+/// ```swift
+/// #if DEBUG
+/// #Preview {
+///     MyView(session: .forPreview())
+/// }
+/// #endif
+/// ```
 public final class ModelHealthService: ObservableObject {
     private let backendService: BackendService
 
@@ -240,7 +259,7 @@ public final class ModelHealthService: ObservableObject {
     ///     squareSize: 35,
     ///     placement: .perpendicular
     /// )
-    /// try await service.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details) { _ in }
     /// ```
     ///
     /// - Returns: A ``Session`` object with a unique identifier
@@ -273,7 +292,7 @@ public final class ModelHealthService: ObservableObject {
     /// )
     ///
     /// // Start calibration - show checkerboard to camera from various angles
-    /// try await service.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details) { _ in }
     /// // Calibration complete, proceed to neutral pose
     /// ```
     ///
@@ -308,7 +327,7 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// ```swift
     /// // After successful camera calibration
-    /// try await service.calibrateNeutralPose()
+    /// try await service.calibrateNeutralPose(for: subject, in: session) { _ in }
     /// // Model now scaled, ready to record movement trials
     /// ```
     ///
@@ -332,33 +351,32 @@ public final class ModelHealthService: ObservableObject {
     /// Starts recording a movement trial.
     ///
     /// After completing calibration steps (camera calibration and neutral pose),
-    /// use this method to begin recording a movement activity such as squats,
-    /// jumps, walking or any other motion.
+    /// use this method to begin recording an activity.
     ///
     /// Videos are automatically uploaded to the cloud for processing. Multiple
     /// cameras can record simultaneously if configured.
     ///
-    /// **Important:** Call ``stopRecording(trialId:)`` when the movement is complete
-    /// to finalize the trial and begin processing.
+    /// **Important:** Call ``stopRecording(session:)`` when the movement is complete
+    /// to finalize the trial and trigger video upload.
     ///
     /// ```swift
-    /// // Record a squat session
-    /// let trial = try await service.record(trialNamed: "squat-baseline-2024", in: session)
-    /// // Subject performs squats while cameras record
+    /// // Record a CMJ session
+    /// let trial = try await service.record(trialNamed: "cmj-2024", in: session)
+    /// // Subject performs CMJ while cameras record
     ///
     /// // When complete, stop recording
-    /// try await service.stopRecording(trial: trial)
+    /// try await service.stopRecording(session: session)
     /// ```
     ///
     /// - Parameters:
-    ///   - trialName: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
+    ///   - trialName: A descriptive name for this trial (e.g., "cmj-test")
     ///   - session: The session this trial is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
     public func record(trialNamed name: String, in session: Session) async throws  -> Trial {
         try await backendService.record(trialNamed: name, in: session)
     }
 
-    /// Stops recording of a movement trial.
+    /// Stops recording of a movement trial in a session.
     ///
     /// Call this method when the subject has completed the movement activity.
     /// Recorded videos are finalized and uploaded to the cloud for biomechanical
@@ -366,47 +384,137 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// ```swift
     /// // After recording is complete
-    /// try await service.stopRecording(trial: trial)
+    /// try await service.stopRecording(session: Session)
     /// ```
     ///
-    /// - Parameter trial: The trial to stop
+    /// - Parameter session: The session to stop recording in
     /// - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
     public func stopRecording(_ session: Session) async throws {
         try await backendService.stopRecording(session)
     }
 
-    /// Fetches biomechanical analysis results for a completed trial.
+    /// Retrieves the current processing status of a trial.
     ///
-    /// Once a trial's processing is complete (status: "completed"), this method
-    /// retrieves the analysis results as CSV data. The CSV contains detailed
-    /// biomechanical variables over time, including joint angles, velocities,
-    /// forces, and scalar metrics.
+    /// Poll this method to determine when a trial is ready for analysis.
+    /// Trials must complete video upload and processing before analysis can begin.
     ///
-    /// **Analysis includes:**
-    /// - Joint kinematics (angles, velocities, accelerations)
-    /// - Ground reaction forces
-    /// - Center of mass trajectory
-    /// - Performance metrics and scalars
-    /// - Comparison to normative distributions
+    /// - Parameter trial: A completed trial
+    /// - Returns: The current processing status
+    /// - Throws: Network or authentication errors
     ///
+    /// ## Usage
     /// ```swift
-    /// // Fetch analysis for completed trial
-    /// let csvData = try await service.fetchAnalysis(trialId: "trial-abc-123")
+    /// let status = try await service.getStatus(forTrial: trial)
     ///
-    /// // Parse CSV data
-    /// if let csvString = String(data: csvData, encoding: .utf8) {
-    ///     let rows = csvString.components(separatedBy: .newlines)
-    ///     // Process biomechanical data...
+    /// switch status {
+    /// case .ready:
+    ///     print("Trial ready for analysis")
+    /// case .processing:
+    ///     print("Still processing...")
+    /// case .uploading(let uploaded, let total):
+    ///     print("Uploaded \(uploaded)/\(total) videos")
+    /// case .failed:
+    ///     print("Processing failed")
     /// }
-    ///
-    /// // Or save to file
-    /// try csvData.write(to: analysisURL)
     /// ```
+    public func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+        try await backendService.getStatus(forTrial: trial)
+    }
+
+    /// Starts an analysis task for a completed trial.
     ///
-    /// - Parameter trialId: The unique identifier of the trial
-    /// - Returns: CSV-formatted biomechanical data as `Data`
-    /// - Throws: An error if analysis is not ready or retrieval fails
-    public func fetchAnalysis(for trial: Trial) async throws -> Data {
-        try await backendService.fetchAnalysis(for: trial)
+    /// The trial must have completed processing (status `.ready`) before analysis can begin.
+    /// Use the returned `AnalysisTask` to poll for completion.
+    ///
+    /// - Parameters:
+    ///   - analysisType: The type of analysis to perform
+    ///   - trial: The trial to analyze
+    ///   - session: The session containing the trial
+    /// - Returns: An analysis task for tracking completion
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let task = try await service.startAnalysis(
+    ///     .counterMovementJump,
+    ///     for: trial,
+    ///     in: session
+    /// )
+    ///
+    /// // Poll for completion
+    /// let status = try await service.getAnalysisStatus(for: task)
+    /// ```
+    public func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask {
+        try await backendService.startAnalysis(
+            analysisType,
+            for: trial,
+            in: session
+        )
+    }
+
+    /// Retrieves the current status of an analysis task.
+    ///
+    /// Poll this method to monitor analysis progress. When status is `.completed`,
+    /// use the returned result tags to download analysis files.
+    ///
+    /// - Parameter task: The task returned from `startAnalysis`
+    /// - Returns: The current analysis status
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let status = try await service.getAnalysisStatus(for: task)
+    ///
+    /// switch status {
+    /// case .processing:
+    ///     print("Analysis running...")
+    /// case .completed(let tags):
+    ///     for tag in tags {
+    ///         let data = try await service.downloadAnalysisResult(
+    ///             forTrial: trial,
+    ///             resultTag: tag
+    ///         )
+    ///     }
+    /// case .failed:
+    ///     print("Analysis failed")
+    /// }
+    /// ```
+    public func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
+        try await backendService.getAnalysisStatus(for: task)
+    }
+
+    /// Downloads an analysis result file.
+    ///
+    /// Result tags are provided in the `.completed` status from `getAnalysisStatus`.
+    /// Each tag represents a specific analysis output file
+    ///
+    /// - Parameters:
+    ///   - trial: The completed and analysed trial
+    ///   - resultTag: The specific result file identifier
+    /// - Returns: The raw file data
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let data = try await service.downloadAnalysisResult(
+    ///     forTrial: trial,
+    ///     resultTag: "joint-angles-csv"
+    /// )
+    ///
+    /// // Save to file
+    /// try data.write(to: fileURL)
+    /// ```
+    public func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> Data {
+        try await backendService.downloadAnalysisResult(
+            forTrial: trial,
+            resultTag: resultTag
+        )
     }
 }

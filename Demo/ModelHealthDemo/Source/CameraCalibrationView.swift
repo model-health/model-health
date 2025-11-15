@@ -106,9 +106,11 @@ struct CameraCalibrationView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
-        CameraCalibrationView(session: .forPreview)
+        CameraCalibrationView(session: .forPreview())
             .environmentObject(ModelHealthService())
     }
 }
+#endif

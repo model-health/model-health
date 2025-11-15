@@ -34,20 +34,6 @@ extension Session: Hashable {
     }
 }
 
-extension Session {
-    public static let forPreview = Session(
-        id: "",
-        user: 0,
-        public: false,
-        name: "",
-        sessionName: "",
-        qrcode: nil,
-        trials: [],
-        subject: nil,
-        trialsCount: 0
-    )
-}
-
 // MARK: - Subject
 
 /// An individual being monitored or assessed in the ModelHealth system.
@@ -111,34 +97,16 @@ extension Subject: Hashable {
     }
 }
 
-extension Subject {
-    public static let forPreview = Subject(
-        id: 42,
-        name: "Subject: THX 1138",
-        weight: nil,
-        height: nil,
-        age: 42,
-        birthYear: 1983,
-        gender: .man,
-        genderDisplay: "Man",
-        sexAtBirth: .man,
-        sexDisplay: "Man",
-        characteristics: "",
-        subjectTags: []
-    )
-}
-
 // MARK: - Video
 
 /// A recorded video file from a trial.
 ///
 /// Videos are automatically uploaded to the cloud during recording.
-/// Use `videoUrl` to download the full video or `videoThumb` for preview thumbnails.
+/// Use `video` to download the full video or `videoThumb` for preview thumbnails.
 public struct Video: Decodable, Sendable {
     public let id: String
     public let trial: String
     public let video: String?
-    public let videoUrl: String?
     public let videoThumb: String?
 }
 
@@ -154,11 +122,26 @@ public struct Video: Decodable, Sendable {
 /// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
 /// ```
 public struct Trial: Decodable, Sendable {
+    public struct Result: Decodable, Sendable {
+        public let id: Int
+        public let trial: String
+        public let tag: String?
+        public let media: String?
+    }
+
+    public enum Status: Decodable, Sendable {
+        case done
+        case error
+        case stopped
+        case processing
+    }
+
     public let id: String
     public let session: String
     public let name: String?
     public let status: String
     public let videos: [Video]
+    public let results: [Result]
 }
 
 // MARK: - Checkerboard Placement
@@ -299,3 +282,218 @@ public enum CalibrationStatus: Sendable {
     /// Calibration has completed successfully.
     case done
 }
+
+/// Represents available analysis functions for motion capture data.
+///
+/// Each analysis type processes trial data to extract specific biomechanical metrics
+/// and insights. Analysis can only be performed on trials that have completed processing.
+public enum AnalysisType: Sendable {
+    case counterMovementJump
+}
+
+/// Represents the current processing state of a trial.
+///
+/// Trials must reach the `ready` state before analysis can be performed.
+public enum TrialProcessingStatus: Sendable {
+    case uploading(uploaded: Int, total: Int)
+    case processing
+    case ready
+    case failed
+}
+
+/// Represents an active analysis task.
+///
+/// Use the `taskId` to poll for analysis completion status.
+public struct AnalysisTask: Sendable {
+    public let taskId: String
+}
+
+/// Represents the current state of an analysis task.
+public enum AnalysisTaskStatus: Sendable {
+    case processing
+    case completed(resultTags: [String])
+    case failed
+}
+
+// MARK: - SwiftUI #Preview support
+
+#if DEBUG
+extension Session {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var id = "preview-session"
+        public var user = 1
+        public var `public` = false
+        public var name = "Preview Session"
+        public var sessionName = "Session Name"
+        public var qrcode: String? = "https://example.com/qr.png"
+        public var trials: [Trial] = []
+        public var subject: Int? = nil
+        public var trialsCount = 0
+
+        func build() -> Session {
+            Session(
+                id: id,
+                user: user,
+                public: `public`,
+                name: name,
+                sessionName: sessionName,
+                qrcode: qrcode,
+                trials: trials,
+                subject: subject,
+                trialsCount: trialsCount
+            )
+        }
+    }
+}
+
+extension Subject {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var id = 42
+        public var name = "Subject: THX 1138"
+        public var weight: Double? = 70.0
+        public var height: Double? = 180.0
+        public var age: Int? = 42
+        public var birthYear: Int? = 1983
+        public var gender: Subject.Gender = .man
+        public var genderDisplay = "Man"
+        public var sexAtBirth: Subject.Sex? = .man
+        public var sexDisplay = "Man"
+        public var characteristics = ""
+        public var subjectTags: [String] = []
+
+        func build() -> Subject {
+            Subject(
+                id: id,
+                name: name,
+                weight: weight,
+                height: height,
+                age: age,
+                birthYear: birthYear,
+                gender: gender,
+                genderDisplay: genderDisplay,
+                sexAtBirth: sexAtBirth,
+                sexDisplay: sexDisplay,
+                characteristics: characteristics,
+                subjectTags: subjectTags
+            )
+        }
+    }
+}
+
+extension Video {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var id = "preview-video"
+        public var trial = "preview-trial"
+        public var video: String? = "video-id"
+        public var videoUrl: String? = "https://example.com/video.mp4"
+        public var videoThumb: String? = "https://example.com/thumb.jpg"
+
+        func build() -> Video {
+            Video(
+                id: id,
+                trial: trial,
+                video: video,
+                videoThumb: videoThumb
+            )
+        }
+    }
+}
+
+extension Trial {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var id = "preview-trial"
+        public var session = "preview-session"
+        public var name: String? = "Preview Trial"
+        public var status: String = "done"
+        public var videos: [Video] = []
+        public var results: [Trial.Result] = []
+
+        func build() -> Trial {
+            Trial(
+                id: id,
+                session: session,
+                name: name,
+                status: status,
+                videos: videos,
+                results: results
+            )
+        }
+    }
+}
+
+extension Trial.Result {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var id = 1
+        public var trial = "preview-trial"
+        public var tag: String? = "analysis-result"
+        public var media = "https://example.com/result.csv"
+
+        func build() -> Trial.Result {
+            Trial.Result(
+                id: id,
+                trial: trial,
+                tag: tag,
+                media: media
+            )
+        }
+    }
+}
+
+extension AnalysisTask {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var taskId = "preview-analysis-task"
+
+        func build() -> AnalysisTask {
+            AnalysisTask(taskId: taskId)
+        }
+    }
+}
+#endif

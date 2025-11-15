@@ -76,9 +76,11 @@ struct NeutralPoseCalibrationView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
-        NeutralPoseCalibrationView(subject: .forPreview, session: .forPreview)
+        NeutralPoseCalibrationView(subject: .forPreview(), session: .forPreview())
             .environmentObject(ModelHealthService())
     }
 }
+#endif

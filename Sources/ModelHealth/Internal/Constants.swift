@@ -12,7 +12,8 @@ enum HTTPMethod: String {
 }
 
 enum Backend {
-//    static let baseURL = "http://192.168.17.163:8000"
+//            static let baseURL = "http://127.0.0.1:8000"
+    //        static let baseURL = "http://192.168.17.163:8000"
     static let baseURL = "https://dev.modelhealth.io"
 
     static let login = URL(string: "\(baseURL)/login/")!
@@ -60,5 +61,13 @@ enum Backend {
 
     static func calibratedCameras(id: String) -> URL {
         URL(string: "\(session(id))get_n_calibrated_cameras/")!
+    }
+
+    static func invokeAnalysis(functionId: String) -> URL {
+        URL(string: "\(baseURL)/analysis-functions/\(functionId)/invoke/")!
+    }
+
+    static func analysisResult(taskId: String) -> URL {
+        URL(string: "\(baseURL)/analysis-result/\(taskId)/")!
     }
 }

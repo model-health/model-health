@@ -95,7 +95,6 @@ struct VideoResponse: Decodable, Sendable {
     let trial: String
     let deviceId: String
     let video: String?
-    let videoUrl: String?
     let videoThumb: String?
 }
 
@@ -105,25 +104,61 @@ extension VideoResponse {
             id: id,
             trial: trial,
             video: video,
-            videoUrl: videoUrl,
             videoThumb: videoThumb
         )
     }
 }
 
-struct Result: Decodable, Sendable {
+struct ResultResponse: Decodable, Sendable {
     let id: Int
     let trial: String
     let tag: String?
+    let media: String?
+}
+
+extension ResultResponse {
+    var model: Trial.Result {
+        Trial.Result(
+            id: id,
+            trial: trial,
+            tag: tag,
+            media: media
+        )
+    }
 }
 
 struct TrialResponse: Decodable, Sendable {
+    enum Status: String, Decodable {
+        case done
+        case error
+        case stopped
+        case processing
+    }
+
     let id: String
     let session: String
     let name: String?
     let status: String
     let videos: [VideoResponse]
-    let results: [Result]
+    let results: [ResultResponse]
+}
+
+extension TrialResponse.Status {
+    var model: Trial.Status {
+        switch self {
+        case .done:
+            return .done
+
+        case .error:
+            return .error
+
+        case .stopped:
+            return .stopped
+
+        case .processing:
+            return .processing
+        }
+    }
 }
 
 extension TrialResponse {
@@ -133,7 +168,28 @@ extension TrialResponse {
             session: session,
             name: name,
             status: status,
-            videos: videos.map { $0.model }
+            videos: videos.map { $0.model },
+            results: results.map { $0.model }
         )
     }
+}
+
+struct InvokeAnalysisResponse: Decodable {
+    let taskId: String
+}
+
+struct AnalysisResultResponse: Decodable {
+    enum State: Decodable {
+        case successful
+        case failed
+        case processing
+    }
+    
+    let state: State
+    let results: [AnalysisResultItem]?
+}
+
+struct AnalysisResultItem: Decodable {
+    let tag: String
+    let media: String
 }

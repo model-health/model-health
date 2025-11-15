@@ -131,17 +131,19 @@ struct SubjectRow: View {
     }
 }
 
+#if DEBUG
 #Preview("List") {
     NavigationStack {
-        SubjectSelectionView(session: .forPreview)
+        SubjectSelectionView(session: .forPreview())
             .environmentObject(ModelHealthService())
     }
 }
 
 #Preview("Row") {
-    SubjectRow(subject: .forPreview, isSelected: true)
+    SubjectRow(subject: .forPreview(), isSelected: true)
         .padding(.horizontal)
 
-    SubjectRow(subject: .forPreview, isSelected: false)
+    SubjectRow(subject: .forPreview(), isSelected: false)
         .padding(.horizontal)
 }
+#endif
