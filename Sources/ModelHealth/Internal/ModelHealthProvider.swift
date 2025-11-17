@@ -1,55 +1,6 @@
 import Foundation
 
-extension CheckerboardDetails {
-    var parameters: [String: String] {
-        [
-            "cb_rows": String(rows),
-            "cb_cols": String(columns),
-            "cb_square": String(squareSize),
-            "cb_placement": placement.rawValue.capitalized
-        ]
-    }
-}
-
-protocol BackendService {
-    func login(username: String,password: String) async throws -> LoginResult
-    func verify(code: String, rememberDevice: Bool) async throws
-    func subjectList() async throws -> [Subject]
-    func trialList() async throws -> [Trial]
-    func videoList() async throws -> [Video]
-    func createSession() async throws -> Session
-    func record(trialNamed name: String, in session: Session) async throws -> Trial
-    func stopRecording(_ session: Session) async throws
-
-    func calibrateCamera(
-        _ session: Session,
-        checkerboardDetails: CheckerboardDetails,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
-    ) async throws
-
-    func calibrateNeutralPose(
-        for subject: Subject,
-        in session: Session,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
-    ) async throws
-
-    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
-
-    func startAnalysis(
-        _ analysisType: AnalysisType,
-        for trial: Trial,
-        in session: Session
-    ) async throws -> AnalysisTask
-
-    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
-
-    func downloadAnalysisResult(
-        forTrial trial: Trial,
-        resultTag: String
-    ) async throws -> Data
-}
-
-actor BackendServiceImpl: BackendService {
+actor ModelHealthProviderImpl: ModelHealthProvider {
     private var token: String?
 
     func login(username: String,password: String) async throws -> LoginResult {
@@ -461,7 +412,7 @@ actor BackendServiceImpl: BackendService {
     }
 }
 
-extension BackendServiceImpl {
+extension ModelHealthProviderImpl {
     private func get<T: Decodable & Sendable>(_ url: URL) async throws -> T {
         guard let token else {
             throw ModelHealthError.url(.userAuthenticationRequired)
@@ -604,6 +555,17 @@ extension URLSession {
         from request: URLRequest
     ) async throws -> T {
         try await decode(from: request, using: .snakeCaseWithSimpleDate)
+    }
+}
+
+private extension CheckerboardDetails {
+    var parameters: [String: String] {
+        [
+            "cb_rows": String(rows),
+            "cb_cols": String(columns),
+            "cb_square": String(squareSize),
+            "cb_placement": placement.rawValue.capitalized
+        ]
     }
 }
 

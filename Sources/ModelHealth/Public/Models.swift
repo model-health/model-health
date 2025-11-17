@@ -170,7 +170,7 @@ public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable 
 /// Configuration for a calibration checkerboard pattern.
 ///
 /// **Important:** Row and column counts refer to internal corners, not squares.
-/// For a standard 4×5 checkerboard, use `rows: 4, columns: 5`.
+/// For a standard 5×6 checkerboard, use `rows: 4, columns: 5`.
 /// Square size must be measured precisely in millimeters for accurate calibration.
 ///
 /// ```swift

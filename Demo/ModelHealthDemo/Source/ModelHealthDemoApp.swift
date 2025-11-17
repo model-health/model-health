@@ -6,7 +6,7 @@ struct ModelHealthDemoApp: App {
     var body: some Scene {
         WindowGroup {
             LoginView()
-                .environmentObject(ModelHealthService())
+                .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
         }
     }
 }

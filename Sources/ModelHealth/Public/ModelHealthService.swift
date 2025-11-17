@@ -79,7 +79,8 @@ import Foundation
 ///
 /// ## Special Note for SwiftUI Previews
 ///
-/// Helpers are provided to populate Previews in SwiftUI, These are only available in DEBUG builds. You will need to wrap your previews:
+/// Helpers are provided to populate Previews in SwiftUI, These are only available in DEBUG
+///  builds. You will need to wrap your previews:
 /// ```swift
 /// #if DEBUG
 /// #Preview {
@@ -88,7 +89,7 @@ import Foundation
 /// #endif
 /// ```
 public final class ModelHealthService: ObservableObject {
-    private let backendService: BackendService
+    private let serviceProvider: ModelHealthProvider
 
     /// Creates a new ModelHealth SDK instance.
     ///
@@ -100,11 +101,17 @@ public final class ModelHealthService: ObservableObject {
     /// try await service.login(username: "user@example.com", password: "pass")
     /// ```
     public init() {
-        self.backendService = BackendServiceImpl()
+        self.serviceProvider = ModelHealthProviderImpl()
     }
 
-    internal init(backendService: BackendService) {
-        self.backendService = backendService
+    /// Creates a ModelHealth SDK instance with a custom service provider.
+    ///
+    /// This initializer can be used for testing with your own mocked Model Health service provider that
+    /// conforms to `ModelHealthProvider`
+    ///
+    /// - Parameter serviceProvider: The provider that handles SDK operations
+    public init(serviceProvider: ModelHealthProvider) {
+        self.serviceProvider = serviceProvider
     }
 
     // MARK: - Authentication
@@ -141,7 +148,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: A ``LoginResult`` indicating whether verification is required
     /// - Throws: An error if authentication fails (invalid credentials, network issues, etc.)
     public func login(username: String, password: String) async throws -> LoginResult {
-        try await backendService.login(username: username, password: password)
+        try await serviceProvider.login(username: username, password: password)
     }
 
     /// Completes authentication by verifying an email code.
@@ -163,7 +170,7 @@ public final class ModelHealthService: ObservableObject {
     ///   - rememberDevice: If `true`, trust this device for 90 days (default: `false`)
     /// - Throws: An error if the code is invalid or expired
     public func verify(code: String, rememberDevice: Bool = false) async throws {
-        try await backendService.verify(code: code, rememberDevice: rememberDevice)
+        try await serviceProvider.verify(code: code, rememberDevice: rememberDevice)
     }
 
     // MARK: - Data Retrieval
@@ -186,7 +193,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Subject`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func subjectList() async throws -> [Subject] {
-        try await backendService.subjectList()
+        try await serviceProvider.subjectList()
     }
 
     /// Retrieves all movement trials associated with the authenticated account.
@@ -212,7 +219,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Trial`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func trialList() async throws -> [Trial] {
-        try await backendService.trialList()
+        try await serviceProvider.trialList()
     }
 
     /// Retrieves all videos associated with the authenticated account.
@@ -235,7 +242,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Video`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func videoList() async throws -> [Video] {
-        try await backendService.videoList()
+        try await serviceProvider.videoList()
     }
 
     // MARK: - Session & Calibration
@@ -265,7 +272,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: A ``Session`` object with a unique identifier
     /// - Throws: An error if session creation fails
     public func createSession() async throws -> Session {
-        try await backendService.createSession()
+        try await serviceProvider.createSession()
     }
 
     /// Calibrates a camera using a checkerboard pattern.
@@ -274,7 +281,7 @@ public final class ModelHealthService: ObservableObject {
     /// determines the camera's intrinsic parameters and corrects for lens distortion.
     ///
     /// **Requirements:**
-    /// - A printed checkerboard pattern (standard 4×5 board recommended)
+    /// - A printed checkerboard pattern (standard 5×6 board recommended)
     /// - Accurate measurement of square size in millimeters
     /// - Multiple views of the checkerboard from different angles
     ///
@@ -285,8 +292,8 @@ public final class ModelHealthService: ObservableObject {
     /// let session = try await service.createSession()
     ///
     /// let details = CheckerboardDetails(
-    ///     rows: 4,           // Internal corners, not squares (for 4×5 board)
-    ///     columns: 5,        // Internal corners, not squares (for 4×5 board)
+    ///     rows: 4,           // Internal corners, not squares (for 5×6 board)
+    ///     columns: 5,        // Internal corners, not squares (for 5×6 board)
     ///     squareSize: 35,    // Measured in millimeters
     ///     placement: .perpendicular
     /// )
@@ -305,7 +312,7 @@ public final class ModelHealthService: ObservableObject {
         checkerboardDetails: CheckerboardDetails,
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws {
-        try await backendService.calibrateCamera(
+        try await serviceProvider.calibrateCamera(
             session,
             checkerboardDetails: checkerboardDetails,
             statusUpdate: statusUpdate
@@ -339,7 +346,7 @@ public final class ModelHealthService: ObservableObject {
         in session: Session,
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws {
-        try await backendService.calibrateNeutralPose(
+        try await serviceProvider.calibrateNeutralPose(
             for: subject,
             in: session,
             statusUpdate: statusUpdate
@@ -373,7 +380,7 @@ public final class ModelHealthService: ObservableObject {
     ///   - session: The session this trial is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
     public func record(trialNamed name: String, in session: Session) async throws  -> Trial {
-        try await backendService.record(trialNamed: name, in: session)
+        try await serviceProvider.record(trialNamed: name, in: session)
     }
 
     /// Stops recording of a movement trial in a session.
@@ -390,7 +397,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Parameter session: The session to stop recording in
     /// - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
     public func stopRecording(_ session: Session) async throws {
-        try await backendService.stopRecording(session)
+        try await serviceProvider.stopRecording(session)
     }
 
     /// Retrieves the current processing status of a trial.
@@ -418,7 +425,7 @@ public final class ModelHealthService: ObservableObject {
     /// }
     /// ```
     public func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
-        try await backendService.getStatus(forTrial: trial)
+        try await serviceProvider.getStatus(forTrial: trial)
     }
 
     /// Starts an analysis task for a completed trial.
@@ -449,7 +456,7 @@ public final class ModelHealthService: ObservableObject {
         for trial: Trial,
         in session: Session
     ) async throws -> AnalysisTask {
-        try await backendService.startAnalysis(
+        try await serviceProvider.startAnalysis(
             analysisType,
             for: trial,
             in: session
@@ -484,7 +491,7 @@ public final class ModelHealthService: ObservableObject {
     /// }
     /// ```
     public func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
-        try await backendService.getAnalysisStatus(for: task)
+        try await serviceProvider.getAnalysisStatus(for: task)
     }
 
     /// Downloads an analysis result file.
@@ -512,11 +519,55 @@ public final class ModelHealthService: ObservableObject {
         forTrial trial: Trial,
         resultTag: String
     ) async throws -> Data {
-        try await backendService.downloadAnalysisResult(
+        try await serviceProvider.downloadAnalysisResult(
             forTrial: trial,
             resultTag: resultTag
         )
     }
+}
+
+/// Defines ModelHealth SDK operations for dependency injection and testing.
+///
+/// The SDK provides a default implementation. Conform to this protocol to create
+/// mock implementations for testing.
+///
+/// See ``ModelHealthService`` for detailed documentation of each method.
+public protocol ModelHealthProvider {
+    func login(username: String,password: String) async throws -> LoginResult
+    func verify(code: String, rememberDevice: Bool) async throws
+    func subjectList() async throws -> [Subject]
+    func trialList() async throws -> [Trial]
+    func videoList() async throws -> [Video]
+    func createSession() async throws -> Session
+    func record(trialNamed name: String, in session: Session) async throws -> Trial
+    func stopRecording(_ session: Session) async throws
+
+    func calibrateCamera(
+        _ session: Session,
+        checkerboardDetails: CheckerboardDetails,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws
+
+    func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws
+
+    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
+
+    func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask
+
+    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
+
+    func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> Data
 }
 
 /// Errors that may be thrown by ModelHealthService
