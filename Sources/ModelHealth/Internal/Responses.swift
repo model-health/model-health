@@ -12,6 +12,34 @@ struct LoginResponse: SimpleDateDecodable {
     let licenseEndDate: Date
 }
 
+struct SessionResponse: Decodable, Identifiable {
+    let id: String
+    let user: Int
+    let `public`: Bool
+    let name: String
+    let sessionName: String
+    let qrcode: String?
+    let trials: [TrialResponse]
+    let subject: Int?
+    let trialsCount: Int
+}
+
+extension SessionResponse {
+    var model: Session {
+        Session(
+            id: id,
+            user: user,
+            public: `public`,
+            name: name,
+            sessionName: sessionName,
+            qrcode: qrcode,
+            trials: trials.map { $0.model },
+            subject: subject,
+            trialsCount: trialsCount
+        )
+    }
+}
+
 struct SubjectsResponse: Decodable {
     let subjects: [Subject]
 }
@@ -175,18 +203,96 @@ struct InvokeAnalysisResponse: Decodable {
     let taskId: String
 }
 
-struct AnalysisResultResponse: Decodable {
-    enum State: Decodable {
-        case successful
-        case failed
-        case processing
-    }
-    
+struct AnalysisStatusResponse: Decodable, Sendable {
     let state: State
-    let results: [AnalysisResultItem]?
+    let results: [Result]?
+
+    enum State: String, Decodable, Sendable {
+        case successful = "successfull"  // Note: typo in API
+        case failed = "failed"
+        case processing = "processing"
+    }
+
+    struct Result: Decodable, Sendable {
+        let tag: String
+    }
 }
 
-struct AnalysisResultItem: Decodable {
-    let tag: String
-    let media: String
+struct AnalysisResultResponse: Decodable, Sendable {
+    let analysisFunction: AnalysisFunction
+    let response: Response
+
+    struct AnalysisFunction: Decodable, Sendable {
+        let id: Int
+        let title: String
+        let description: String
+    }
+
+    struct Response: Decodable, Sendable {
+        let metrics: [String: Metric]
+    }
+
+    struct BilateralValue: Decodable, Sendable {
+        let left: Double
+        let right: Double
+    }
+
+    enum MetricValue: Sendable {
+        case single(Double)
+        case bilateral(BilateralValue)
+    }
+
+    struct Metric: Decodable, Sendable {
+        let label: String
+        let bilateral: Bool
+        let value: MetricValue
+        let info: String
+        let decimal: Int
+
+        enum CodingKeys: String, CodingKey {
+            case label, bilateral, value, info, decimal
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            label = try container.decode(String.self, forKey: .label)
+            bilateral = try container.decode(Bool.self, forKey: .bilateral)
+            info = try container.decode(String.self, forKey: .info)
+            decimal = try container.decode(Int.self, forKey: .decimal)
+
+            // Decode value based on bilateral flag
+            if bilateral {
+                let bilateralValue = try container.decode(BilateralValue.self, forKey: .value)
+                value = .bilateral(bilateralValue)
+            } else {
+                let singleValue = try container.decode(Double.self, forKey: .value)
+                value = .single(singleValue)
+            }
+        }
+    }
+}
+
+extension AnalysisResultResponse {
+    var model: AnalysisResult {
+        AnalysisResult(
+            analysisTitle: analysisFunction.title,
+            analysisDescription: analysisFunction.description,
+            metrics: response.metrics.mapValues { metric in
+                AnalysisResult.Metric(
+                    label: metric.label,
+                    bilateral: metric.bilateral,
+                    value: {
+                        switch metric.value {
+                        case .single(let value):
+                            return .single(value)
+                        case .bilateral(let bilateral):
+                            return .bilateral(left: bilateral.left, right: bilateral.right)
+                        }
+                    }(),
+                    info: metric.info,
+                    decimalPlaces: metric.decimal
+                )
+            }
+        )
+    }
 }

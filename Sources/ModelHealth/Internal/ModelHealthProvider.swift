@@ -45,13 +45,13 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     }
 
     func createSession() async throws -> Session {
-        let response: [Session] = try await get(Backend.createSession)
+        let response: [SessionResponse] = try await get(Backend.createSession)
 
         guard let session = response.first else {
             throw ModelHealthError.url(.badServerResponse)
         }
 
-        return session
+        return session.model
     }
 
     func calibrateCamera(
@@ -69,7 +69,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: checkerboardDetails.parameters
         )
 
-        let _: Session = try await URLSession.shared.decode(from: metadataRequest)
+        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
 
         let calibrationRequest = URLRequest.get(
             Backend.startRecording(id: session.id),
@@ -77,7 +77,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["name": "calibration"]
         )
 
-        let trial: Trial = try await URLSession.shared.decode(from: calibrationRequest)
+        let trial: TrialResponse = try await URLSession.shared.decode(from: calibrationRequest)
 
         let calibrationImgRequest = URLRequest.get(
             Backend.calibrationImg(id: session.id),
@@ -120,7 +120,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                     token: token
                 )
 
-                let trialStatus: Trial = try await URLSession.shared.decode(from: trialRequest)
+                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
 
                 if trialStatus.status == "stopped" || trialStatus.status == "processing" {
                     let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
@@ -165,7 +165,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             ]
         )
 
-        let _: Session = try await URLSession.shared.decode(from: metadataRequest)
+        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
 
         let subjectRequest = URLRequest.get(
             Backend.setSubject(id: session.id),
@@ -173,7 +173,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["subject_id": "\(subject.id)"]
         )
 
-        let _: Session = try await URLSession.shared.decode(from: subjectRequest)
+        let _: SessionResponse = try await URLSession.shared.decode(from: subjectRequest)
 
         let recordingRequest = URLRequest.get(
             Backend.startRecording(id: session.id),
@@ -184,7 +184,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             ]
         )
 
-        let trial: Trial = try await URLSession.shared.decode(from: recordingRequest)
+        let trial: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
 
         let neutralImgRequest = URLRequest.get(
             Backend.neutralImg(id: session.id),
@@ -250,7 +250,8 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["name": name]
         )
 
-        return try await URLSession.shared.decode(from: recordingRequest)
+        let response: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
+        return response.model
     }
 
     func stopRecording(_ session: Session) async throws {
@@ -276,7 +277,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             token: token
         )
 
-        let updatedTrial: Trial = try await URLSession.shared.decode(from: trialRequest)
+        let updatedTrial: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
 
         switch updatedTrial.status {
         case "done":
@@ -359,9 +360,9 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             return .processing
 
         case 200:
-            // Complete - decode the response
-            let result: AnalysisResultResponse = try JSONDecoder.snakeCase.decode(
-                AnalysisResultResponse.self,
+            // Complete - decode the status response
+            let result = try JSONDecoder.snakeCase.decode(
+                AnalysisStatusResponse.self,
                 from: data
             )
 
@@ -373,7 +374,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             case .failed:
                 return .failed
 
-            default:
+            case .processing:
                 return .processing
             }
 
@@ -385,7 +386,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     func downloadAnalysisResult(
         forTrial trial: Trial,
         resultTag: String
-    ) async throws -> Data {
+    ) async throws -> AnalysisResult {
         guard let token else {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
@@ -400,15 +401,8 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             throw ModelHealthError.url(.badURL)
         }
 
-        let downloadRequest = URLRequest.get(mediaURL, token: token)
-        let (data, response) = try await URLSession.shared.data(for: downloadRequest)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw ModelHealthError.url(.badServerResponse)
-        }
-
-        return data
+        let response: AnalysisResultResponse = try await get(mediaURL)
+        return response.model
     }
 }
 

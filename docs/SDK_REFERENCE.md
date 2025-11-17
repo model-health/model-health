@@ -42,18 +42,22 @@ if case .verificationRequired = loginResult {
 // Create session and calibrate
 let session = try await service.createSession()
 let details = CheckerboardDetails(rows: 4, columns: 5, squareSize: 35, placement: .perpendicular)
-try await service.calibrateCamera(session, checkerboardDetails: details)
+try await service.calibrateCamera(session, checkerboardDetails: details) { status in }
 
 // Capture neutral pose
-try await service.calibrateNeutralPose()
+try await service.calibrateNeutralPose(for: subject, in: session) { status in }
 
 // Record a movement trial
-try await service.recordTrial(named: "squat-session-1")
-let trialId = "..." // From your trial tracking
-try await service.stopRecording(trialId: trialId)
+let trial = try await service.record(trialNamed: "cmj-1", in: session)
+// Subject performs movement...
+try await service.stopRecording(session)
 
-// Fetch analysis results
-let analysisData = try await service.fetchAnalysis(trialId: trialId)
+// Poll for processing completion, then analyze
+let status = try await service.getStatus(forTrial: trial)
+if case .ready = status {
+    let task = try await service.startAnalysis(.counterMovementJump, for: trial, in: session)
+    // Poll for analysis completion...
+}
 ```
 
 ## Topics
@@ -70,12 +74,27 @@ let analysisData = try await service.fetchAnalysis(trialId: trialId)
 ### Session & Calibration
 - ``createSession()``
 - ``calibrateCamera(_:checkerboardDetails:)``
-- ``calibrateNeutralPose()``
+- ``calibrateNeutralPose(for:in:)``
 
 ### Recording & Analysis
-- ``recordTrial(named:)``
-- ``stopRecording(trialId:)``
-- ``fetchAnalysis(trialId:)``
+- ``record(trialNamed:in:)``
+- ``stopRecording(_:)``
+- ``getStatus(forTrial:)``
+- ``startAnalysis(_:for:in:)``
+- ``getAnalysisStatus(for:)``
+- ``downloadAnalysisResult(forTrial:resultTag:)``
+
+## Special Note for SwiftUI Previews
+
+Helpers are provided to populate Previews in SwiftUI, These are only available in DEBUG
+builds. You will need to wrap your previews:
+```swift
+#if DEBUG
+#Preview {
+MyView(session: .forPreview())
+}
+#endif
+```
 
 ### login
 
@@ -199,6 +218,11 @@ let videos = try await service.videoList()
 
 // Group by trial
 let videosByTrial = Dictionary(grouping: videos) { $0.trial }
+
+// Download a specific video
+if let videoUrl = videos.first?.videoUrl {
+    // Use videoUrl to download the video file
+}
 ```
 
 - Returns: An array of ``Video`` objects
@@ -233,160 +257,123 @@ try await service.calibrateCamera(session, checkerboardDetails: details)
 - Returns: A ``Session`` object with a unique identifier
 - Throws: An error if session creation fails
 
-### calibrateCamera
+### record
 
-`calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails)` `async` `throws`
-
-Calibrates a camera using a checkerboard pattern.
-
-Camera calibration is essential for accurate 3D reconstruction. This process
-determines the camera's intrinsic parameters and corrects for lens distortion.
-
-**Requirements:**
-- A printed checkerboard pattern (standard 4×5 board recommended)
-- Accurate measurement of square size in millimeters
-- Multiple views of the checkerboard from different angles
-
-The calibration is automated and typically completes in a few seconds once
-sufficient checkerboard views are captured.
-
-```swift
-let session = try await service.createSession()
-
-let details = CheckerboardDetails(
-    rows: 4,           // Internal corners, not squares (for 4×5 board)
-    columns: 5,        // Internal corners, not squares (for 4×5 board)
-    squareSize: 35,    // Measured in millimeters
-    placement: .perpendicular
-)
-
-// Start calibration - show checkerboard to camera from various angles
-try await service.calibrateCamera(session, checkerboardDetails: details)
-// Calibration complete, proceed to neutral pose
-```
-
-- Parameters:
-- session: The session created with ``createSession()``
-- checkerboardDetails: Configuration of the calibration checkerboard
-- Throws: An error if calibration fails (insufficient views, pattern not detected, etc.)
-
-### calibrateNeutralPose
-
-`calibrateNeutralPose()` `async` `throws`
-
-Captures the subject's neutral standing pose for model scaling.
-
-This step is required after camera calibration and before recording movement trials.
-It takes a quick video of the subject standing in a neutral position, which is
-used to scale the biomechanical model to match the subject's dimensions.
-
-**Instructions for subject:**
-- Stand upright in a relaxed, natural position
-- Face forward with arms at sides
-- Remain still for a few seconds
-
-The process is automatic and typically completes in under 5 seconds.
-
-```swift
-// After successful camera calibration
-try await service.calibrateNeutralPose()
-// Model now scaled, ready to record movement trials
-```
-
-- Throws: An error if pose capture fails (subject not detected, poor lighting, etc.)
-
-### recordTrial
-
-`recordTrial(named name: String)` `async` `throws`
+`record(trialNamed name: String, in session: Session)` `async` `throws` → `Trial`
 
 Starts recording a movement trial.
 
 After completing calibration steps (camera calibration and neutral pose),
-use this method to begin recording a movement activity such as squats,
-jumps, walking, or any other motion.
+use this method to begin recording an activity.
 
 Videos are automatically uploaded to the cloud for processing. Multiple
 cameras can record simultaneously if configured.
 
-**Important:** Call ``stopRecording(trialId:)`` when the movement is complete
-to finalize the trial and begin processing.
+**Important:** Call ``stopRecording(session:)`` when the movement is complete
+to finalize the trial and trigger video upload.
 
 ```swift
-// Record a squat session
-try await service.recordTrial(named: "squat-baseline-2024")
-// Subject performs squats while cameras record
+// Record a CMJ session
+let trial = try await service.record(trialNamed: "cmj-2024", in: session)
+// Subject performs CMJ while cameras record
 
 // When complete, stop recording
-try await service.stopRecording(trialId: trialId)
+try await service.stopRecording(session: session)
 ```
 
-- Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
+- Parameters:
+- trialName: A descriptive name for this trial (e.g., "cmj-test")
+- session: The session this trial is  associated with
 - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
 
 ### stopRecording
 
-`stopRecording(trialId: String)` `async` `throws`
+`stopRecording(_ session: Session)` `async` `throws`
 
-Stops recording for a movement trial and initiates processing.
+Stops recording of a movement trial in a session.
 
 Call this method when the subject has completed the movement activity.
 Recorded videos are finalized and uploaded to the cloud for biomechanical
 analysis.
 
-Processing typically takes a few minutes depending on video length and
-complexity. Use ``trialList()`` to check the trial's status, or
-``fetchAnalysis(trialId:)`` to retrieve results once processing is complete.
-
 ```swift
 // After recording is complete
-try await service.stopRecording(trialId: "trial-abc-123")
-
-// Wait for processing (check status periodically)
-let trials = try await service.trialList()
-if let trial = trials.first(where: { $0.id == trialId }), trial.status == "completed" {
-    // Analysis ready
-    let data = try await service.fetchAnalysis(trialId: trialId)
-}
+try await service.stopRecording(session: Session)
 ```
 
-- Parameter trialId: The unique identifier of the trial to stop
+- Parameter session: The session to stop recording in
 - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
 
-### fetchAnalysis
+### getStatus
 
-`fetchAnalysis(trialId: String)` `async` `throws` → `Data`
+`getStatus(forTrial trial: Trial)` `async` `throws` → `TrialProcessingStatus`
 
-Fetches biomechanical analysis results for a completed trial.
+Retrieves the current processing status of a trial.
 
-Once a trial's processing is complete (status: "completed"), this method
-retrieves the analysis results as CSV data. The CSV contains detailed
-biomechanical variables over time, including joint angles, velocities,
-forces, and scalar metrics.
+Poll this method to determine when a trial is ready for analysis.
+Trials must complete video upload and processing before analysis can begin.
 
-**Analysis includes:**
-- Joint kinematics (angles, velocities, accelerations)
-- Ground reaction forces
-- Center of mass trajectory
-- Performance metrics and scalars
-- Comparison to normative distributions
+- Parameter trial: A completed trial
+- Returns: The current processing status
+- Throws: Network or authentication errors
 
+## Usage
 ```swift
-// Fetch analysis for completed trial
-let csvData = try await service.fetchAnalysis(trialId: "trial-abc-123")
+let status = try await service.getStatus(forTrial: trial)
 
-// Parse CSV data
-if let csvString = String(data: csvData, encoding: .utf8) {
-    let rows = csvString.components(separatedBy: .newlines)
-    // Process biomechanical data...
+switch status {
+case .ready:
+print("Trial ready for analysis")
+case .processing:
+print("Still processing...")
+case .uploading(let uploaded, let total):
+print("Uploaded \(uploaded)/\(total) videos")
+case .failed:
+print("Processing failed")
 }
-
-// Or save to file
-try csvData.write(to: analysisURL)
 ```
 
-- Parameter trialId: The unique identifier of the trial
-- Returns: CSV-formatted biomechanical data as `Data`
-- Throws: An error if analysis is not ready or retrieval fails
+### getAnalysisStatus
+
+`getAnalysisStatus(for task: AnalysisTask)` `async` `throws` → `AnalysisTaskStatus`
+
+Retrieves the current status of an analysis task.
+
+Poll this method to monitor analysis progress. When status is `.completed`,
+use the returned result tags to download analysis files.
+
+- Parameter task: The task returned from `startAnalysis`
+- Returns: The current analysis status
+- Throws: Network or authentication errors
+
+## Usage
+```swift
+let status = try await service.getAnalysisStatus(for: task)
+
+switch status {
+    case .processing:
+        print("Analysis running...")
+    case .completed(let tags):
+        for tag in tags {
+            let data = try await service.downloadAnalysisResult(
+                forTrial: trial,
+                resultTag: tag
+            )
+        }
+    case .failed:
+        print("Analysis failed")
+}
+```
+
+## ModelHealthError
+*Enum*
+
+Errors that may be thrown by ModelHealthService
+
+## CalibrationError
+*Enum*
+
+Errors specific to camera or neutral pose calibration
 
 ## Session
 *Struct*
@@ -416,15 +403,7 @@ let filtered = subjects.filter { $0.subjectTags.contains("high-risk") }
 A recorded video file from a trial.
 
 Videos are automatically uploaded to the cloud during recording.
-Use `videoUrl` to download the full video or `videoThumb` for preview thumbnails.
-
-## Result
-*Struct*
-
-Analysis results for a trial.
-
-Results include biomechanical data, visualizations, and reports.
-Use `mediaUrl` to access result files.
+Use `video` to download the full video or `videoThumb` for preview thumbnails.
 
 ## Trial
 *Struct*
@@ -438,11 +417,6 @@ processing to final analysis.
 let trials = try await service.trialList()
 let completed = trials.filter { $0.status == "completed" && !$0.trashed }
 ```
-
-## SessionStatus
-*Struct*
-
-Real-time status and progress information for a calibration session.
 
 ## CheckerboardPlacement
 *Enum*
@@ -461,15 +435,15 @@ rows: 4, columns: 5, squareSize: 35, placement: .perpendicular
 Configuration for a calibration checkerboard pattern.
 
 **Important:** Row and column counts refer to internal corners, not squares.
-For a standard 4×5 checkerboard, use `rows: 4, columns: 5`.
+For a standard 5×6 checkerboard, use `rows: 4, columns: 5`.
 Square size must be measured precisely in millimeters for accurate calibration.
 
 ```swift
 let details = CheckerboardDetails(
-    rows: 4,
-    columns: 5,
-    squareSize: 35,
-    placement: .perpendicular
+rows: 4,
+columns: 5,
+squareSize: 35,
+placement: .perpendicular
 )
 try await service.calibrateCamera(session, checkerboardDetails: details)
 ```
@@ -489,3 +463,60 @@ if case .verificationRequired = result {
     try await service.verify(code: code, rememberDevice: true)
 }
 ```
+
+## CalibrationStatus
+*Enum*
+
+Represents the current status of a calibration process.
+
+This enum tracks the progression of either camera calibration or neutral pose calibration,
+providing real-time feedback on the recording, upload, and processing stages.
+
+## Usage
+```swift
+try await service.calibrateNeutralPose(
+        for: subject,
+        in: session
+    ) { status in
+        switch status {
+        case .recording:
+            print("Recording...")
+
+        case .uploading(let uploaded, let total):
+            print("Uploading: \(uploaded)/\(total)")
+
+        case .processing(let percent):
+            print("Processing: \(percent ?? 0)%")
+
+        case .done(let images):
+            print("Complete! \(images.count) videos processed")
+        }
+    }
+```
+
+## AnalysisType
+*Enum*
+
+Represents available analysis functions for motion capture data.
+
+Each analysis type processes trial data to extract specific biomechanical metrics
+and insights. Analysis can only be performed on trials that have completed processing.
+
+## TrialProcessingStatus
+*Enum*
+
+Represents the current processing state of a trial.
+
+Trials must reach the `ready` state before analysis can be performed.
+
+## AnalysisTask
+*Struct*
+
+Represents an active analysis task.
+
+Use the `taskId` to poll for analysis completion status.
+
+## AnalysisTaskStatus
+*Enum*
+
+Represents the current state of an analysis task.

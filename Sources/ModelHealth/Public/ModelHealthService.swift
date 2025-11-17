@@ -518,7 +518,7 @@ public final class ModelHealthService: ObservableObject {
     public func downloadAnalysisResult(
         forTrial trial: Trial,
         resultTag: String
-    ) async throws -> Data {
+    ) async throws -> AnalysisResult {
         try await serviceProvider.downloadAnalysisResult(
             forTrial: trial,
             resultTag: resultTag
@@ -567,7 +567,7 @@ public protocol ModelHealthProvider {
     func downloadAnalysisResult(
         forTrial trial: Trial,
         resultTag: String
-    ) async throws -> Data
+    ) async throws -> AnalysisResult
 }
 
 /// Errors that may be thrown by ModelHealthService

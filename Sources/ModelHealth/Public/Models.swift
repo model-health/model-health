@@ -10,7 +10,7 @@ import Foundation
 /// let session = try await service.createSession()
 /// try await service.calibrateCamera(session, checkerboardDetails: details)
 /// ```
-public struct Session: Decodable, Identifiable, Sendable {
+public struct Session: Identifiable, Sendable {
     public let id: String
     public let user: Int
     public let `public`: Bool
@@ -103,7 +103,7 @@ extension Subject: Hashable {
 ///
 /// Videos are automatically uploaded to the cloud during recording.
 /// Use `video` to download the full video or `videoThumb` for preview thumbnails.
-public struct Video: Decodable, Sendable {
+public struct Video: Sendable {
     public let id: String
     public let trial: String
     public let video: String?
@@ -121,15 +121,15 @@ public struct Video: Decodable, Sendable {
 /// let trials = try await service.trialList()
 /// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
 /// ```
-public struct Trial: Decodable, Sendable {
-    public struct Result: Decodable, Sendable {
+public struct Trial: Sendable {
+    public struct Result: Sendable {
         public let id: Int
         public let trial: String
         public let tag: String?
         public let media: String?
     }
 
-    public enum Status: Decodable, Sendable {
+    public enum Status: Sendable {
         case done
         case error
         case stopped
@@ -315,9 +315,42 @@ public enum AnalysisTaskStatus: Sendable {
     case failed
 }
 
+public struct AnalysisResult: Sendable {
+    public let analysisTitle: String
+    public let analysisDescription: String
+    public let metrics: [String: Metric]
+
+    public struct Metric: Sendable {
+        public let label: String
+        public let bilateral: Bool
+        public let value: MetricValue
+        public let info: String
+        public let decimalPlaces: Int
+    }
+
+    public enum MetricValue: Sendable {
+        case single(Double)
+        case bilateral(left: Double, right: Double)
+
+        public var singleValue: Double? {
+            if case .single(let value) = self {
+                return value
+            }
+
+            return nil
+        }
+    }
+}
+
+extension AnalysisResult {
+    /// Jump height in centimeters (for CMJ analysis)
+    public var jumpHeight: Double? {
+        metrics["00_jump_height_COM"]?.value.singleValue
+    }
+}
+
 // MARK: - SwiftUI #Preview support
 
-#if DEBUG
 extension Session {
     public static func forPreview(
         customizing: (inout PreviewBuilder) -> Void = { _ in }
@@ -496,4 +529,49 @@ extension AnalysisTask {
         }
     }
 }
-#endif
+
+extension AnalysisResult {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var analysisTitle = "Countermovement jump"
+        public var analysisDescription = "Single or double leg, one jump only"
+        public var metrics: [String: AnalysisResult.Metric] = [
+            "00_jump_height_COM": AnalysisResult.Metric(
+                label: "Jump height (cm)",
+                bilateral: false,
+                value: .single(33.2),
+                info: "Jump height is the vertical distance between the center of mass in a standing position and its highest point during the jump.",
+                decimalPlaces: 1
+            ),
+            "01_jump_time": AnalysisResult.Metric(
+                label: "Jump time (s)",
+                bilateral: false,
+                value: .single(0.73),
+                info: "Jump time is the time between the start of the downward phase and toe-off.",
+                decimalPlaces: 2
+            ),
+            "06_peak_hip_extension_speed_during_takeoff": AnalysisResult.Metric(
+                label: "Peak hip extension speed during takeoff (deg/s)",
+                bilateral: true,
+                value: .bilateral(left: 233.0, right: 259.0),
+                info: "Peak hip extension speed during takeoff refers to the maximum angular velocity during vertical jump takeoff.",
+                decimalPlaces: 0
+            )
+        ]
+
+        func build() -> AnalysisResult {
+            AnalysisResult(
+                analysisTitle: analysisTitle,
+                analysisDescription: analysisDescription,
+                metrics: metrics
+            )
+        }
+    }
+}

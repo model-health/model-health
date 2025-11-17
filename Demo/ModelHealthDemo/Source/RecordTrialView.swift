@@ -355,61 +355,67 @@ struct StatusIndicator: View {
 
 struct TrialResultsView: View {
     let trialState: TrialState
-    @Environment(\.dismiss) private var dismiss
+    @State private var analysisResult: AnalysisResult?
+    @State private var isLoading = false
+    @EnvironmentObject var service: ModelHealthService
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.blue)
+        VStack {
+            if isLoading {
+                ProgressView("Loading results...")
+            } else if let result = analysisResult, let jumpHeight = result.jumpHeight {
+                VStack(spacing: 16) {
+                    Text(trialState.name)
+                        .font(.title)
 
-                Text("Trial Results")
-                    .font(.title)
+                    Text("Jump Height")
+                        .font(.headline)
 
-                Text(trialState.name)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-
-                if case .completed(let tags) = trialState.analysisStatus {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Available Results:")
-                            .font(.headline)
-
-                        ForEach(tags, id: \.self) { tag in
-                            Text("• \(tag)")
-                                .font(.subheadline)
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    Text("\(String(format: "%.1f", jumpHeight)) cm")
+                        .font(.largeTitle)
+                        .bold()
                 }
-
-                Text("Results visualization will be implemented here")
-                    .font(.subheadline)
+            } else {
+                Text("No results available")
                     .foregroundStyle(.secondary)
-                    .padding()
+            }
+        }
+        .navigationTitle("Results")
+        .task {
+            await loadResults()
+        }
+    }
 
-                Spacer()
+    func loadResults() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            // Get the analysis task and status from trial state
+            guard let task = trialState.analysisTask else {
+                print("No analysis task found")
+                return
             }
-            .padding()
-            .navigationTitle("Analysis Results")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        dismiss()
-                    }
-                }
+
+            // Check the current status
+            let status = try await service.getAnalysisStatus(for: task)
+
+            if case .completed(let tags) = status, let firstTag = tags.first {
+                // Download the result using the first available tag
+                let result = try await service.downloadAnalysisResult(
+                    forTrial: trialState.trial,
+                    resultTag: firstTag
+                )
+                analysisResult = result
             }
+        } catch {
+            print("Error loading results: \(error)")
         }
     }
 }
 
 // MARK: - Previews
 
-#if DEBUG
 #Preview("Empty State") {
     NavigationStack {
         RecordTrialView(
@@ -548,41 +554,55 @@ private struct RecordTrialView_Preview: View {
     }
 }
 
-#Preview("Results") {
-    TrialResultsView(
-        trialState: TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-1"
-                builder.name = "Gait Analysis"
-                builder.status = "done"
-                builder.results = [
-                    .forPreview { result in
-                        result.tag = "joint-angles-csv"
-                    },
-                    .forPreview { result in
-                        result.id = 2
-                        result.tag = "kinematics-json"
-                    },
-                    .forPreview { result in
-                        result.id = 3
-                        result.tag = "ground-reaction-forces-csv"
-                    },
-                    .forPreview { result in
-                        result.id = 4
-                        result.tag = "muscle-activations-csv"
-                    }
-                ]
-            },
-            name: "Gait Analysis",
-            processingStatus: .ready,
-            analysisTask: .forPreview(),
-            analysisStatus: .completed(resultTags: [
-                "joint-angles-csv",
-                "kinematics-json",
-                "ground-reaction-forces-csv",
-                "muscle-activations-csv"
-            ])
-        )
-    )
+extension TrialState {
+    static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    struct PreviewBuilder {
+        public var trial: Trial = .forPreview()
+        public var name: String = "Counter Movement Jump"
+        public var processingStatus: TrialProcessingStatus? = .ready
+        public var analysisTask: AnalysisTask? = .forPreview()
+        public var analysisStatus: AnalysisTaskStatus? = .completed(resultTags: ["cmj_data", "cmj_report"])
+        public var isRefreshing: Bool = false
+        public var isAnalyzing: Bool = false
+
+        func build() -> TrialState {
+            TrialState(
+                trial: trial,
+                name: name,
+                processingStatus: processingStatus,
+                analysisTask: analysisTask,
+                analysisStatus: analysisStatus,
+                isRefreshing: isRefreshing,
+                isAnalyzing: isAnalyzing
+            )
+        }
+    }
 }
-#endif
+
+#Preview("Results") {
+    NavigationStack {
+        TrialResultsView(
+            trialState: .forPreview()
+        )
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+    }
+}
+
+#Preview("Results - No Analysis Task") {
+    NavigationStack {
+        TrialResultsView(
+            trialState: .forPreview { builder in
+                builder.analysisTask = nil
+                builder.analysisStatus = nil
+            }
+        )
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+    }
+}

@@ -206,18 +206,11 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return .completed(resultTags: ["joint-angles-csv", "force-data-csv", "summary-report-pdf"])
     }
 
-    func downloadAnalysisResult(
+    public func downloadAnalysisResult(
         forTrial trial: Trial,
         resultTag: String
-    ) async throws -> Data {
+    ) async throws -> AnalysisResult {
         try await Task.sleep(nanoseconds: 500_000_000)
-        // Return mock CSV data
-        let mockCSV = """
-        timestamp,value
-        0.0,10.5
-        0.1,12.3
-        0.2,15.7
-        """
-        return mockCSV.data(using: .utf8)!
+        return .forPreview()
     }
 }
