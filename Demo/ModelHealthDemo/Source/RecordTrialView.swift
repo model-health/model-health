@@ -5,6 +5,7 @@ struct RecordTrialView: View {
     let subject: Subject
     let session: Session
 
+    @State private var analysisType: AnalysisType = .counterMovementJump
     @State private var activityName: String = ""
     @State private var currentTrial: Trial?
     @State private var completedTrials: [TrialState] = []
@@ -19,10 +20,23 @@ struct RecordTrialView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            // Activity Name Input
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Activity Name")
+            HStack {
+                Text("Activity")
                     .font(.headline)
+
+                Spacer()
+
+                Picker("Analysis Type", selection: $analysisType) {
+                    ForEach(AnalysisType.allCases) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+            }
+
+            HStack {
+                Text("Name")
+                    .font(.headline)
+                    .padding(.trailing, 16)
 
                 TextField("e.g., Walking, Squatting, Jump", text: $activityName)
                     .textFieldStyle(.roundedBorder)

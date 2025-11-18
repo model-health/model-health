@@ -330,7 +330,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let invokeRequest = URLRequest.post(
-            Backend.invokeAnalysis(functionId: analysisType.id),
+            Backend.invokeAnalysis(functionId: analysisType.functionId),
             token: token,
             body: [
                 "session_id": session.id,
@@ -569,7 +569,7 @@ private extension CheckerboardDetails {
 }
 
 private extension AnalysisType {
-    var id: String {
+    var functionId: String {
         switch self {
         case .counterMovementJump:
             "36"

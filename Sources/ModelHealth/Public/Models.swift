@@ -148,7 +148,7 @@ public struct Trial: Sendable {
 ///     rows: 4, columns: 5, squareSize: 35, placement: .perpendicular
 /// )
 /// ```
-public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable {
+public enum CheckerboardPlacement: String, CaseIterable, Sendable {
     /// Checkerboard facing camera directly
     case perpendicular
 
@@ -156,7 +156,7 @@ public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable 
     case parallel
 }
 
-extension CheckerboardPlacement {
+extension CheckerboardPlacement: Identifiable {
     /// Support for SwiftUI ForEach and Picker
     public var id: String {
         self.rawValue
@@ -286,8 +286,15 @@ public enum CalibrationStatus: Sendable {
 ///
 /// Each analysis type processes trial data to extract specific biomechanical metrics
 /// and insights. Analysis can only be performed on trials that have completed processing.
-public enum AnalysisType: Sendable {
-    case counterMovementJump
+public enum AnalysisType: String, CaseIterable, Sendable {
+    case counterMovementJump = "Counter Movement Jump"
+}
+
+extension AnalysisType: Identifiable {
+    /// Support for SwiftUI ForEach and Picker
+    public var id: String {
+        rawValue
+    }
 }
 
 /// Represents the current processing state of a trial.

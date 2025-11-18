@@ -14,9 +14,7 @@ struct CreateSessionView: View {
             Spacer()
 
             // QR Code Display
-            if
-                let session = createdSession,
-                let qrcodeURL = URL(string: session.qrcode ?? "") {
+            if let qrcodeURL = URL(string: createdSession?.qrcode ?? "") {
                 qrCode(url: qrcodeURL)
             } else {
                 emptyState
@@ -80,7 +78,7 @@ private extension CreateSessionView {
                     }
                     .frame(width: 250, height: 250)
                 @unknown default:
-                    EmptyView()
+                    emptyState
                 }
             }
         }
@@ -100,8 +98,7 @@ private extension CreateSessionView {
         errorMessage = nil
 
         do {
-            let newSession = try await modelHealth.createSession()
-            createdSession = newSession
+            createdSession = try await modelHealth.createSession()
         } catch {
             errorMessage = "Failed to create session: \(error.localizedDescription)"
         }
