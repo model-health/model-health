@@ -2,31 +2,30 @@ import SwiftUI
 import ModelHealth
 
 struct LoginView: View {
-    @State private var username = "warren@modelhealth.io"
-    @State private var password = "testtesttesttesttest"
+    @State private var username = ""
+    @State private var password = ""
     @State private var isLoading = false
-    @State private var errorMessage: String?
+    @State private var errorMessage: String = ""
     @State private var showVerification = false
     @State private var isVerified = false
     @State private var isLoggedIn = false
 
-    @EnvironmentObject private var modelHealthSDK: ModelHealthSDK
+    @EnvironmentObject private var modelHealth: ModelHealthService
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Spacer()
-
                 VStack(spacing: 8) {
-                    Image("AppIcon")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
+                    Image("model-health")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
 
                     Text("Welcome")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                 }
-                .padding(.bottom, 40)
+                .padding(.vertical, 44)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Username")
@@ -38,7 +37,7 @@ struct LoginView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
-                .padding(.horizontal)
+                .padding([.horizontal, .bottom])
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Password")
@@ -50,34 +49,25 @@ struct LoginView: View {
                 }
                 .padding(.horizontal)
 
-                if let errorMessage = errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding(.horizontal)
-                }
-
-                Button(action: handleLogin) {
-                    if isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Login")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(username.isEmpty || password.isEmpty || isLoading)
-                .padding(.horizontal)
-                .padding(.top, 10)
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding([.horizontal, .top], 16)
 
                 Spacer()
+
+                LoadingButton(
+                    title: "Login",
+                    isLoading: isLoading,
+                    isDisabled: username.isEmpty || password.isEmpty,
+                    action: handleLogin
+                )
+                .padding(.horizontal)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             }
             .navigationDestination(isPresented: $isLoggedIn) {
-                CameraCalibrationView()
+                CreateSessionView()
             }
             .sheet(isPresented: $showVerification) {
                 VerificationView(isVerified: $isVerified)
@@ -98,12 +88,12 @@ struct LoginView: View {
     }
 
     private func handleLogin() {
-        errorMessage = nil
+        errorMessage = ""
         isLoading = true
 
         Task {
             do {
-                let result = try await modelHealthSDK.login(
+                let result = try await modelHealth.login(
                     username: username,
                     password: password
                 )
@@ -131,5 +121,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView()
-        .environmentObject(ModelHealthSDK())
+        .environmentObject(ModelHealthService())
 }

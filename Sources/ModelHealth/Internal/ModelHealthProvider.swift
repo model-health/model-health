@@ -1,0 +1,578 @@
+import Foundation
+
+actor ModelHealthProviderImpl: ModelHealthProvider {
+    private var token: String?
+
+    func login(username: String,password: String) async throws -> LoginResult {
+        let request = URLRequest.post(
+            Backend.login,
+            body: ["username": username, "password": password]
+        )
+
+        let loginResponse: LoginResponse = try await URLSession.shared.decode(from: request)
+        token = loginResponse.token
+
+        return loginResponse.otpChallengeSent ? .verificationRequired : .ok
+    }
+
+    func verify(code: String, rememberDevice: Bool = false) async throws {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let request = URLRequest.post(
+            Backend.verify,
+            token: token,
+            body: ["otp_token": code, "remember_device": rememberDevice ? "true" : "false"]
+        )
+
+        let _: EmptyResponse = try await URLSession.shared.decode(from: request)
+    }
+
+    func sessionList() async throws -> [Session] {
+        let response: [SessionResponse] = try await get(Backend.sessions)
+        return response.map { $0.model }
+    }
+
+    func subjectList() async throws -> [Subject] {
+        let response: SubjectsResponse = try await get(Backend.subjects)
+        return response.subjects
+    }
+
+    func trialList() async throws -> [Trial] {
+        let response: TrialsResponse = try await get(Backend.trials)
+        return response.trials.map { $0.model }
+    }
+
+    func videoList() async throws -> [Video] {
+        let response: VideosResponse = try await get(Backend.videos)
+        return response.videos.map { $0.model }
+    }
+
+    func createSession() async throws -> Session {
+        let response: [SessionResponse] = try await get(Backend.createSession)
+
+        guard let session = response.first else {
+            throw ModelHealthError.url(.badServerResponse)
+        }
+
+        return session.model
+    }
+
+    func calibrateCamera(
+        _ session: Session,
+        checkerboardDetails: CheckerboardDetails,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let metadataRequest = URLRequest.get(
+            Backend.setMetadata(id: session.id),
+            token: token,
+            parameters: checkerboardDetails.parameters
+        )
+
+        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
+
+        let calibrationRequest = URLRequest.get(
+            Backend.startRecording(id: session.id),
+            token: token,
+            parameters: ["name": "calibration"]
+        )
+
+        let trial: TrialResponse = try await URLSession.shared.decode(from: calibrationRequest)
+
+        let calibrationImgRequest = URLRequest.get(
+            Backend.calibrationImg(id: session.id),
+            token: token
+        )
+
+        while true {
+            let response: CalibrationImgResponse = try await URLSession.shared.decode(from: calibrationImgRequest)
+
+            let sessionStatusRequest = URLRequest.get(
+                Backend.sessionStatus(id: session.id),
+                token: token,
+                parameters: ["device_id": DeviceIdentifier.getDeviceIdentifier()]
+            )
+
+            let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+
+            switch response.status {
+            case .done:
+                let calibratedRequest = URLRequest.get(
+                    Backend.calibratedCameras(id: session.id),
+                    token: token
+                )
+
+                let calibratedResponse: CalibratedCamerasResponse = try await URLSession.shared.decode(from: calibratedRequest)
+
+                guard calibratedResponse.calibratedCamerasCount >= 2 else {
+                    throw ModelHealthError.calibration(.notEnoughCameras)
+                }
+
+                statusUpdate(.done)
+                return
+
+            case .error:
+                throw ModelHealthError.calibration(.calibrationFailed)
+
+            default:
+                let trialRequest = URLRequest.get(
+                    Backend.trial(id: trial.id),
+                    token: token
+                )
+
+                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+
+                if trialStatus.status == "stopped" || trialStatus.status == "processing" {
+                    let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
+
+                    if isUploadingVideos {
+                        statusUpdate(
+                            .uploading(
+                                uploaded: sessionStatus.nVideosUploaded,
+                                total: sessionStatus.nCamerasConnected
+                            )
+                        )
+                    } else {
+                        statusUpdate(.processing(percent: nil))
+                    }
+                }
+            }
+
+            try await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let metadataRequest = URLRequest.get(
+            Backend.setMetadata(id: session.id),
+            token: token,
+            parameters: [
+                "settings_data_sharing": "Share no data",
+                "settings_scaling_setup": "any_pose",
+                "settings_framerate": "60",
+                "settings_session_name": session.name,
+                "settings_openSimModel": "LaiUhlrich2022",
+                "settings_augmenter_model": "v0.3",
+                "settings_filter_frequency": "default"
+            ]
+        )
+
+        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
+
+        let subjectRequest = URLRequest.get(
+            Backend.setSubject(id: session.id),
+            token: token,
+            parameters: ["subject_id": "\(subject.id)"]
+        )
+
+        let _: SessionResponse = try await URLSession.shared.decode(from: subjectRequest)
+
+        let recordingRequest = URLRequest.get(
+            Backend.startRecording(id: session.id),
+            token: token,
+            parameters: [
+                "name": "neutral",
+                "subject_id": "\(subject.id)"
+            ]
+        )
+
+        let trial: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
+
+        let neutralImgRequest = URLRequest.get(
+            Backend.neutralImg(id: session.id),
+            token: token
+        )
+
+        while true {
+            let response: NeutralImgResponse = try await URLSession.shared.decode(from: neutralImgRequest)
+
+            switch response.status {
+            case .done:
+                statusUpdate(.done)
+                return
+
+            case .error:
+                throw ModelHealthError.calibration(.calibrationFailed)
+
+            case .recording:
+                statusUpdate(.recording)
+
+            default:
+                let trialRequest = URLRequest.get(
+                    Backend.trial(id: trial.id),
+                    token: token
+                )
+
+                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+
+                if trialStatus.status == "stopped" || trialStatus.status == "processing" {
+                    let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
+
+                    if isUploadingVideos {
+                        let sessionStatusRequest = URLRequest.get(
+                            Backend.sessionStatus(id: session.id),
+                            token: token
+                        )
+                        let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+
+                        statusUpdate(
+                            .uploading(
+                                uploaded: sessionStatus.nVideosUploaded,
+                                total: sessionStatus.nCamerasConnected
+                            )
+                        )
+                    } else if trialStatus.results.isEmpty {
+                        statusUpdate(.processing(percent: response.progressInfo?.percent))
+                    }
+                }
+            }
+
+            try await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    func record(trialNamed name: String, in session: Session) async throws -> Trial {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let recordingRequest = URLRequest.get(
+            Backend.startRecording(id: session.id),
+            token: token,
+            parameters: ["name": name]
+        )
+
+        let response: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
+        return response.model
+    }
+
+    func stopRecording(_ session: Session) async throws {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let request = try await URLRequest.get(
+            Backend.stopRecording(id: session.id),
+            token: token
+        )
+
+        let _: TrialResponse = try await URLSession.shared.decode(from: request)
+    }
+
+    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let trialRequest = URLRequest.get(
+            Backend.trial(id: trial.id),
+            token: token
+        )
+
+        let updatedTrial: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+
+        switch updatedTrial.status {
+        case "done":
+            return .ready
+
+        case "error":
+            return .failed
+
+        case "stopped", "processing":
+            let isUploadingVideos = updatedTrial.videos.contains { $0.video == nil }
+
+            if isUploadingVideos {
+                let sessionStatusRequest = URLRequest.get(
+                    Backend.sessionStatus(id: updatedTrial.session),
+                    token: token
+                )
+
+                let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+
+                return .uploading(
+                    uploaded: sessionStatus.nVideosUploaded,
+                    total: sessionStatus.nCamerasConnected
+                )
+            } else {
+                return .processing
+            }
+        default:
+            return .processing
+        }
+    }
+
+    func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        guard let trialName = trial.name else {
+
+            // TODO
+            throw ModelHealthError.url(.badURL)
+        }
+
+        let invokeRequest = URLRequest.post(
+            Backend.invokeAnalysis(functionId: analysisType.id),
+            token: token,
+            body: [
+                "session_id": session.id,
+                "specific_trial_names": [trialName]
+            ]
+        )
+
+        let response: InvokeAnalysisResponse = try await URLSession.shared.decode(from: invokeRequest)
+
+        return AnalysisTask(taskId: response.taskId)
+    }
+
+    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let resultRequest = URLRequest.get(
+            Backend.analysisResult(taskId: task.taskId),
+            token: token
+        )
+
+        let (data, response) = try await URLSession.shared.data(for: resultRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ModelHealthError.url(.badServerResponse)
+        }
+
+        switch httpResponse.statusCode {
+        case 202:
+            // Still processing
+            return .processing
+
+        case 200:
+            // Complete - decode the status response
+            let result = try JSONDecoder.snakeCase.decode(
+                AnalysisStatusResponse.self,
+                from: data
+            )
+
+            switch result.state {
+            case .successful:
+                let tags = result.results?.map { $0.tag } ?? []
+                return .completed(resultTags: tags)
+
+            case .failed:
+                return .failed
+
+            case .processing:
+                return .processing
+            }
+
+        default:
+            throw ModelHealthError.url(.badServerResponse)
+        }
+    }
+
+    func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> AnalysisResult {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        // Find the result with matching tag
+        guard let result = trial.results.first(where: { $0.tag == resultTag }) else {
+            throw ModelHealthError.url(.fileDoesNotExist)
+        }
+
+        // Download from media URL
+        guard let media = result.media, let mediaURL = URL(string: media) else {
+            throw ModelHealthError.url(.badURL)
+        }
+
+        let response: AnalysisResultResponse = try await get(mediaURL)
+        return response.model
+    }
+}
+
+extension ModelHealthProviderImpl {
+    private func get<T: Decodable & Sendable>(_ url: URL) async throws -> T {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let request = URLRequest.get(url, token: token)
+        return try await URLSession.shared.decode(from: request)
+    }
+}
+
+private extension URLRequest {
+    static func request(
+        _ url: URL,
+        httpMethod: HTTPMethod,
+        token: String? = nil,
+        body: [String: Any]? = nil,
+        parameters: [String: String]? = nil
+    ) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = httpMethod.name
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        token.map {
+            request.setValue("Token \($0)", forHTTPHeaderField: "Authorization")
+        }
+
+        body.map {
+            request.httpBody = try? JSONSerialization.data(withJSONObject: $0)
+        }
+
+        if let parameters {
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            components?.queryItems = parameters.map { key, value in
+                URLQueryItem(name: key, value: value)
+            }
+
+            if let urlWithParams = components?.url {
+                request.url = urlWithParams
+            }
+        }
+
+        return request
+    }
+
+    static func get(
+        _ url: URL,
+        token: String? = nil,
+        parameters: [String: String]? = nil
+    ) -> URLRequest {
+        request(
+            url,
+            httpMethod: .get,
+            token: token,
+            parameters: parameters
+        )
+    }
+
+    static func post(
+        _ url: URL,
+        token: String? = nil,
+        body: [String: Any]? = nil,
+        parameters: [String: String]? = nil
+    ) -> URLRequest {
+        request(
+            url,
+            httpMethod: .post,
+            token: token,
+            body: body,
+            parameters: parameters
+        )
+    }
+
+    static func patch(
+        _ url: URL,
+        token: String? = nil,
+        body: [String: Any]? = nil,
+        parameters: [String: String]? = nil
+    ) -> URLRequest {
+        request(
+            url,
+            httpMethod: .patch,
+            token: token,
+            body: body,
+            parameters: parameters
+        )
+    }
+}
+
+// MARK: - Configured Decoder
+extension JSONDecoder {
+    static var snakeCase: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        return decoder
+    }
+
+    static var snakeCaseWithSimpleDate: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        decoder.dateDecodingStrategy = .formatted(formatter)
+
+        return decoder
+    }
+}
+
+// MARK: - URLSession Extension
+extension URLSession {
+    func decode<T: Decodable>(
+        from request: URLRequest,
+        using decoder: JSONDecoder = .snakeCase
+    ) async throws -> T {
+        let (data, response) = try await self.data(for: request)
+
+        guard
+            let httpResponse = response as? HTTPURLResponse,
+            (200...299).contains(httpResponse.statusCode)
+        else {
+            throw ModelHealthError.url(.badServerResponse)
+        }
+
+        guard !data.isEmpty else {
+            throw ModelHealthError.url(.zeroByteResource)
+        }
+
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            print("Decoding error: \(error.localizedDescription)")
+            print("Response data: \(String(data: data, encoding: .utf8) ?? "N/A")")
+            throw ModelHealthError.internalError
+        }
+    }
+
+    func decode<T: SimpleDateDecodable>(
+        from request: URLRequest
+    ) async throws -> T {
+        try await decode(from: request, using: .snakeCaseWithSimpleDate)
+    }
+}
+
+private extension CheckerboardDetails {
+    var parameters: [String: String] {
+        [
+            "cb_rows": String(rows),
+            "cb_cols": String(columns),
+            "cb_square": String(squareSize),
+            "cb_placement": placement.rawValue.capitalized
+        ]
+    }
+}
+
+private extension AnalysisType {
+    var id: String {
+        switch self {
+        case .counterMovementJump:
+            "36"
+        }
+    }
+}

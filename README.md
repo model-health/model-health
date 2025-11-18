@@ -4,7 +4,7 @@ Swift SDK for measuring and analyzing human movement from smartphone videos.
 
 ## Overview
 
-ModelHealth SDK enables movement practitioners to capture biomechanical data using smartphone cameras and receive actionable insights to improve performance and health. The SDK provides a complete workflow from authentication through data collection to analysis.
+The ModelHealth SDK enables movement practitioners to capture biomechanical data using smartphone cameras and receive actionable insights to improve performance and health. The SDK provides a complete workflow from authentication through data collection to analysis.
 
 ## What Problem Does It Solve?
 
@@ -45,34 +45,34 @@ Or in Xcode:
 ```swift
 import ModelHealth
 
-let sdk = ModelHealthSDK()
+let service = ModelHealthService()
 
 // 1. Authenticate
-let result = try await sdk.login(username: "user@example.com", password: "password")
+let result = try await service.login(username: "user@example.com", password: "password")
 if case .verificationRequired = result {
-    try await sdk.verify(code: "123456", rememberDevice: true)
+    try await service.verify(code: "123456", rememberDevice: true)
 }
 
 // 2. Create session and calibrate cameras
-let session = try await sdk.createSession()
+let session = try await service.createSession()
 let checkerboard = CheckerboardDetails(
-    rows: 7, 
-    columns: 9, 
-    squareSize: 25, 
+    rows: 4, 
+    columns: 5, 
+    squareSize: 35, 
     placement: .perpendicular
 )
-try await sdk.calibrateCamera(session, checkerboardDetails: checkerboard)
+try await service.calibrateCamera(session, checkerboardDetails: checkerboard)
 
 // 3. Capture neutral pose for model scaling
-try await sdk.calibrateNeutralPose()
+try await service.calibrateNeutralPose()
 
 // 4. Record movement
-try await sdk.recordTrial(named: "squat-baseline")
+try await service.recordTrial(named: "squat-baseline")
 // Subject performs movement...
-try await sdk.stopRecording(trialId: trialId)
+try await service.stopRecording(trialId: trialId)
 
 // 5. Fetch analysis results
-let csvData = try await sdk.fetchAnalysis(trialId: trialId)
+let csvData = try await service.fetchAnalysis(trialId: trialId)
 ```
 
 ## Workflow
@@ -113,7 +113,7 @@ Videos are automatically uploaded during recording and processed in the cloud. R
 - iOS 15.0+
 - Swift 5.7+
 - Internet connection for cloud processing
-- Printed checkerboard pattern for calibration (8×10 recommended)
+- Printed checkerboard pattern for calibration (5×6 recommended)
 
 ## Documentation
 
@@ -142,8 +142,8 @@ make docs-markdown
 
 ## License
 
-Proprietary - See LICENSE file for details
+See LICENSE file for details
 
 ---
 
-© 2024 ModelHealth. All rights reserved.
+© 2025 ModelHealth. All rights reserved.

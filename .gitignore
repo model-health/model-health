@@ -2,3 +2,5 @@ Package.resolved
 Demo/ModelHealthDemo.xcodeproj/project.xcworkspace/xcuserdata
 Demo/ModelHealthDemo.xcodeproj/xcuserdata
 .swiftpm
+.build
+Demo/ModelHealthDemo.xcodeproj/xcshareddata
