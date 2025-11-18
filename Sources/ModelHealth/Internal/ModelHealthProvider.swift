@@ -572,7 +572,7 @@ private extension AnalysisType {
     var id: String {
         switch self {
         case .counterMovementJump:
-            "8"
+            "36"
         }
     }
 }
