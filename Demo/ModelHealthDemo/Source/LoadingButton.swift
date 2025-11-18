@@ -1,10 +1,3 @@
-//
-//  LoadingButton.swift
-//  ModelHealthDemo
-//
-//  Created by Warren Gavin on 11/11/2025.
-//
-
 import SwiftUI
 
 struct LoadingButton: View {

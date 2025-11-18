@@ -57,15 +57,15 @@ let result = try await service.downloadAnalysisResult(forTrial: trial, resultTag
 
 ### Workflow Overview
 
-The SDK follows a structured 5-step workflow:
+The SDK follows a 5-step workflow:
 
 1. **Authentication** - Login and optional email verification
 2. **Camera Calibration** - Calibrate cameras with checkerboard pattern
 3. **Neutral Pose** - Capture subject's standing pose for scaling
-4. **Recording** - Record movement trial and wait for processing
+4. **Recording** - Record dynamic movement trial and wait for processing
 5. **Analysis** - Start analysis, poll for completion, download results
 
-See the demo app for a complete implementation with UI and error handling.
+See the demo app for a complete example implementation.
 
 ## Topics
 

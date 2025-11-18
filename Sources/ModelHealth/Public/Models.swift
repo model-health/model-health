@@ -2,8 +2,6 @@ import Foundation
 
 // MARK: - Session
 
-/// A calibration session for grouping camera calibration workflows.
-///
 /// Create with ``ModelHealthService/createSession()`` before performing camera calibration.
 ///
 /// ```swift
@@ -23,12 +21,14 @@ public struct Session: Identifiable, Sendable {
 }
 
 extension Session: Equatable {
+    /// Support for SwiftUI ForEach and List
     public static func == (lhs: Session, rhs: Session) -> Bool {
         lhs.id == rhs.id
     }
 }
 
 extension Session: Hashable {
+    /// Support for SwiftUI ForEach and List
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
@@ -76,13 +76,7 @@ public struct Subject: Decodable, Identifiable, Sendable {
 
     public let gender: Gender
 
-    /// Human-readable gender string for UI display
-    public let genderDisplay: String
-
     public let sexAtBirth: Sex?
-
-    /// Human-readable sex string for UI display
-    public let sexDisplay: String
 
     /// Freeform text describing relevant characteristics or medical conditions
     public let characteristics: String
@@ -92,6 +86,7 @@ public struct Subject: Decodable, Identifiable, Sendable {
 }
 
 extension Subject: Hashable {
+    /// Support for SwiftUI ForEach and List
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
@@ -159,7 +154,10 @@ public enum CheckerboardPlacement: String, CaseIterable, Identifiable, Sendable 
 
     /// Checkerboard placed on the ground
     case parallel
+}
 
+extension CheckerboardPlacement {
+    /// Support for SwiftUI ForEach and Picker
     public var id: String {
         self.rawValue
     }
@@ -192,6 +190,7 @@ public struct CheckerboardDetails: Sendable {
     /// Size of each square in millimeters (must be precise)
     public let squareSize: Int
 
+    /// Checkerboard orientation
     public let placement: CheckerboardPlacement
 
     public init(rows: Int, columns: Int, squareSize: Int, placement: CheckerboardPlacement) {
@@ -263,7 +262,7 @@ public enum CalibrationStatus: Sendable {
     /// If calibrating the neutral pose the subject should remain still and hold their pose until this phase completes.
     case recording
 
-    /// Videos are being uploaded from cameras.
+    /// Recordings have been stopped and videos are being uploaded from cameras.
     ///
     /// - Parameters:
     ///   - uploaded: The number of videos successfully uploaded so far.
@@ -404,9 +403,7 @@ extension Subject {
         public var age: Int? = 42
         public var birthYear: Int? = 1983
         public var gender: Subject.Gender = .man
-        public var genderDisplay = "Man"
         public var sexAtBirth: Subject.Sex? = .man
-        public var sexDisplay = "Man"
         public var characteristics = ""
         public var subjectTags: [String] = []
 
@@ -419,9 +416,7 @@ extension Subject {
                 age: age,
                 birthYear: birthYear,
                 gender: gender,
-                genderDisplay: genderDisplay,
                 sexAtBirth: sexAtBirth,
-                sexDisplay: sexDisplay,
                 characteristics: characteristics,
                 subjectTags: subjectTags
             )

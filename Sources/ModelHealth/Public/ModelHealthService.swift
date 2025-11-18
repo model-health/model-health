@@ -123,7 +123,8 @@ public final class ModelHealthService: ObservableObject {
     ///     print("Login successful")
     ///
     /// case .verificationRequired:
-    ///     // Prompt user for email verification code
+    ///     // Prompt user for email verification code and
+    ///     // trust this device for 90 days
     ///     let code = await promptUserForCode()
     ///     try await service.verify(code: code, rememberDevice: true)
     /// }
@@ -211,9 +212,6 @@ public final class ModelHealthService: ObservableObject {
 
     /// Retrieves all videos associated with the authenticated account.
     ///
-    /// Videos are organized by trial and device. Each video includes metadata
-    /// such as timestamps, processing status, and download URLs.
-    ///
     /// ```swift
     /// let videos = try await service.videoList()
     ///
@@ -221,7 +219,7 @@ public final class ModelHealthService: ObservableObject {
     /// let videosByTrial = Dictionary(grouping: videos) { $0.trial }
     ///
     /// // Download a specific video
-    /// if let videoUrl = videos.first?.videoUrl {
+    /// if let videoUrl = videos.first?.video {
     ///     // Use videoUrl to download the video file
     /// }
     /// ```
@@ -234,7 +232,7 @@ public final class ModelHealthService: ObservableObject {
 
     // MARK: - Session & Calibration
 
-    /// Creates a new calibration session.
+    /// Creates a new session.
     ///
     /// A session is required before performing camera calibration. It represents
     /// a single calibration workflow and groups multiple cameras together.
@@ -268,7 +266,7 @@ public final class ModelHealthService: ObservableObject {
     /// determines the camera's intrinsic parameters and corrects for lens distortion.
     ///
     /// **Requirements:**
-    /// - A printed checkerboard pattern (standard 5×6 board recommended)
+    /// - A printed checkerboard pattern
     /// - Accurate measurement of square size in millimeters
     /// - Multiple views of the checkerboard from different angles
     ///
@@ -315,10 +313,8 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// **Instructions for subject:**
     /// - Stand upright in a relaxed, natural position
-    /// - Face forward with arms at sides
+    /// - Face forward with arms spread slightly at sides
     /// - Remain still for a few seconds
-    ///
-    /// The process is automatic and typically completes in under 5 seconds.
     ///
     /// ```swift
     /// // After successful camera calibration
@@ -345,16 +341,10 @@ public final class ModelHealthService: ObservableObject {
 
     // MARK: - Recording & Analysis
 
-    /// Starts recording a movement trial.
+    /// Starts recording a dynamic movement trial.
     ///
     /// After completing calibration steps (camera calibration and neutral pose),
     /// use this method to begin recording an activity.
-    ///
-    /// Videos are automatically uploaded to the cloud for processing. Multiple
-    /// cameras can record simultaneously if configured.
-    ///
-    /// **Important:** Call ``stopRecording(_:)`` when the movement is complete
-    /// to finalize the trial and trigger video upload.
     ///
     /// ```swift
     /// // Record a CMJ session
@@ -373,11 +363,9 @@ public final class ModelHealthService: ObservableObject {
         try await serviceProvider.record(trialNamed: name, in: session)
     }
 
-    /// Stops recording of a movement trial in a session.
+    /// Stops recording of a dynamic movement trial in a session.
     ///
     /// Call this method when the subject has completed the movement activity.
-    /// Recorded videos are finalized and uploaded to the cloud for biomechanical
-    /// analysis.
     ///
     /// ```swift
     /// // After recording is complete
@@ -385,7 +373,7 @@ public final class ModelHealthService: ObservableObject {
     /// ```
     ///
     /// - Parameter session: The session to stop recording in
-    /// - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
+    /// - Throws: An error if the trial cannot be stopped (invalid sesison ID, already stopped, etc.)
     public func stopRecording(_ session: Session) async throws {
         try await serviceProvider.stopRecording(session)
     }
@@ -484,26 +472,42 @@ public final class ModelHealthService: ObservableObject {
         try await serviceProvider.getAnalysisStatus(for: task)
     }
 
-    /// Downloads an analysis result file.
+    /// Downloads an analysis result.
     ///
     /// Result tags are provided in the `.completed` status from `getAnalysisStatus`.
-    /// Each tag represents a specific analysis output file
+    /// Each tag represents a specific analysis output with structured biomechanical metrics.
     ///
     /// - Parameters:
-    ///   - trial: The completed and analysed trial
-    ///   - resultTag: The specific result file identifier
-    /// - Returns: The raw file data
+    ///   - trial: The completed and analyzed trial
+    ///   - resultTag: The specific result identifier
+    /// - Returns: An ``AnalysisResult`` containing structured metrics
     /// - Throws: Network or authentication errors
     ///
     /// ## Usage
     /// ```swift
-    /// let data = try await service.downloadAnalysisResult(
+    /// let result = try await service.downloadAnalysisResult(
     ///     forTrial: trial,
-    ///     resultTag: "joint-angles-csv"
+    ///     resultTag: "countermovement_jump"
     /// )
     ///
-    /// // Save to file
-    /// try data.write(to: fileURL)
+    /// print("Analysis: \(result.analysisTitle)")
+    /// print("Description: \(result.analysisDescription)")
+    ///
+    /// // Access specific metrics
+    /// if let jumpHeight = result.jumpHeight {
+    ///     print("Jump Height: \(jumpHeight) cm")
+    /// }
+    ///
+    /// // Iterate all metrics
+    /// for (key, metric) in result.metrics {
+    ///     print("\(metric.label): ", terminator: "")
+    ///     switch metric.value {
+    ///     case .single(let value):
+    ///         print(String(format: "%.\(metric.decimalPlaces)f", value))
+    ///     case .bilateral(let left, let right):
+    ///         print("L: \(left), R: \(right)")
+    ///     }
+    /// }
     /// ```
     public func downloadAnalysisResult(
         forTrial trial: Trial,

@@ -2,8 +2,8 @@ import SwiftUI
 import ModelHealth
 
 struct LoginView: View {
-    @State private var username = "warren@modelhealth.io"
-    @State private var password = "testtesttesttesttest"
+    @State private var username = ""
+    @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String = ""
     @State private var showVerification = false

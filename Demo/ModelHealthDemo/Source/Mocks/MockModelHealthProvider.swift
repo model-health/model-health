@@ -26,9 +26,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.age = 28
                 builder.birthYear = 1996
                 builder.gender = .man
-                builder.genderDisplay = "Man"
                 builder.sexAtBirth = .man
-                builder.sexDisplay = "Man"
                 builder.characteristics = "Competitive athlete"
                 builder.subjectTags = ["athlete", "competitive"]
             },
@@ -40,9 +38,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.age = 32
                 builder.birthYear = 1992
                 builder.gender = .woman
-                builder.genderDisplay = "Woman"
                 builder.sexAtBirth = .woman
-                builder.sexDisplay = "Woman"
                 builder.characteristics = "Marathon runner"
                 builder.subjectTags = ["athlete", "endurance"]
             }

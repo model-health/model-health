@@ -12,9 +12,7 @@ enum HTTPMethod: String {
 }
 
 enum Backend {
-//            static let baseURL = "http://127.0.0.1:8000"
-    //        static let baseURL = "http://192.168.17.163:8000"
-    static let baseURL = "https://dev.modelhealth.io"
+    static let baseURL = "https://api.modelhealth.io"
 
     static let login = URL(string: "\(baseURL)/login/")!
     static let verify = URL(string: "\(baseURL)/verify/")!

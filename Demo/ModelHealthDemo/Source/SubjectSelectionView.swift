@@ -105,7 +105,7 @@ struct SubjectRow: View {
                         Label("\(age)", systemImage: "calendar")
                             .font(.caption)
                     }
-                    Label(subject.genderDisplay, systemImage: "person")
+                    Label(subject.gender.rawValue.capitalized, systemImage: "person")
                         .font(.caption)
                 }
                 .foregroundColor(.secondary)
