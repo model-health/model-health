@@ -75,7 +75,10 @@ struct CameraCalibrationView: View {
 
     private func performCalibration() async {
         isCalibrating = true
-        defer { isCalibrating = false }
+
+        defer {
+            isCalibrating = false
+        }
 
         do {
             guard
@@ -83,7 +86,9 @@ struct CameraCalibrationView: View {
                 let columns = Int(columns),
                 let squareSize = Int(squareSize)
             else {
-                throw NSError(domain: "Invalid input", code: 0, userInfo: nil)
+                fatalError(
+                    (#file as NSString).lastPathComponent + ":" + #function + ": Invalid input"
+                )
             }
 
             let calibrationDetails = CheckerboardDetails(
@@ -106,9 +111,11 @@ struct CameraCalibrationView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
-        CameraCalibrationView(session: .forPreview)
+        CameraCalibrationView(session: .forPreview())
             .environmentObject(ModelHealthService())
     }
 }
+#endif
