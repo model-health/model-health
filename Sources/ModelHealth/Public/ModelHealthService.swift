@@ -65,29 +65,16 @@ import Foundation
 ///
 /// ### Session & Calibration
 /// - ``createSession()``
-/// - ``calibrateCamera(_:checkerboardDetails:)``
-/// - ``calibrateNeutralPose(for:in:)``
+/// - ``calibrateCamera(_:checkerboardDetails:statusUpdate:)``
+/// - ``calibrateNeutralPose(for:in:statusUpdate:)``
 ///
 /// ### Recording & Analysis
 /// - ``record(trialNamed:in:)``
 /// - ``stopRecording(_:)``
 /// - ``getStatus(forTrial:)``
-
 /// - ``startAnalysis(_:for:in:)``
 /// - ``getAnalysisStatus(for:)``
 /// - ``downloadAnalysisResult(forTrial:resultTag:)``
-///
-/// ## Special Note for SwiftUI Previews
-///
-/// Helpers are provided to populate Previews in SwiftUI, These are only available in DEBUG
-///  builds. You will need to wrap your previews:
-/// ```swift
-/// #if DEBUG
-/// #Preview {
-///     MyView(session: .forPreview())
-/// }
-/// #endif
-/// ```
 public final class ModelHealthService: ObservableObject {
     private let serviceProvider: ModelHealthProvider
 
@@ -252,7 +239,7 @@ public final class ModelHealthService: ObservableObject {
     /// A session is required before performing camera calibration. It represents
     /// a single calibration workflow and groups multiple cameras together.
     ///
-    /// After creating a session, use ``calibrateCamera(_:checkerboardDetails:)``
+    /// After creating a session, use ``calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     /// to calibrate your cameras.
     ///
     /// ```swift
@@ -306,6 +293,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Parameters:
     ///   - session: The session created with ``createSession()``
     ///   - checkerboardDetails: Configuration of the calibration checkerboard
+    ///   - statusUpdate: Closure called with calibration progress updates
     /// - Throws: An error if calibration fails (insufficient views, pattern not detected, etc.)
     public func calibrateCamera(
         _ session: Session,
@@ -339,7 +327,9 @@ public final class ModelHealthService: ObservableObject {
     /// ```
     ///
     /// - Parameters:
-    ///   - session: The session created with ``createSession()``
+    ///   - subject: The subject to calibrate the neutral pose for
+    ///   - session: The session to perform calibration in
+    ///   - statusUpdate: Closure called with calibration progress updates
     /// - Throws: An error if pose capture fails (subject not detected, poor lighting, etc.)
     public func calibrateNeutralPose(
         for subject: Subject,
@@ -363,7 +353,7 @@ public final class ModelHealthService: ObservableObject {
     /// Videos are automatically uploaded to the cloud for processing. Multiple
     /// cameras can record simultaneously if configured.
     ///
-    /// **Important:** Call ``stopRecording(session:)`` when the movement is complete
+    /// **Important:** Call ``stopRecording(_:)`` when the movement is complete
     /// to finalize the trial and trigger video upload.
     ///
     /// ```swift
@@ -376,7 +366,7 @@ public final class ModelHealthService: ObservableObject {
     /// ```
     ///
     /// - Parameters:
-    ///   - trialName: A descriptive name for this trial (e.g., "cmj-test")
+    ///   - name: A descriptive name for this trial (e.g., "cmj-test")
     ///   - session: The session this trial is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
     public func record(trialNamed name: String, in session: Session) async throws  -> Trial {
