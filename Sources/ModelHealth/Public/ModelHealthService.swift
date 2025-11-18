@@ -34,18 +34,22 @@ import Foundation
 /// // Create session and calibrate
 /// let session = try await service.createSession()
 /// let details = CheckerboardDetails(rows: 4, columns: 5, squareSize: 35, placement: .perpendicular)
-/// try await service.calibrateCamera(session, checkerboardDetails: details)
+/// try await service.calibrateCamera(session, checkerboardDetails: details) { status in }
 ///
 /// // Capture neutral pose
-/// try await service.calibrateNeutralPose()
+/// try await service.calibrateNeutralPose(for: subject, in: session) { status in }
 ///
 /// // Record a movement trial
-/// try await service.recordTrial(named: "squat-session-1")
-/// let trialId = "..." // From your trial tracking
-/// try await service.stopRecording(trialId: trialId)
+/// let trial = try await service.record(trialNamed: "cmj-1", in: session)
+/// // Subject performs movement...
+/// try await service.stopRecording(session)
 ///
-/// // Fetch analysis results
-/// let analysisData = try await service.fetchAnalysis(trialId: trialId)
+/// // Poll for processing completion, then analyze
+/// let status = try await service.getStatus(forTrial: trial)
+/// if case .ready = status {
+///     let task = try await service.startAnalysis(.counterMovementJump, for: trial, in: session)
+///     // Poll for analysis completion...
+/// }
 /// ```
 ///
 /// ## Topics
@@ -61,15 +65,18 @@ import Foundation
 ///
 /// ### Session & Calibration
 /// - ``createSession()``
-/// - ``calibrateCamera(_:checkerboardDetails:)``
-/// - ``calibrateNeutralPose()``
+/// - ``calibrateCamera(_:checkerboardDetails:statusUpdate:)``
+/// - ``calibrateNeutralPose(for:in:statusUpdate:)``
 ///
 /// ### Recording & Analysis
-/// - ``recordTrial(named:)``
-/// - ``stopRecording(trialId:)``
-/// - ``fetchAnalysis(trialId:)``
+/// - ``record(trialNamed:in:)``
+/// - ``stopRecording(_:)``
+/// - ``getStatus(forTrial:)``
+/// - ``startAnalysis(_:for:in:)``
+/// - ``getAnalysisStatus(for:)``
+/// - ``downloadAnalysisResult(forTrial:resultTag:)``
 public final class ModelHealthService: ObservableObject {
-    private let backendService: BackendService
+    private let serviceProvider: ModelHealthProvider
 
     /// Creates a new ModelHealth SDK instance.
     ///
@@ -81,11 +88,17 @@ public final class ModelHealthService: ObservableObject {
     /// try await service.login(username: "user@example.com", password: "pass")
     /// ```
     public init() {
-        self.backendService = BackendServiceImpl()
+        self.serviceProvider = ModelHealthProviderImpl()
     }
 
-    internal init(backendService: BackendService) {
-        self.backendService = backendService
+    /// Creates a ModelHealth SDK instance with a custom service provider.
+    ///
+    /// This initializer can be used for testing with your own mocked Model Health service provider that
+    /// conforms to `ModelHealthProvider`
+    ///
+    /// - Parameter serviceProvider: The provider that handles SDK operations
+    public init(serviceProvider: ModelHealthProvider) {
+        self.serviceProvider = serviceProvider
     }
 
     // MARK: - Authentication
@@ -110,7 +123,8 @@ public final class ModelHealthService: ObservableObject {
     ///     print("Login successful")
     ///
     /// case .verificationRequired:
-    ///     // Prompt user for email verification code
+    ///     // Prompt user for email verification code and
+    ///     // trust this device for 90 days
     ///     let code = await promptUserForCode()
     ///     try await service.verify(code: code, rememberDevice: true)
     /// }
@@ -122,7 +136,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: A ``LoginResult`` indicating whether verification is required
     /// - Throws: An error if authentication fails (invalid credentials, network issues, etc.)
     public func login(username: String, password: String) async throws -> LoginResult {
-        try await backendService.login(username: username, password: password)
+        try await serviceProvider.login(username: username, password: password)
     }
 
     /// Completes authentication by verifying an email code.
@@ -144,10 +158,32 @@ public final class ModelHealthService: ObservableObject {
     ///   - rememberDevice: If `true`, trust this device for 90 days (default: `false`)
     /// - Throws: An error if the code is invalid or expired
     public func verify(code: String, rememberDevice: Bool = false) async throws {
-        try await backendService.verify(code: code, rememberDevice: rememberDevice)
+        try await serviceProvider.verify(code: code, rememberDevice: rememberDevice)
     }
 
     // MARK: - Data Retrieval
+
+    /// Retrieves all sessions for the authenticated user.
+    ///
+    /// - Returns: An array of ``Session`` objects. Returns an empty array if no sessions exist.
+    /// - Throws: An error if the request fails due to network issues, authentication problems,
+    ///   or server errors.
+    ///
+    /// ## Example
+    /// ```swift
+    /// do {
+    ///     let sessions = try await client.sessionList()
+    ///     print("Found \(sessions.count) sessions")
+    ///     for session in sessions {
+    ///         print("Session: \(session.id)")
+    ///     }
+    /// } catch {
+    ///     print("Failed to fetch sessions: \(error)")
+    /// }
+    /// ```
+    public func sessionList() async throws -> [Session] {
+        try await serviceProvider.sessionList()
+    }
 
     /// Retrieves all subjects associated with the authenticated account.
     ///
@@ -167,7 +203,7 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Subject`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func subjectList() async throws -> [Subject] {
-        try await backendService.subjectList()
+        try await serviceProvider.subjectList()
     }
 
     /// Retrieves all movement trials associated with the authenticated account.
@@ -193,13 +229,10 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Trial`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func trialList() async throws -> [Trial] {
-        try await backendService.trialList()
+        try await serviceProvider.trialList()
     }
 
     /// Retrieves all videos associated with the authenticated account.
-    ///
-    /// Videos are organized by trial and device. Each video includes metadata
-    /// such as timestamps, processing status, and download URLs.
     ///
     /// ```swift
     /// let videos = try await service.videoList()
@@ -208,7 +241,7 @@ public final class ModelHealthService: ObservableObject {
     /// let videosByTrial = Dictionary(grouping: videos) { $0.trial }
     ///
     /// // Download a specific video
-    /// if let videoUrl = videos.first?.videoUrl {
+    /// if let videoUrl = videos.first?.video {
     ///     // Use videoUrl to download the video file
     /// }
     /// ```
@@ -216,17 +249,17 @@ public final class ModelHealthService: ObservableObject {
     /// - Returns: An array of ``Video`` objects
     /// - Throws: An error if the request fails or authentication has expired
     public func videoList() async throws -> [Video] {
-        try await backendService.videoList()
+        try await serviceProvider.videoList()
     }
 
     // MARK: - Session & Calibration
 
-    /// Creates a new calibration session.
+    /// Creates a new session.
     ///
     /// A session is required before performing camera calibration. It represents
     /// a single calibration workflow and groups multiple cameras together.
     ///
-    /// After creating a session, use ``calibrateCamera(_:checkerboardDetails:)``
+    /// After creating a session, use ``calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     /// to calibrate your cameras.
     ///
     /// ```swift
@@ -240,13 +273,13 @@ public final class ModelHealthService: ObservableObject {
     ///     squareSize: 35,
     ///     placement: .perpendicular
     /// )
-    /// try await service.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details) { _ in }
     /// ```
     ///
     /// - Returns: A ``Session`` object with a unique identifier
     /// - Throws: An error if session creation fails
     public func createSession() async throws -> Session {
-        try await backendService.createSession()
+        try await serviceProvider.createSession()
     }
 
     /// Calibrates a camera using a checkerboard pattern.
@@ -255,7 +288,7 @@ public final class ModelHealthService: ObservableObject {
     /// determines the camera's intrinsic parameters and corrects for lens distortion.
     ///
     /// **Requirements:**
-    /// - A printed checkerboard pattern (standard 4×5 board recommended)
+    /// - A printed checkerboard pattern
     /// - Accurate measurement of square size in millimeters
     /// - Multiple views of the checkerboard from different angles
     ///
@@ -266,23 +299,32 @@ public final class ModelHealthService: ObservableObject {
     /// let session = try await service.createSession()
     ///
     /// let details = CheckerboardDetails(
-    ///     rows: 4,           // Internal corners, not squares (for 4×5 board)
-    ///     columns: 5,        // Internal corners, not squares (for 4×5 board)
+    ///     rows: 4,           // Internal corners, not squares (for 5×6 board)
+    ///     columns: 5,        // Internal corners, not squares (for 5×6 board)
     ///     squareSize: 35,    // Measured in millimeters
     ///     placement: .perpendicular
     /// )
     ///
     /// // Start calibration - show checkerboard to camera from various angles
-    /// try await service.calibrateCamera(session, checkerboardDetails: details)
+    /// try await service.calibrateCamera(session, checkerboardDetails: details) { _ in }
     /// // Calibration complete, proceed to neutral pose
     /// ```
     ///
     /// - Parameters:
     ///   - session: The session created with ``createSession()``
     ///   - checkerboardDetails: Configuration of the calibration checkerboard
+    ///   - statusUpdate: Closure called with calibration progress updates
     /// - Throws: An error if calibration fails (insufficient views, pattern not detected, etc.)
-    public func calibrateCamera(_ session: Session, checkerboardDetails: CheckerboardDetails) async throws {
-        try await backendService.calibrateCamera(session, checkerboardDetails: checkerboardDetails)
+    public func calibrateCamera(
+        _ session: Session,
+        checkerboardDetails: CheckerboardDetails,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        try await serviceProvider.calibrateCamera(
+            session,
+            checkerboardDetails: checkerboardDetails,
+            statusUpdate: statusUpdate
+        )
     }
 
     /// Captures the subject's neutral standing pose for model scaling.
@@ -293,112 +335,298 @@ public final class ModelHealthService: ObservableObject {
     ///
     /// **Instructions for subject:**
     /// - Stand upright in a relaxed, natural position
-    /// - Face forward with arms at sides
+    /// - Face forward with arms spread slightly at sides
     /// - Remain still for a few seconds
-    ///
-    /// The process is automatic and typically completes in under 5 seconds.
     ///
     /// ```swift
     /// // After successful camera calibration
-    /// try await service.calibrateNeutralPose()
+    /// try await service.calibrateNeutralPose(for: subject, in: session) { _ in }
     /// // Model now scaled, ready to record movement trials
     /// ```
     ///
+    /// - Parameters:
+    ///   - subject: The subject to calibrate the neutral pose for
+    ///   - session: The session to perform calibration in
+    ///   - statusUpdate: Closure called with calibration progress updates
     /// - Throws: An error if pose capture fails (subject not detected, poor lighting, etc.)
-    public func calibrateNeutralPose() async throws {
-        try await backendService.calibrateNeutralPose()
+    public func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws {
+        try await serviceProvider.calibrateNeutralPose(
+            for: subject,
+            in: session,
+            statusUpdate: statusUpdate
+        )
     }
 
     // MARK: - Recording & Analysis
 
-    /// Starts recording a movement trial.
+    /// Starts recording a dynamic movement trial.
     ///
     /// After completing calibration steps (camera calibration and neutral pose),
-    /// use this method to begin recording a movement activity such as squats,
-    /// jumps, walking, or any other motion.
-    ///
-    /// Videos are automatically uploaded to the cloud for processing. Multiple
-    /// cameras can record simultaneously if configured.
-    ///
-    /// **Important:** Call ``stopRecording(trialId:)`` when the movement is complete
-    /// to finalize the trial and begin processing.
+    /// use this method to begin recording an activity.
     ///
     /// ```swift
-    /// // Record a squat session
-    /// try await service.recordTrial(named: "squat-baseline-2024")
-    /// // Subject performs squats while cameras record
+    /// // Record a CMJ session
+    /// let trial = try await service.record(trialNamed: "cmj-2024", in: session)
+    /// // Subject performs CMJ while cameras record
     ///
     /// // When complete, stop recording
-    /// try await service.stopRecording(trialId: trialId)
+    /// try await service.stopRecording(session: session)
     /// ```
     ///
-    /// - Parameter name: A descriptive name for this trial (e.g., "squat-session-1", "cmj-test")
+    /// - Parameters:
+    ///   - name: A descriptive name for this trial (e.g., "cmj-test")
+    ///   - session: The session this trial is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
-    public func recordTrial(named name: String) async throws {
-        try await backendService.recordTrial(named: name)
+    public func record(trialNamed name: String, in session: Session) async throws  -> Trial {
+        try await serviceProvider.record(trialNamed: name, in: session)
     }
 
-    /// Stops recording for a movement trial and initiates processing.
+    /// Stops recording of a dynamic movement trial in a session.
     ///
     /// Call this method when the subject has completed the movement activity.
-    /// Recorded videos are finalized and uploaded to the cloud for biomechanical
-    /// analysis.
-    ///
-    /// Processing typically takes a few minutes depending on video length and
-    /// complexity. Use ``trialList()`` to check the trial's status, or
-    /// ``fetchAnalysis(trialId:)`` to retrieve results once processing is complete.
     ///
     /// ```swift
     /// // After recording is complete
-    /// try await service.stopRecording(trialId: "trial-abc-123")
-    ///
-    /// // Wait for processing (check status periodically)
-    /// let trials = try await service.trialList()
-    /// if let trial = trials.first(where: { $0.id == trialId }),
-    ///    trial.status == "completed" {
-    ///     // Analysis ready
-    ///     let data = try await service.fetchAnalysis(trialId: trialId)
-    /// }
+    /// try await service.stopRecording(session: Session)
     /// ```
     ///
-    /// - Parameter trialId: The unique identifier of the trial to stop
-    /// - Throws: An error if the trial cannot be stopped (invalid ID, already stopped, etc.)
-    public func stopRecording(trialId: String) async throws {
-        try await backendService.stopRecording(trialId: trialId)
+    /// - Parameter session: The session to stop recording in
+    /// - Throws: An error if the trial cannot be stopped (invalid sesison ID, already stopped, etc.)
+    public func stopRecording(_ session: Session) async throws {
+        try await serviceProvider.stopRecording(session)
     }
 
-    /// Fetches biomechanical analysis results for a completed trial.
+    /// Retrieves the current processing status of a trial.
     ///
-    /// Once a trial's processing is complete (status: "completed"), this method
-    /// retrieves the analysis results as CSV data. The CSV contains detailed
-    /// biomechanical variables over time, including joint angles, velocities,
-    /// forces, and scalar metrics.
+    /// Poll this method to determine when a trial is ready for analysis.
+    /// Trials must complete video upload and processing before analysis can begin.
     ///
-    /// **Analysis includes:**
-    /// - Joint kinematics (angles, velocities, accelerations)
-    /// - Ground reaction forces
-    /// - Center of mass trajectory
-    /// - Performance metrics and scalars
-    /// - Comparison to normative distributions
+    /// - Parameter trial: A completed trial
+    /// - Returns: The current processing status
+    /// - Throws: Network or authentication errors
     ///
+    /// ## Usage
     /// ```swift
-    /// // Fetch analysis for completed trial
-    /// let csvData = try await service.fetchAnalysis(trialId: "trial-abc-123")
+    /// let status = try await service.getStatus(forTrial: trial)
     ///
-    /// // Parse CSV data
-    /// if let csvString = String(data: csvData, encoding: .utf8) {
-    ///     let rows = csvString.components(separatedBy: .newlines)
-    ///     // Process biomechanical data...
+    /// switch status {
+    /// case .ready:
+    ///     print("Trial ready for analysis")
+    /// case .processing:
+    ///     print("Still processing...")
+    /// case .uploading(let uploaded, let total):
+    ///     print("Uploaded \(uploaded)/\(total) videos")
+    /// case .failed:
+    ///     print("Processing failed")
+    /// }
+    /// ```
+    public func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+        try await serviceProvider.getStatus(forTrial: trial)
+    }
+
+    /// Starts an analysis task for a completed trial.
+    ///
+    /// The trial must have completed processing (status `.ready`) before analysis can begin.
+    /// Use the returned `AnalysisTask` to poll for completion.
+    ///
+    /// - Parameters:
+    ///   - analysisType: The type of analysis to perform
+    ///   - trial: The trial to analyze
+    ///   - session: The session containing the trial
+    /// - Returns: An analysis task for tracking completion
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let task = try await service.startAnalysis(
+    ///     .counterMovementJump,
+    ///     for: trial,
+    ///     in: session
+    /// )
+    ///
+    /// // Poll for completion
+    /// let status = try await service.getAnalysisStatus(for: task)
+    /// ```
+    public func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask {
+        try await serviceProvider.startAnalysis(
+            analysisType,
+            for: trial,
+            in: session
+        )
+    }
+
+    /// Retrieves the current status of an analysis task.
+    ///
+    /// Poll this method to monitor analysis progress. When status is `.completed`,
+    /// use the returned result tags to download analysis files.
+    ///
+    /// - Parameter task: The task returned from `startAnalysis`
+    /// - Returns: The current analysis status
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let status = try await service.getAnalysisStatus(for: task)
+    ///
+    /// switch status {
+    /// case .processing:
+    ///     print("Analysis running...")
+    /// case .completed(let tags):
+    ///     for tag in tags {
+    ///         let data = try await service.downloadAnalysisResult(
+    ///             forTrial: trial,
+    ///             resultTag: tag
+    ///         )
+    ///     }
+    /// case .failed:
+    ///     print("Analysis failed")
+    /// }
+    /// ```
+    public func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
+        try await serviceProvider.getAnalysisStatus(for: task)
+    }
+
+    /// Downloads an analysis result.
+    ///
+    /// Result tags are provided in the `.completed` status from `getAnalysisStatus`.
+    /// Each tag represents a specific analysis output with structured biomechanical metrics.
+    ///
+    /// - Parameters:
+    ///   - trial: The completed and analyzed trial
+    ///   - resultTag: The specific result identifier
+    /// - Returns: An ``AnalysisResult`` containing structured metrics
+    /// - Throws: Network or authentication errors
+    ///
+    /// ## Usage
+    /// ```swift
+    /// let result = try await service.downloadAnalysisResult(
+    ///     forTrial: trial,
+    ///     resultTag: "countermovement_jump"
+    /// )
+    ///
+    /// print("Analysis: \(result.analysisTitle)")
+    /// print("Description: \(result.analysisDescription)")
+    ///
+    /// // Access specific metrics
+    /// if let jumpHeight = result.jumpHeight {
+    ///     print("Jump Height: \(jumpHeight) cm")
     /// }
     ///
-    /// // Or save to file
-    /// try csvData.write(to: analysisURL)
+    /// // Iterate all metrics
+    /// for (key, metric) in result.metrics {
+    ///     print("\(metric.label): ", terminator: "")
+    ///     switch metric.value {
+    ///     case .single(let value):
+    ///         print(String(format: "%.\(metric.decimalPlaces)f", value))
+    ///     case .bilateral(let left, let right):
+    ///         print("L: \(left), R: \(right)")
+    ///     }
+    /// }
     /// ```
-    ///
-    /// - Parameter trialId: The unique identifier of the trial
-    /// - Returns: CSV-formatted biomechanical data as `Data`
-    /// - Throws: An error if analysis is not ready or retrieval fails
-    public func fetchAnalysis(trialId: String) async throws -> Data {
-        try await backendService.fetchAnalysis(trialId: trialId)
+    public func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> AnalysisResult {
+        try await serviceProvider.downloadAnalysisResult(
+            forTrial: trial,
+            resultTag: resultTag
+        )
     }
 }
+
+/// Defines ModelHealth SDK operations for dependency injection and testing.
+///
+/// Conform to this protocol to create mock implementations for testing.
+///
+/// See ``ModelHealthService`` for detailed documentation of each method.
+public protocol ModelHealthProvider {
+    /// See ``ModelHealthService/login(username:password:)``
+    func login(username: String,password: String) async throws -> LoginResult
+
+    /// See ``ModelHealthService/verify(code:rememberDevice:)``
+    func verify(code: String, rememberDevice: Bool) async throws
+
+    /// See ``ModelHealthService/sessionList()``
+    func sessionList() async throws -> [Session]
+
+    /// See ``ModelHealthService/subjectList()``
+    func subjectList() async throws -> [Subject]
+
+    /// See ``ModelHealthService/trialList()``
+    func trialList() async throws -> [Trial]
+
+    /// See ``ModelHealthService/videoList()``
+    func videoList() async throws -> [Video]
+
+    /// See ``ModelHealthService/createSession()``
+    func createSession() async throws -> Session
+
+    /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
+    func record(trialNamed name: String, in session: Session) async throws -> Trial
+
+    /// See ``ModelHealthService/stopRecording(_:)``
+    func stopRecording(_ session: Session) async throws
+
+    /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
+    func calibrateCamera(
+        _ session: Session,
+        checkerboardDetails: CheckerboardDetails,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws
+
+    /// See ``ModelHealthService/calibrateNeutralPose(for:in:statusUpdate:)``
+    func calibrateNeutralPose(
+        for subject: Subject,
+        in session: Session,
+        statusUpdate: @Sendable (CalibrationStatus) -> Void
+    ) async throws
+
+    /// See ``ModelHealthService/getStatus(forTrial:)``
+    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
+
+    /// See ``ModelHealthService/startAnalysis(_:for:in:)``
+    func startAnalysis(
+        _ analysisType: AnalysisType,
+        for trial: Trial,
+        in session: Session
+    ) async throws -> AnalysisTask
+
+    /// See ``ModelHealthService/getAnalysisStatus(for:)``
+    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
+
+    /// See ``ModelHealthService/downloadAnalysisResult(forTrial:resultTag:)``
+    func downloadAnalysisResult(
+        forTrial trial: Trial,
+        resultTag: String
+    ) async throws -> AnalysisResult
+}
+
+/// Errors that may be thrown by ModelHealthService
+public enum ModelHealthError: Error, Sendable {
+    /// Errors specific to camera or neutral pose calibration
+    public enum CalibrationError: Sendable {
+        /// The calibration step did not use the minimul number of cameras required, which is at least 2
+        case notEnoughCameras
+
+        /// Calibration capture occurred but there was a failure when processing the calibration data
+        case calibrationFailed
+    }
+
+    /// Errors that occur in the URL Error domain
+    case url(URLError.Code)
+
+    /// Errors that occur during calibration
+    case calibration(CalibrationError)
+
+    /// An internal SDK error occurred
+    case internalError
+}
+

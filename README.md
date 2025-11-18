@@ -113,7 +113,7 @@ Videos are automatically uploaded during recording and processed in the cloud. R
 - iOS 15.0+
 - Swift 5.7+
 - Internet connection for cloud processing
-- Printed checkerboard pattern for calibration (4×5 recommended)
+- Printed checkerboard pattern for calibration (5×6 recommended)
 
 ## Documentation
 

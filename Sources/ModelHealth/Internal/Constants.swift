@@ -1,9 +1,5 @@
 import Foundation
 
-public extension Session {
-    @MainActor static let shared = Session(id: "a4e7f3af-92a9-407e-a5a9-465fa4314248")
-}
-
 enum HTTPMethod: String {
     case get
     case post
@@ -16,11 +12,11 @@ enum HTTPMethod: String {
 }
 
 enum Backend {
-    static let baseURL = "http://localhost:8000"
-//    static let baseURL = "https://dev.modelhealth.io"
+    static let baseURL = "https://api.modelhealth.io"
 
     static let login = URL(string: "\(baseURL)/login/")!
     static let verify = URL(string: "\(baseURL)/verify/")!
+    static let sessions = URL(string: "\(baseURL)/sessions/")!
     static let subjects = URL(string: "\(baseURL)/subjects/")!
     static let trials = URL(string: "\(baseURL)/trials/")!
     static let videos = URL(string: "\(baseURL)/videos/")!
@@ -52,5 +48,25 @@ enum Backend {
 
     static func calibrationImg(id: String) -> URL {
         URL(string: "\(session(id))calibration_img/")!
+    }
+
+    static func setMetadata(id: String) -> URL {
+        URL(string: "\(session(id))set_metadata/")!
+    }
+
+    static func neutralImg(id: String) -> URL {
+        URL(string: "\(session(id))neutral_img/")!
+    }
+
+    static func calibratedCameras(id: String) -> URL {
+        URL(string: "\(session(id))get_n_calibrated_cameras/")!
+    }
+
+    static func invokeAnalysis(functionId: String) -> URL {
+        URL(string: "\(baseURL)/analysis-functions/\(functionId)/invoke/")!
+    }
+
+    static func analysisResult(taskId: String) -> URL {
+        URL(string: "\(baseURL)/analysis-result/\(taskId)/")!
     }
 }
