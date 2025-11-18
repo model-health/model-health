@@ -6,6 +6,23 @@ import ModelHealth
 /// This mock provides pre-configured happy-path responses for all SDK operations.
 /// Useful for UI development, testing, and the demo app.
 final class MockModelHealthProvider: ModelHealthProvider {
+    func sessionList() async throws -> [ModelHealth.Session] {
+        try await Task.sleep(nanoseconds: 400_000_000)
+        return [
+            .forPreview { builder in
+                builder.id = "mock-session-\(UUID().uuidString.prefix(8))"
+                builder.name = "Mock Session"
+                builder.sessionName = "Demo Session \(Date().formatted(date: .abbreviated, time: .shortened))"
+                builder.user = 1
+                builder.public = false
+                builder.qrcode = nil
+                builder.trials = []
+                builder.subject = nil
+                builder.trialsCount = 0
+            }
+        ]
+    }
+    
     func login(username: String, password: String) async throws -> LoginResult {
         try await Task.sleep(nanoseconds: 500_000_000)
         return .ok

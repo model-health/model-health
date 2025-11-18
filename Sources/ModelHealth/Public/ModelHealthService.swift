@@ -163,6 +163,28 @@ public final class ModelHealthService: ObservableObject {
 
     // MARK: - Data Retrieval
 
+    /// Retrieves all sessions for the authenticated user.
+    ///
+    /// - Returns: An array of ``Session`` objects. Returns an empty array if no sessions exist.
+    /// - Throws: An error if the request fails due to network issues, authentication problems,
+    ///   or server errors.
+    ///
+    /// ## Example
+    /// ```swift
+    /// do {
+    ///     let sessions = try await client.sessionList()
+    ///     print("Found \(sessions.count) sessions")
+    ///     for session in sessions {
+    ///         print("Session: \(session.id)")
+    ///     }
+    /// } catch {
+    ///     print("Failed to fetch sessions: \(error)")
+    /// }
+    /// ```
+    public func sessionList() async throws -> [Session] {
+        try await serviceProvider.sessionList()
+    }
+
     /// Retrieves all subjects associated with the authenticated account.
     ///
     /// Subjects represent individuals being monitored or assessed. Each subject
@@ -522,42 +544,65 @@ public final class ModelHealthService: ObservableObject {
 
 /// Defines ModelHealth SDK operations for dependency injection and testing.
 ///
-/// The SDK provides a default implementation. Conform to this protocol to create
-/// mock implementations for testing.
+/// Conform to this protocol to create mock implementations for testing.
 ///
 /// See ``ModelHealthService`` for detailed documentation of each method.
 public protocol ModelHealthProvider {
+    /// See ``ModelHealthService/login(username:password:)``
     func login(username: String,password: String) async throws -> LoginResult
+
+    /// See ``ModelHealthService/verify(code:rememberDevice:)``
     func verify(code: String, rememberDevice: Bool) async throws
+
+    /// See ``ModelHealthService/sessionList()``
+    func sessionList() async throws -> [Session]
+
+    /// See ``ModelHealthService/subjectList()``
     func subjectList() async throws -> [Subject]
+
+    /// See ``ModelHealthService/trialList()``
     func trialList() async throws -> [Trial]
+
+    /// See ``ModelHealthService/videoList()``
     func videoList() async throws -> [Video]
+
+    /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
+
+    /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     func record(trialNamed name: String, in session: Session) async throws -> Trial
+
+    /// See ``ModelHealthService/stopRecording(_:)``
     func stopRecording(_ session: Session) async throws
 
+    /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws
 
+    /// See ``ModelHealthService/calibrateNeutralPose(for:in:statusUpdate:)``
     func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
         statusUpdate: @Sendable (CalibrationStatus) -> Void
     ) async throws
 
+    /// See ``ModelHealthService/getStatus(forTrial:)``
     func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
 
+    /// See ``ModelHealthService/startAnalysis(_:for:in:)``
     func startAnalysis(
         _ analysisType: AnalysisType,
         for trial: Trial,
         in session: Session
     ) async throws -> AnalysisTask
 
+    /// See ``ModelHealthService/getAnalysisStatus(for:)``
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
 
+    /// See ``ModelHealthService/downloadAnalysisResult(forTrial:resultTag:)``
     func downloadAnalysisResult(
         forTrial trial: Trial,
         resultTag: String
@@ -571,7 +616,7 @@ public enum ModelHealthError: Error, Sendable {
         /// The calibration step did not use the minimul number of cameras required, which is at least 2
         case notEnoughCameras
 
-        /// Calibration capture occurred byt there was a failure when processing the calibration data
+        /// Calibration capture occurred but there was a failure when processing the calibration data
         case calibrationFailed
     }
 

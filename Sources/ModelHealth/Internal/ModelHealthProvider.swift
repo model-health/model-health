@@ -29,6 +29,11 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let _: EmptyResponse = try await URLSession.shared.decode(from: request)
     }
 
+    func sessionList() async throws -> [Session] {
+        let response: [SessionResponse] = try await get(Backend.sessions)
+        return response.map { $0.model }
+    }
+
     func subjectList() async throws -> [Subject] {
         let response: SubjectsResponse = try await get(Backend.subjects)
         return response.subjects

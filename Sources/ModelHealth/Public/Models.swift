@@ -314,23 +314,57 @@ public enum AnalysisTaskStatus: Sendable {
     case failed
 }
 
+/// Represents the results of a biomechanical movement analysis.
+///
+/// This structure contains metrics and metadata from analyzing movements such as
+/// countermovement jumps (CMJ). Metrics can be either single values or bilateral
+/// (separate left and right values).
 public struct AnalysisResult: Sendable {
+    /// The title of the analysis function that generated these results.
     public let analysisTitle: String
+
+    /// A detailed description of the analysis function and its purpose.
     public let analysisDescription: String
+
+    /// Dictionary of all metrics returned by the analysis, keyed by metric identifier.
+    ///
+    /// Access specific metrics using the convenience properties rather than
+    /// accessing this dictionary directly.
     public let metrics: [String: Metric]
 
+    /// A single metric from a biomechanical analysis.
     public struct Metric: Sendable {
+        /// Human-readable label for the metric.
+        ///
+        /// Example: "Jump height (cm)"
         public let label: String
+
+        /// Whether this metric has separate left and right values.
+        ///
+        /// - Returns: `true` if the metric contains bilateral data, `false` for single values.
         public let bilateral: Bool
+
+        /// The measured value(s) for this metric.
         public let value: MetricValue
+
+        /// Detailed explanation of what this metric measures and its significance.
         public let info: String
+
+        /// Number of decimal places to display when formatting this metric.
         public let decimalPlaces: Int
     }
 
+    /// The measured value of a metric, either single or bilateral.
     public enum MetricValue: Sendable {
+        /// A single measured value.
         case single(Double)
+
+        /// Separate measurements for left and right sides.
         case bilateral(left: Double, right: Double)
 
+        /// Returns the value if this is a single measurement.
+        ///
+        /// - Returns: The measured value, or `nil` if this is a bilateral measurement.
         public var singleValue: Double? {
             if case .single(let value) = self {
                 return value
@@ -341,10 +375,137 @@ public struct AnalysisResult: Sendable {
     }
 }
 
+// MARK: - Single-Value Metrics
+
 extension AnalysisResult {
-    /// Jump height in centimeters (for CMJ analysis)
+    /// The vertical distance between the center of mass in standing position and its highest point during the jump.
+    ///
+    /// - Returns: Jump height in centimeters, or `nil` if not available.
     public var jumpHeight: Double? {
         metrics["00_jump_height_COM"]?.value.singleValue
+    }
+
+    /// The time between the start of the downward phase and toe-off.
+    ///
+    /// - Returns: Jump time in seconds, or `nil` if not available.
+    public var jumpTime: Double? {
+        metrics["01_jump_time"]?.value.singleValue
+    }
+
+    /// The ratio of time spent in the concentric phase to time spent in the eccentric phase.
+    ///
+    /// - Returns: Ratio as a percentage, or `nil` if not available.
+    public var concentricEccentricTimeRatio: Double? {
+        metrics["02_ratio_concentric_eccentric_time"]?.value.singleValue
+    }
+
+    /// The ratio of jump height to jump time.
+    ///
+    /// - Returns: Modified reactive strength index in m/s, or `nil` if not available.
+    public var reactiveStrengthIndex: Double? {
+        metrics["03_reactive_strength_index_COM"]?.value.singleValue
+    }
+
+    /// The maximum vertical center of mass velocity during jump takeoff.
+    ///
+    /// - Returns: Peak velocity in meters per second, or `nil` if not available.
+    public var peakVerticalVelocity: Double? {
+        metrics["04_peak_vertical_COM_speed_during_takeoff"]?.value.singleValue
+    }
+
+    /// The maximum angle of the trunk in the sagittal plane during landing.
+    ///
+    /// - Returns: Peak trunk flexion angle in degrees, or `nil` if not available.
+    public var peakTrunkFlexionLanding: Double? {
+        metrics["10_peak_trunk_flexion_relative_to_ground_during_landing"]?.value.singleValue
+    }
+
+    /// The maximum angle of the trunk in the frontal plane during landing.
+    ///
+    /// - Returns: Peak trunk lean angle in degrees, or `nil` if not available.
+    public var peakTrunkLeanLanding: Double? {
+        metrics["11_peak_trunk_lean_relative_to_ground_during_landing"]?.value.singleValue
+    }
+}
+
+// MARK: - Bilateral Metrics
+
+/// Countermovement jump (CMJ) bilateral metrics.
+///
+/// These properties provide convenient access to metrics with separate left and right
+/// measurements. All measurements return `nil` if the metric is not available in the
+/// analysis results.
+///
+/// Bilateral metrics are useful for identifying asymmetries that may indicate injury
+/// risk or movement dysfunction.
+extension AnalysisResult {
+    /// The maximum angular velocity of knee extension during jump takeoff.
+    ///
+    /// - Returns: A tuple of (left, right) speeds in degrees per second, or `nil` if not available.
+    public var peakKneeExtensionSpeed: (left: Double, right: Double)? {
+        guard
+            case .bilateral(let left, let right) = metrics["05_peak_knee_extension_speed_during_takeoff"]?.value
+        else {
+            return nil
+        }
+
+        return (left, right)
+    }
+
+    /// The maximum angular velocity of hip extension during jump takeoff.
+    ///
+    /// - Returns: A tuple of (left, right) speeds in degrees per second, or `nil` if not available.
+    public var peakHipExtensionSpeed: (left: Double, right: Double)? {
+        guard
+            case .bilateral(let left, let right) = metrics["06_peak_hip_extension_speed_during_takeoff"]?.value
+        else {
+            return nil
+        }
+
+        return (left, right)
+    }
+
+    /// The maximum knee angle during landing after the jump.
+    ///
+    /// - Returns: A tuple of (left, right) angles in degrees, or `nil` if not available.
+    public var peakKneeFlexionLanding: (left: Double, right: Double)? {
+        guard
+            case .bilateral(let left, let right) = metrics["07_peak_knee_flexion_angle_during_landing"]?.value
+        else {
+            return nil
+        }
+
+        return (left, right)
+    }
+
+    /// The maximum dynamic knee valgus angle during landing.
+    ///
+    /// Dynamic knee valgus is the angle between the vector formed by the hip and knee markers
+    /// and its projection onto the plane formed by the hip, ankle, and toe markers. A positive
+    /// angle indicates knee valgus (inward collapse), while a negative value indicates knee varus.
+    ///
+    /// - Returns: A tuple of (left, right) angles in degrees, or `nil` if not available.
+    public var peakKneeValgusLanding: (left: Double, right: Double)? {
+        guard
+            case .bilateral(let left, let right) = metrics["08_peak_dynamic_knee_valgus_angle_during_landing"]?.value
+        else {
+            return nil
+        }
+
+        return (left, right)
+    }
+
+    /// The maximum hip angle during landing after the jump.
+    ///
+    /// - Returns: A tuple of (left, right) angles in degrees, or `nil` if not available.
+    public var peakHipFlexionLanding: (left: Double, right: Double)? {
+        guard
+            case .bilateral(let left, let right) = metrics["09_peak_hip_flexion_angle_during_landing"]?.value
+        else {
+            return nil
+        }
+
+        return (left, right)
     }
 }
 
