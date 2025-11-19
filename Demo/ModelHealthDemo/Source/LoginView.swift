@@ -8,83 +8,68 @@ struct LoginView: View {
     @State private var errorMessage: String = ""
     @State private var showVerification = false
     @State private var isVerified = false
-    @State private var isLoggedIn = false
 
     @EnvironmentObject private var modelHealth: ModelHealthService
 
+    let onAuthenticationSuccess: () -> Void
+
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                VStack(spacing: 8) {
-                    Image("model-health")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 100, height: 100)
+        VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Username")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
 
-                    Text("Welcome")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                }
-                .padding(.vertical, 44)
+                TextField("Enter username", text: $username)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+#if os(iOS)
+                    .textInputAutocapitalization(.never)
+#endif
+            }
+            .padding(.horizontal)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Username")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Password")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
 
-                    TextField("Enter username", text: $username)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                .padding([.horizontal, .bottom])
+                SecureField("Enter password", text: $password)
+                    .textFieldStyle(.roundedBorder)
+            }
+            .padding(.horizontal)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Password")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    SecureField("Enter password", text: $password)
-                        .textFieldStyle(.roundedBorder)
-                }
-                .padding(.horizontal)
-
+            if !errorMessage.isEmpty {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundColor(.red)
-                    .padding([.horizontal, .top], 16)
+                    .padding(.horizontal)
+            }
 
-                Spacer()
+            Spacer()
 
-                LoadingButton(
-                    title: "Login",
-                    isLoading: isLoading,
-                    isDisabled: username.isEmpty || password.isEmpty,
-                    action: handleLogin
-                )
-                .padding(.horizontal)
-                .padding(.top, 10)
-                .padding(.bottom, 12)
-            }
-            .navigationDestination(isPresented: $isLoggedIn) {
-                CreateSessionView()
-            }
-            .sheet(isPresented: $showVerification) {
-                VerificationView(isVerified: $isVerified)
-            }
-            .onChange(of: isVerified) { _, newValue in
-                if newValue {
-                    isLoggedIn = true
-                }
-            }
-            .task {
-                if let cookies = HTTPCookieStorage.shared.cookies {
-                    for cookie in cookies {
-                        HTTPCookieStorage.shared.deleteCookie(cookie)
-                    }
-                }
+            LoadingButton(
+                title: "Login",
+                isLoading: isLoading,
+                isDisabled: !isFormValid,
+                action: handleLogin
+            )
+            .padding(.horizontal)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
+        }
+        .sheet(isPresented: $showVerification) {
+            VerificationView(isVerified: $isVerified)
+        }
+        .onChange(of: isVerified) { _, newValue in
+            if newValue {
+                onAuthenticationSuccess()
             }
         }
+    }
+
+    private var isFormValid: Bool {
+        !username.isEmpty && !password.isEmpty
     }
 
     private func handleLogin() {
@@ -103,7 +88,7 @@ struct LoginView: View {
 
                     switch result {
                     case .ok:
-                        isLoggedIn = true
+                        onAuthenticationSuccess()
 
                     case .verificationRequired:
                         showVerification = true
@@ -120,6 +105,6 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView()
+    LoginView(onAuthenticationSuccess: {})
         .environmentObject(ModelHealthService())
 }

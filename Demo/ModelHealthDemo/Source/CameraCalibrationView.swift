@@ -19,24 +19,30 @@ struct CameraCalibrationView: View {
                 Text("Rows")
                     .frame(width: 100, alignment: .leading)
                 TextField("4", text: $rows)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
             }
 
             HStack {
                 Text("Columns")
                     .frame(width: 100, alignment: .leading)
                 TextField("5", text: $columns)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
             }
 
             HStack {
                 Text("Square Size")
                     .frame(width: 100, alignment: .leading)
                 TextField("35", text: $squareSize)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
                 Text("mm")
                     .foregroundColor(.secondary)
             }

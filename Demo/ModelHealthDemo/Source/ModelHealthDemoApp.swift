@@ -11,10 +11,30 @@ struct ModelHealthDemoApp: App {
         return ModelHealthService()
     }()
 
+    @State private var isAuthenticated = false
+    @State private var isCheckingAuth = true
+
     var body: some Scene {
         WindowGroup {
-            LoginView()
-                .environmentObject(service)
+            Group {
+                if isCheckingAuth {
+                    ProgressView("Checking authentication...")
+                } else if isAuthenticated {
+                    NavigationStack {
+                        CreateSessionView()
+                            .onShakeLogout(isAuthenticated: $isAuthenticated)
+                    }
+                } else {
+                    AuthenticationView {
+                        isAuthenticated = true
+                    }
+                }
+            }
+            .environmentObject(service)
+            .task {
+                isAuthenticated = await service.isAuthenticated()
+                isCheckingAuth = false
+            }
         }
     }
 }

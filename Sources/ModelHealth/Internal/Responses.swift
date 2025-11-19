@@ -12,6 +12,26 @@ struct LoginResponse: SimpleDateDecodable {
     let licenseEndDate: Date
 }
 
+struct RegisterResponse: SimpleDateDecodable {
+    let token: String
+    let userId: Int
+    let username: String
+    let email: String
+    let firstName: String
+    let lastName: String
+    let country: String?
+    let institution: String
+    let profession: String
+    let reason: String
+    let website: String?
+    let language: String?
+    let unit: String?
+    let newsletter: Bool
+    let institutionalUse: String
+    let licenseStartDate: Date
+    let licenseEndDate: Date
+}
+
 struct SessionResponse: Decodable, Identifiable {
     let id: String
     let user: Int
