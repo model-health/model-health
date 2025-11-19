@@ -44,15 +44,107 @@ extension SessionResponse {
     }
 }
 
-struct SubjectsResponse: Decodable {
-    let subjects: [Subject]
+struct SubjectResponse: Decodable, Identifiable {
+    enum Gender: String, Decodable {
+        case woman = "woman"
+        case man = "man"
+        case transgender = "transgender"
+        case nonBinary = "non-binary"
+        case noResponse = "prefer-not-respond"
+    }
+
+    enum Sex: String, Decodable {
+        case woman = "woman"
+        case man = "man"
+        case intersect = "intersect"
+        case notListed = "not-listed"
+        case noResponse = "prefer-not-respond"
+    }
+
+    let id: Int
+    let name: String
+    let weight: Double?
+    let height: Double?
+    let age: Int?
+    let birthYear: Int?
+    let gender: Gender?
+    let sexAtBirth: Sex?
+    let characteristics: String
+    let subjectTags: [String]
 }
 
-struct TrialsResponse: Decodable {
+extension SubjectResponse {
+    var publicGender: Subject.Gender {
+        guard let gender else {
+            return .noResponse
+        }
+
+        switch gender {
+        case .woman:
+            return .woman
+
+        case .man:
+            return .man
+
+        case .transgender:
+            return .transgender
+
+        case .nonBinary:
+            return .nonBinary
+
+        case .noResponse:
+            return .noResponse
+        }
+    }
+
+    var publicSexAtBirth: Subject.Sex {
+        guard let sexAtBirth else {
+            return .noResponse
+        }
+
+        switch sexAtBirth {
+        case .woman:
+            return .woman
+
+        case .man:
+            return .man
+
+        case .intersect:
+            return .intersex
+
+        case .notListed:
+            return .notListed
+
+        case .noResponse:
+            return .noResponse
+        }
+    }
+
+    var model: Subject {
+        Subject(
+            id: id,
+            name: name,
+            weight: weight,
+            height: height,
+            age: age,
+            birthYear: birthYear,
+            gender: publicGender,
+            sexAtBirth: publicSexAtBirth,
+            characteristics: characteristics,
+            subjectTags: subjectTags
+        )
+    }
+}
+
+struct SubjectListResponse: Decodable {
+    let subjects: [SubjectResponse]
+}
+
+struct TrialListResponse: Decodable {
     let trials: [TrialResponse]
 }
 
-struct VideosResponse: Decodable {
+struct VideoListResponse: Decodable {
     let videos: [VideoResponse]
 }
 

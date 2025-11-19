@@ -292,5 +292,5 @@ struct RegistrationView: View {
 
 #Preview {
     RegistrationView(onAuthenticationSuccess: {})
-        .environmentObject(ModelHealthService())
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
 }

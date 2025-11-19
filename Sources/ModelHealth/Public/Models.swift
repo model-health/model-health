@@ -131,21 +131,21 @@ extension Session: Hashable {
 /// let subjects = try await service.subjectList()
 /// let filtered = subjects.filter { $0.subjectTags.contains("high-risk") }
 /// ```
-public struct Subject: Decodable, Identifiable, Sendable {
-    public enum Gender: String, Decodable, Sendable {
-        case woman = "woman"
-        case man = "man"
-        case transgender = "transgender"
-        case nonBinary = "non-binary"
-        case noResponse = "prefer-not-respond"
+public struct Subject: Identifiable, Sendable {
+    public enum Gender: CaseIterable, Sendable {
+        case woman
+        case man
+        case transgender
+        case nonBinary
+        case noResponse
     }
 
-    public enum Sex: String, Decodable, Sendable {
-        case woman = "woman"
-        case man = "man"
-        case intersect = "intersect"
-        case notListed = "not-listed"
-        case noResponse = "prefer-not-respond"
+    public enum Sex: CaseIterable, Sendable {
+        case woman
+        case man
+        case intersex
+        case notListed
+        case noResponse
     }
 
     public let id: Int
@@ -165,7 +165,7 @@ public struct Subject: Decodable, Identifiable, Sendable {
 
     public let gender: Gender
 
-    public let sexAtBirth: Sex?
+    public let sexAtBirth: Sex
 
     /// Freeform text describing relevant characteristics or medical conditions
     public let characteristics: String
@@ -178,6 +178,72 @@ extension Subject: Hashable {
     /// Support for SwiftUI ForEach and List
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+/// Parameters for creating a new subject.
+///
+/// All fields except `sexAtBirth`, `gender`, and `characteristics` are required.
+///
+/// ```swift
+/// let params = SubjectParameters(
+///     name: "John Doe",
+///     weight: 75.0,        // kilograms
+///     height: 180.0,       // centimeters
+///     birthYear: 1990,
+///     gender: .man,
+///     sexAtBirth: .man,
+///     characteristics: "Regular training schedule",
+///     subjectTags: ["athlete", "unimpaired"],
+///     terms: true
+/// )
+///
+/// let subject = try await service.createSubject(parameters: params)
+/// ```
+public struct SubjectParameters: Sendable {
+    public let name: String
+
+    /// Weight in kilograms
+    public let weight: Double
+
+    /// Height in centimeters
+    public let height: Double
+
+    /// Year of birth
+    public let birthYear: Int
+
+    public let sexAtBirth: Subject.Sex
+    public let gender: Subject.Gender
+
+    /// Freeform text describing relevant characteristics or medical conditions
+    public let characteristics: String
+
+    /// Tags for categorization and filtering (must contain at least one tag)
+    public let subjectTags: [String]
+
+    /// Confirmation that informed consent has been obtained
+    public let terms: Bool
+
+    public init(
+        name: String,
+        weight: Double,
+        height: Double,
+        birthYear: Int,
+        subjectTags: [String],
+        sexAtBirth: Subject.Sex? = nil,
+        gender: Subject.Gender? = nil,
+        characteristics: String = "",
+        terms: Bool = true
+    ) {
+        self.name = name
+        self.weight = weight
+        self.height = height
+        self.birthYear = birthYear
+        self.subjectTags = subjectTags
+        self.sexAtBirth = sexAtBirth ?? .noResponse
+        self.gender = gender ?? .noResponse
+        self.characteristics = characteristics
+        self.terms = terms
     }
 }
 
@@ -625,7 +691,7 @@ extension Subject {
         public var age: Int? = 42
         public var birthYear: Int? = 1983
         public var gender: Subject.Gender = .man
-        public var sexAtBirth: Subject.Sex? = .man
+        public var sexAtBirth: Subject.Sex = .man
         public var characteristics = ""
         public var subjectTags: [String] = []
 

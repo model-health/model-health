@@ -9,7 +9,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         static let isAuthenticated = "mock.isAuthenticated"
     }
 
-    private var isAuthenticatedValue: Bool {
+    private var isAuthenticated: Bool {
         get {
             UserDefaults.standard.bool(forKey: StorageKey.isAuthenticated)
         }
@@ -19,9 +19,36 @@ final class MockModelHealthProvider: ModelHealthProvider {
         }
     }
 
+    private var subjects: [Subject] = [
+        .forPreview { builder in
+            builder.id = 1
+            builder.name = "John Athlete"
+            builder.weight = 75.0
+            builder.height = 180.0
+            builder.age = 28
+            builder.birthYear = 1996
+            builder.gender = .man
+            builder.sexAtBirth = .man
+            builder.characteristics = "Competitive athlete"
+            builder.subjectTags = ["athlete", "competitive"]
+        },
+        .forPreview { builder in
+            builder.id = 2
+            builder.name = "Sarah Runner"
+            builder.weight = 62.0
+            builder.height = 168.0
+            builder.age = 32
+            builder.birthYear = 1992
+            builder.gender = .woman
+            builder.sexAtBirth = .woman
+            builder.characteristics = "Marathon runner"
+            builder.subjectTags = ["athlete", "endurance"]
+        }
+    ]
+
     func login(username: String, password: String) async throws -> LoginResult {
         try? await Task.sleep(nanoseconds: 500_000_000)
-        isAuthenticatedValue = true
+        isAuthenticated = true
         return .ok
     }
 
@@ -31,17 +58,17 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func register(parameters: ModelHealth.RegistrationParameters) async throws {
         try? await Task.sleep(nanoseconds: 800_000_000)
-        isAuthenticatedValue = true
+        isAuthenticated = true
     }
 
     func logout() async throws {
         try? await Task.sleep(nanoseconds: 300_000_000)
-        isAuthenticatedValue = false
+        isAuthenticated = false
     }
 
     func isAuthenticated() async -> Bool {
         try? await Task.sleep(nanoseconds: 100_000_000)
-        return isAuthenticatedValue
+        return isAuthenticated
     }
 
     func sessionList() async throws -> [ModelHealth.Session] {
@@ -63,32 +90,24 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func subjectList() async throws -> [Subject] {
         try? await Task.sleep(nanoseconds: 300_000_000)
-        return [
-            .forPreview { builder in
-                builder.id = 1
-                builder.name = "John Athlete"
-                builder.weight = 75.0
-                builder.height = 180.0
-                builder.age = 28
-                builder.birthYear = 1996
-                builder.gender = .man
-                builder.sexAtBirth = .man
-                builder.characteristics = "Competitive athlete"
-                builder.subjectTags = ["athlete", "competitive"]
-            },
-            .forPreview { builder in
-                builder.id = 2
-                builder.name = "Sarah Runner"
-                builder.weight = 62.0
-                builder.height = 168.0
-                builder.age = 32
-                builder.birthYear = 1992
-                builder.gender = .woman
-                builder.sexAtBirth = .woman
-                builder.characteristics = "Marathon runner"
-                builder.subjectTags = ["athlete", "endurance"]
-            }
-        ]
+        return subjects
+    }
+
+    func createSubject(parameters: SubjectParameters) async throws -> Subject {
+        let newSubject = Subject.forPreview { builder in
+            builder.id = Int.random(in: 1...1_000_000)
+            builder.name = parameters.name
+            builder.weight = parameters.weight
+            builder.height = parameters.height
+            builder.birthYear = parameters.birthYear
+            builder.sexAtBirth = parameters.sexAtBirth
+            builder.gender = parameters.gender
+            builder.characteristics = parameters.characteristics
+            builder.subjectTags = parameters.subjectTags
+        }
+
+        subjects.append(newSubject)
+        return newSubject
     }
 
     func trialList() async throws -> [Trial] {

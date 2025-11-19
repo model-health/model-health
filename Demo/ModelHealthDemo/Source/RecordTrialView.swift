@@ -424,7 +424,7 @@ struct TrialResultsView: View {
             subject: .forPreview(),
             session: .forPreview()
         )
-        .environmentObject(ModelHealthService())
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }
 

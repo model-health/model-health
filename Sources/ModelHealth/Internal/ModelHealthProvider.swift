@@ -65,17 +65,17 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     }
 
     func subjectList() async throws -> [Subject] {
-        let response: SubjectsResponse = try await get(Backend.subjects)
-        return response.subjects
+        let response: SubjectListResponse = try await get(Backend.subjects)
+        return response.subjects.map { $0.model }
     }
 
     func trialList() async throws -> [Trial] {
-        let response: TrialsResponse = try await get(Backend.trials)
+        let response: TrialListResponse = try await get(Backend.trials)
         return response.trials.map { $0.model }
     }
 
     func videoList() async throws -> [Video] {
-        let response: VideosResponse = try await get(Backend.videos)
+        let response: VideoListResponse = try await get(Backend.videos)
         return response.videos.map { $0.model }
     }
 
@@ -87,6 +87,21 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         return session.model
+    }
+
+    func createSubject(parameters: SubjectParameters) async throws -> Subject {
+        guard let token else {
+            throw ModelHealthError.url(.userAuthenticationRequired)
+        }
+
+        let request = URLRequest.post(
+            Backend.subjects,
+            token: token,
+            body: parameters.body
+        )
+
+        let subject: SubjectResponse = try await URLSession.shared.decode(from: request)
+        return subject.model
     }
 
     func calibrateCamera(
@@ -619,6 +634,66 @@ private extension RegistrationParameters {
     }
 }
 
+private extension Subject.Gender {
+    var parameter: SubjectResponse.Gender {
+        switch self {
+        case .woman:
+            return .woman
+
+        case .man:
+            return .man
+
+        case .transgender:
+            return .transgender
+
+        case .nonBinary:
+            return .nonBinary
+
+        case .noResponse:
+            return .noResponse
+        }
+    }
+}
+
+private extension Subject.Sex {
+    var parameter: SubjectResponse.Sex {
+        switch self {
+        case .man:
+            return .man
+            
+        case .woman:
+            return .woman
+
+        case .intersex:
+            return .intersect
+
+        case .notListed:
+            return .notListed
+
+        case .noResponse:
+            return .noResponse
+        }
+    }
+}
+
+private extension SubjectParameters {
+    var body: [String: Any] {
+        var body: [String: Any] = [
+            "name": name,
+            "weight": weight,
+            "height": height / 100.0,
+            "birth_year": birthYear,
+            "sex_at_birth": sexAtBirth.parameter.rawValue,
+            "gender": gender.parameter.rawValue,
+            "subject_tags": subjectTags.isEmpty ? ["unimpaired"] : subjectTags,
+            "terms": terms
+        ]
+
+        characteristics.map { body["characteristics"] = $0 }
+
+        return body
+    }
+}
 
 private extension AnalysisType {
     var id: String {

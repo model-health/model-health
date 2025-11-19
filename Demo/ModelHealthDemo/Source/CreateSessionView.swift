@@ -113,6 +113,6 @@ private extension CreateSessionView {
 #Preview {
     NavigationStack {
         CreateSessionView()
-            .environmentObject(ModelHealthService())
+            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

@@ -1,32 +1,50 @@
-// ShakeModifier.swift
 import SwiftUI
 import ModelHealth
 
 extension View {
-    func onShakeLogout(isAuthenticated: Binding<Bool>) -> some View {
-        modifier(ShakeModifier(isAuthenticated: isAuthenticated))
+    func onShakeDeveloperMenu(
+        isAuthenticated: Binding<Bool>,
+        isMockBackend: Binding<Bool>
+    ) -> some View {
+        modifier(
+            ShakeModifier(
+                isAuthenticated: isAuthenticated,
+                isMockBackend: isMockBackend
+            )
+        )
     }
 }
 
 struct ShakeModifier: ViewModifier {
     @EnvironmentObject private var service: ModelHealthService
-    @State private var showLogoutAlert = false
+    @State private var showDeveloperMenu = false
     @Binding var isAuthenticated: Bool
+    @Binding var isMockBackend: Bool
 
     func body(content: Content) -> some View {
         content
             .background(
                 ShakeGestureDetector {
-                    showLogoutAlert = true
+                    showDeveloperMenu = true
                 }
             )
-            .alert("Logout", isPresented: $showLogoutAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Logout", role: .destructive) {
+            .confirmationDialog(
+                "Developer Options",
+                isPresented: $showDeveloperMenu,
+                titleVisibility: .visible
+            ) {
+                Button("Logout") {
                     handleLogout()
                 }
+
+                Button(isMockBackend ? "Switch to Real Backend" : "Switch to Mock Backend") {
+                    toggleBackend()
+                }
+
+                Button("Cancel", role: .cancel) {
+                }
             } message: {
-                Text("Do you want to log out?")
+                Text("Current backend: \(isMockBackend ? "Mock" : "Real")")
             }
     }
 
@@ -40,6 +58,10 @@ struct ShakeModifier: ViewModifier {
             } catch {
             }
         }
+    }
+
+    private func toggleBackend() {
+        isMockBackend.toggle()
     }
 }
 
