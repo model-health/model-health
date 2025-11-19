@@ -83,6 +83,6 @@ struct VerificationView: View {
 #Preview {
     NavigationStack {
         VerificationView(isVerified: .constant(false))
-            .environmentObject(ModelHealthService())
+            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

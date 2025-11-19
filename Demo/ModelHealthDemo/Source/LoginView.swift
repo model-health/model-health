@@ -106,5 +106,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView(onAuthenticationSuccess: {})
-        .environmentObject(ModelHealthService())
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
 }

@@ -247,27 +247,6 @@ public final class ModelHealthService: ObservableObject {
         try await serviceProvider.sessionList()
     }
 
-    /// Retrieves all subjects associated with the authenticated account.
-    ///
-    /// Subjects represent individuals being monitored or assessed. Each subject
-    /// contains demographic information, physical measurements, and categorization tags.
-    ///
-    /// ```swift
-    /// let subjects = try await service.subjectList()
-    /// for subject in subjects {
-    ///     print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
-    /// }
-    ///
-    /// // Filter by tags
-    /// let athletes = subjects.filter { $0.subjectTags.contains("athlete") }
-    /// ```
-    ///
-    /// - Returns: An array of ``Subject`` objects
-    /// - Throws: An error if the request fails or authentication has expired
-    public func subjectList() async throws -> [Subject] {
-        try await serviceProvider.subjectList()
-    }
-
     /// Retrieves all movement trials associated with the authenticated account.
     ///
     /// Trials represent individual recording sessions and contain references to
@@ -312,6 +291,62 @@ public final class ModelHealthService: ObservableObject {
     /// - Throws: An error if the request fails or authentication has expired
     public func videoList() async throws -> [Video] {
         try await serviceProvider.videoList()
+    }
+
+    // MARK: - Subject Management
+
+    /// Retrieves all subjects associated with the authenticated account.
+    ///
+    /// Subjects represent individuals being monitored or assessed. Each subject
+    /// contains demographic information, physical measurements, and categorization tags.
+    ///
+    /// ```swift
+    /// let subjects = try await service.subjectList()
+    /// for subject in subjects {
+    ///     print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
+    /// }
+    ///
+    /// // Filter by tags
+    /// let athletes = subjects.filter { $0.subjectTags.contains("athlete") }
+    /// ```
+    ///
+    /// - Returns: An array of ``Subject`` objects
+    /// - Throws: An error if the request fails or authentication has expired
+    public func subjectList() async throws -> [Subject] {
+        try await serviceProvider.subjectList()
+    }
+
+    /// Creates a new subject in the system.
+    ///
+    /// Subjects represent individuals being monitored or assessed. After creating
+    /// a subject, they can be associated with sessions for neutral pose calibration
+    /// and movement trials.
+    ///
+    /// ```swift
+    /// let params = SubjectParameters(
+    ///     name: "John Doe",
+    ///     weight: 75.0,        // kilograms
+    ///     height: 180.0,       // centimeters
+    ///     birthYear: 1990,
+    ///     gender: .man,
+    ///     sexAtBirth: .man,
+    ///     characteristics: "Regular training schedule",
+    ///     subjectTags: ["athlete"],
+    ///     terms: true
+    /// )
+    ///
+    /// let subject = try await service.createSubject(parameters: params)
+    /// print("Created subject with ID: \(subject.id)")
+    ///
+    /// // Use the subject for calibration
+    /// try await service.calibrateNeutralPose(for: subject, in: session) { _ in }
+    /// ```
+    ///
+    /// - Parameter parameters: Subject details including name, measurements, and tags
+    /// - Returns: The newly created ``Subject`` with its assigned ID
+    /// - Throws: An error if creation fails (validation errors, duplicate name, etc.)
+    public func createSubject(parameters: SubjectParameters) async throws -> Subject {
+        try await serviceProvider.createSubject(parameters: parameters)
     }
 
     // MARK: - Session & Calibration
@@ -639,6 +674,9 @@ public protocol ModelHealthProvider {
 
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
+
+    /// See ``ModelHealthService/createSubject(parameters:)``
+    func createSubject(parameters: SubjectParameters) async throws -> Subject
 
     /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     func record(trialNamed name: String, in session: Session) async throws -> Trial
