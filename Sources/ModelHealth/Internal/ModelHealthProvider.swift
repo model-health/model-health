@@ -1,9 +1,31 @@
 import Foundation
 
 actor ModelHealthProviderImpl: ModelHealthProvider {
-    private var token: String?
+    private var token: String? {
+        didSet {
+            if let token {
+                KeychainHelper.save(token, for: .authToken)
+            } else {
+                KeychainHelper.delete(.authToken)
+            }
+        }
+    }
 
-    func login(username: String,password: String) async throws -> LoginResult {
+    init() {
+        self.token = KeychainHelper.get(.authToken)
+    }
+
+    func register(parameters: RegistrationParameters) async throws {
+        let request = URLRequest.post(
+            Backend.register,
+            body: parameters.body
+        )
+
+        let registerResponse: RegisterResponse = try await URLSession.shared.decode(from: request)
+        token = registerResponse.token
+    }
+
+    func login(username: String, password: String) async throws -> LoginResult {
         let request = URLRequest.post(
             Backend.login,
             body: ["username": username, "password": password]
@@ -27,6 +49,14 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         )
 
         let _: EmptyResponse = try await URLSession.shared.decode(from: request)
+    }
+
+    func logout() async throws {
+        token = nil
+    }
+
+    func isAuthenticated() async -> Bool {
+        token != nil
     }
 
     func sessionList() async throws -> [Session] {
@@ -544,8 +574,6 @@ extension URLSession {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            print("Decoding error: \(error.localizedDescription)")
-            print("Response data: \(String(data: data, encoding: .utf8) ?? "N/A")")
             throw ModelHealthError.internalError
         }
     }
@@ -568,11 +596,35 @@ private extension CheckerboardDetails {
     }
 }
 
+private extension RegistrationParameters {
+    var body: [String: Any] {
+        var body: [String: Any] = [
+            "username": username,
+            "email": email,
+            "password": password,
+            "first_name": firstName,
+            "last_name": lastName,
+            "country": country,
+            "institution": institution,
+            "profession": profession,
+            "reason": reason,
+            "newsletter": newsletter
+        ]
+
+        website.map { body["website"] = $0 }
+        language.map { body["language"] = $0 }
+        unit.map { body["unit"] = $0.rawValue }
+
+        return body
+    }
+}
+
+
 private extension AnalysisType {
     var id: String {
         switch self {
         case .counterMovementJump:
-            "36"
+            "8"
         }
     }
 }

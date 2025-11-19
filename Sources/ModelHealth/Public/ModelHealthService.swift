@@ -101,7 +101,38 @@ public final class ModelHealthService: ObservableObject {
         self.serviceProvider = serviceProvider
     }
 
-    // MARK: - Authentication
+    // MARK: - Registration & Authentication
+
+    /// Registers a new user account.
+    ///
+    /// Creates a new user account and automatically authenticates the user.
+    /// After successful registration, the SDK is ready to use immediately
+    /// without requiring a separate login call.
+    ///
+    /// ```swift
+    /// let params = RegistrationParameters(
+    ///     username: "user123",
+    ///     email: "user@example.com",
+    ///     password: "securePassword123456789",
+    ///     firstName: "John",
+    ///     lastName: "Doe",
+    ///     country: "United States",
+    ///     institution: "Example University",
+    ///     profession: "Researcher",
+    ///     reason: "Biomechanical research",
+    ///     language: "en",
+    ///     unit: "metric"
+    /// )
+    ///
+    /// try await service.register(parameters: params)
+    /// // User is now authenticated and ready to use SDK
+    /// ```
+    ///
+    /// - Parameter parameters: Registration details including credentials and user information
+    /// - Throws: An error if registration fails (duplicate username/email, validation errors, etc.)
+    public func register(parameters: RegistrationParameters) async throws {
+        try await serviceProvider.register(parameters: parameters)
+    }
 
     /// Authenticates a user with username and password.
     ///
@@ -159,6 +190,37 @@ public final class ModelHealthService: ObservableObject {
     /// - Throws: An error if the code is invalid or expired
     public func verify(code: String, rememberDevice: Bool = false) async throws {
         try await serviceProvider.verify(code: code, rememberDevice: rememberDevice)
+    }
+
+    /// Logs out the current user.
+    ///
+    /// After logout, the user must call ``login(username:password:)`` or ``register(parameters:)``
+    /// to use the SDK again.
+    ///
+    /// ```swift
+    /// try await service.logout()
+    /// // User is now logged out
+    /// ```
+    ///
+    /// - Throws: An error if the logout request fails
+    public func logout() async throws {
+        try await serviceProvider.logout()
+    }
+
+    /// Checks if a user is currently authenticated.
+    ///
+    /// ```swift
+    /// if await service.isAuthenticated() {
+    ///     // Proceed with authenticated operations
+    ///     let sessions = try await service.sessionList()
+    /// } else {
+    ///     // Show login screen
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` if authenticated, `false` otherwise
+    public func isAuthenticated() async -> Bool {
+        await serviceProvider.isAuthenticated()
     }
 
     // MARK: - Data Retrieval
@@ -548,11 +610,20 @@ public final class ModelHealthService: ObservableObject {
 ///
 /// See ``ModelHealthService`` for detailed documentation of each method.
 public protocol ModelHealthProvider {
+    /// See ``ModelHealthService/register(parameters:)``
+    func register(parameters: RegistrationParameters) async throws
+
     /// See ``ModelHealthService/login(username:password:)``
-    func login(username: String,password: String) async throws -> LoginResult
+    func login(username: String, password: String) async throws -> LoginResult
 
     /// See ``ModelHealthService/verify(code:rememberDevice:)``
     func verify(code: String, rememberDevice: Bool) async throws
+
+    /// See ``ModelHealthService/logout()``
+    func logout() async throws
+
+    /// See ``ModelHealthService/isAuthenticated()``
+    func isAuthenticated() async -> Bool
 
     /// See ``ModelHealthService/sessionList()``
     func sessionList() async throws -> [Session]

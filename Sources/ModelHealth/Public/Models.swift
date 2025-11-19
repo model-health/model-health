@@ -1,5 +1,94 @@
 import Foundation
 
+// MARK: - Login Result
+
+/// The result of a login attempt.
+///
+/// Indicates whether additional email verification is required to complete authentication.
+///
+/// ```swift
+/// let result = try await service.login(username: "user@example.com", password: "pass")
+///
+/// if case .verificationRequired = result {
+///     let code = await promptForVerificationCode()
+///     try await service.verify(code: code, rememberDevice: true)
+/// }
+/// ```
+public enum LoginResult: Sendable {
+    /// Login completed successfully without additional verification.
+    ///
+    /// This occurs when the device was previously marked as trusted
+    /// (via `rememberDevice: true`) and the 90-day trust period has not expired.
+    case ok
+
+    /// Email verification required to complete login.
+    ///
+    /// A verification code has been sent to the user's registered email address.
+    /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
+    case verificationRequired
+}
+
+/// Parameters for user registration.
+///
+/// All fields except `website`, `language`, and `unit` are required.
+public struct RegistrationParameters: Sendable {
+    public enum Unit: String, Sendable {
+        case metric
+        case imperial
+    }
+
+    public let username: String
+    public let email: String
+    public let password: String
+    public let firstName: String
+    public let lastName: String
+    public let country: String
+    public let institution: String
+    public let profession: String
+    public let reason: String
+    public let website: String?
+    public let language: String?
+    public let unit: Unit?
+    public let newsletter: Bool
+
+    public init(
+        username: String,
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        country: String,
+        institution: String,
+        profession: String,
+        reason: String,
+        website: String? = nil,
+        language: String? = nil,
+        unit: Unit? = nil,
+        newsletter: Bool = true
+    ) {
+        self.username = username
+        self.email = email
+        self.password = password
+        self.firstName = firstName
+        self.lastName = lastName
+        self.country = country
+        self.institution = institution
+        self.profession = profession
+        self.reason = reason
+        self.website = website
+        self.language = language
+        self.unit = unit
+        self.newsletter = newsletter
+    }
+}
+
+extension RegistrationParameters.Unit: Hashable {
+    /// Support for SwiftUI ForEach and Picker
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.rawValue)
+    }
+}
+
 // MARK: - Session
 
 /// Create with ``ModelHealthService/createSession()`` before performing camera calibration.
@@ -199,34 +288,6 @@ public struct CheckerboardDetails: Sendable {
         self.squareSize = squareSize
         self.placement = placement
     }
-}
-
-// MARK: - Login Result
-
-/// The result of a login attempt.
-///
-/// Indicates whether additional email verification is required to complete authentication.
-///
-/// ```swift
-/// let result = try await service.login(username: "user@example.com", password: "pass")
-///
-/// if case .verificationRequired = result {
-///     let code = await promptForVerificationCode()
-///     try await service.verify(code: code, rememberDevice: true)
-/// }
-/// ```
-public enum LoginResult: Sendable {
-    /// Login completed successfully without additional verification.
-    ///
-    /// This occurs when the device was previously marked as trusted
-    /// (via `rememberDevice: true`) and the 90-day trust period has not expired.
-    case ok
-
-    /// Email verification required to complete login.
-    ///
-    /// A verification code has been sent to the user's registered email address.
-    /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
-    case verificationRequired
 }
 
 /// Represents the current status of a calibration process.
