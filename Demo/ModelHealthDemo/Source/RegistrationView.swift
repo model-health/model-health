@@ -181,8 +181,10 @@ struct RegistrationView: View {
                             .fontWeight(.medium)
 
                         Picker("Units", selection: $unit) {
-                            Text("Metric").tag("metric")
-                            Text("Imperial").tag("imperial")
+                            Text("Metric")
+                                .tag(RegistrationParameters.Unit.metric)
+                            Text("Imperial")
+                                .tag(RegistrationParameters.Unit.imperial)
                         }
                         .pickerStyle(.menu)
                     }

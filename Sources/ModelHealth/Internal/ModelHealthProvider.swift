@@ -597,8 +597,8 @@ private extension CheckerboardDetails {
 }
 
 private extension RegistrationParameters {
-    var body: [String: Any] {
-        var body: [String: Any] = [
+    var body: [String: String] {
+        var body: [String: String] = [
             "username": username,
             "email": email,
             "password": password,
@@ -608,7 +608,7 @@ private extension RegistrationParameters {
             "institution": institution,
             "profession": profession,
             "reason": reason,
-            "newsletter": newsletter
+            "newsletter": newsletter ? "true" : "false"
         ]
 
         website.map { body["website"] = $0 }
