@@ -273,7 +273,9 @@ struct CreateSubjectView: View {
 
             onSubjectCreated(subject)
             dismiss()
-
+        } catch let error as ModelHealthError {
+            isCreating = false
+            errorMessage = error.message
         } catch {
             isCreating = false
             errorMessage = "Failed to create subject: \(error.localizedDescription)"

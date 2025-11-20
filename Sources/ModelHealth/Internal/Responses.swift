@@ -8,8 +8,8 @@ struct LoginResponse: SimpleDateDecodable {
     let userId: Int
     let otpChallengeSent: Bool
     let institutionalUse: String
-    let licenseStartDate: Date
-    let licenseEndDate: Date
+    let licenseStartDate: Date?
+    let licenseEndDate: Date?
 }
 
 struct RegisterResponse: SimpleDateDecodable {

@@ -50,12 +50,9 @@ struct ShakeModifier: ViewModifier {
 
     private func handleLogout() {
         Task {
-            do {
-                try await service.logout()
-                await MainActor.run {
-                    isAuthenticated = false
-                }
-            } catch {
+            try? await service.logout()
+            await MainActor.run {
+                isAuthenticated = false
             }
         }
     }

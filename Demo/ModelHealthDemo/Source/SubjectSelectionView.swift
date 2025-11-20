@@ -108,10 +108,17 @@ struct SubjectSelectionView: View {
             Text("Failed to load subjects")
                 .font(.headline)
 
-            Text(error.localizedDescription)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            if let error = error as? ModelHealthError {
+                Text(error.message)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text(error.localizedDescription)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             Button("Retry") {
                 Task {

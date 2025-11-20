@@ -94,6 +94,11 @@ struct LoginView: View {
                         showVerification = true
                     }
                 }
+            } catch let error as ModelHealthError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = "Login failed: \(error.message)"
+                }
             } catch {
                 await MainActor.run {
                     isLoading = false
