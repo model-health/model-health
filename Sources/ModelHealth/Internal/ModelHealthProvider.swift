@@ -575,11 +575,28 @@ extension URLSession {
     ) async throws -> T {
         let (data, response) = try await self.data(for: request)
 
-        guard
-            let httpResponse = response as? HTTPURLResponse,
-            (200...299).contains(httpResponse.statusCode)
-        else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw ModelHealthError.url(.badServerResponse)
+        }
+
+        switch httpResponse.statusCode {
+        case 200...299:
+            break
+
+        case 400...499:
+            throw ModelHealthError.http(
+                .clientError(statusCode: httpResponse.statusCode)
+            )
+
+        case 500...599:
+            throw ModelHealthError.http(
+                .serverError(statusCode: httpResponse.statusCode)
+            )
+
+        default:
+            throw ModelHealthError.http(
+                .unexpectedStatusCode(statusCode: httpResponse.statusCode)
+            )
         }
 
         guard !data.isEmpty else {
@@ -589,7 +606,7 @@ extension URLSession {
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            throw ModelHealthError.internalError
+            throw ModelHealthError.unexpectedResponse
         }
     }
 

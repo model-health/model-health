@@ -107,10 +107,29 @@ struct CameraCalibrationView: View {
             try await modelHealth.calibrateCamera(
                 session,
                 checkerboardDetails: calibrationDetails
-            ) { _ in
+            ) { status in
+                switch status {
+                case .recording:
+                    print("• Recording...")
+
+                case .uploading(uploaded: let uploaded, total: let total):
+                    print("• Uploading... \(uploaded)/\(total)")
+
+                case .processing(percent: let percent):
+                    if let percent {
+                        print("• Processing... \(percent)%")
+                    } else {
+                        print("• Processing....")
+                    }
+
+                case .done:
+                    print("• Calibration complete!")
+                }
             }
 
             calibrationComplete = true
+        } catch let error as ModelHealthError {
+            print(error.message)
         } catch {
             print(error.localizedDescription)
         }

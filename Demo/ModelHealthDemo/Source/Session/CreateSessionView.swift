@@ -102,6 +102,8 @@ private extension CreateSessionView {
         do {
             let newSession = try await modelHealth.createSession()
             createdSession = newSession
+        } catch let error as ModelHealthError {
+            errorMessage = error.message
         } catch {
             errorMessage = "Failed to create session: \(error.localizedDescription)"
         }

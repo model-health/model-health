@@ -722,11 +722,15 @@ public protocol ModelHealthProvider {
 public enum ModelHealthError: Error, Sendable {
     /// Errors specific to camera or neutral pose calibration
     public enum CalibrationError: Sendable {
-        /// The calibration step did not use the minimul number of cameras required, which is at least 2
         case notEnoughCameras
-
-        /// Calibration capture occurred but there was a failure when processing the calibration data
         case calibrationFailed
+    }
+
+    /// HTTP response errors with status codes and optional server message
+    public enum HTTPError: Sendable {
+        case clientError(statusCode: Int)  // 400-499
+        case serverError(statusCode: Int)  // 500-599
+        case unexpectedStatusCode(statusCode: Int)
     }
 
     /// Errors that occur in the URL Error domain
@@ -735,7 +739,12 @@ public enum ModelHealthError: Error, Sendable {
     /// Errors that occur during calibration
     case calibration(CalibrationError)
 
+    /// HTTP response errors
+    case http(HTTPError)
+
+    /// Unexpected response from the server
+    case unexpectedResponse
+
     /// An internal SDK error occurred
     case internalError
 }
-

@@ -280,6 +280,11 @@ struct RegistrationView: View {
                     // Registration successful and auto-authenticated
                     onAuthenticationSuccess()
                 }
+            } catch let error as ModelHealthError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.message
+                }
             } catch {
                 await MainActor.run {
                     isLoading = false

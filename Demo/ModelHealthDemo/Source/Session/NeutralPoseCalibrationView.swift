@@ -68,6 +68,8 @@ struct NeutralPoseCalibrationView: View {
             }
             
             calibrationComplete = true
+        } catch let error as ModelHealthError {
+            print("Calibration failed: \(error.message)")
         } catch {
             print("Calibration failed: \(error.localizedDescription)")
         }

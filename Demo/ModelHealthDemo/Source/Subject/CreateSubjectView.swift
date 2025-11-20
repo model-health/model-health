@@ -5,16 +5,16 @@ struct CreateSubjectView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var modelHealth: ModelHealthService
 
-    @State private var name = ""
-    @State private var weight = ""
-    @State private var height = ""
-    @State private var birthYear = ""
+    @State private var name = "New Subject 1"
+    @State private var weight = "60"
+    @State private var height = "165"
+    @State private var birthYear = "2000"
     @State private var subjectTags: [String] = []
     @State private var newTag = ""
-    @State private var selectedGender: Subject.Gender?
-    @State private var selectedSex: Subject.Sex?
+    @State private var selectedGender: Subject.Gender? = .woman
+    @State private var selectedSex: Subject.Sex? = .woman
     @State private var characteristics = ""
-    @State private var agreedToTerms = false
+    @State private var agreedToTerms = true
 
     @State private var isCreating = false
     @State private var errorMessage: String?
@@ -273,7 +273,9 @@ struct CreateSubjectView: View {
 
             onSubjectCreated(subject)
             dismiss()
-
+        } catch let error as ModelHealthError {
+            isCreating = false
+            errorMessage = error.message
         } catch {
             isCreating = false
             errorMessage = "Failed to create subject: \(error.localizedDescription)"
