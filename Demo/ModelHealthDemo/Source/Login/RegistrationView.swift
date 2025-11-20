@@ -8,7 +8,7 @@ struct RegistrationView: View {
     @State private var confirmPassword = ""
     @State private var firstName = ""
     @State private var lastName = ""
-    @State private var country = "United States"
+    @State private var country = ""
     @State private var institution = ""
     @State private var profession = ""
     @State private var reason = ""
@@ -102,9 +102,8 @@ struct RegistrationView: View {
                 }
                 .padding(.horizontal)
 
-                // Country
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Country")
+                    Text("Country (Optional)")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -113,9 +112,8 @@ struct RegistrationView: View {
                 }
                 .padding(.horizontal)
 
-                // Institution
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Institution")
+                    Text("Institution (Optional)")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -124,9 +122,8 @@ struct RegistrationView: View {
                 }
                 .padding(.horizontal)
 
-                // Profession
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Profession")
+                    Text("Profession (Optional)")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -135,9 +132,8 @@ struct RegistrationView: View {
                 }
                 .padding(.horizontal)
 
-                // Reason
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Reason for Use")
+                    Text("Reason for Use (Optional)")
                         .font(.subheadline)
                         .fontWeight(.medium)
 
@@ -146,7 +142,6 @@ struct RegistrationView: View {
                 }
                 .padding(.horizontal)
 
-                // Website (Optional)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Website (Optional)")
                         .font(.subheadline)
@@ -225,11 +220,7 @@ struct RegistrationView: View {
         password == confirmPassword &&
         password.count >= 20 &&
         !firstName.isEmpty &&
-        !lastName.isEmpty &&
-        !country.isEmpty &&
-        !institution.isEmpty &&
-        !profession.isEmpty &&
-        !reason.isEmpty
+        !lastName.isEmpty
     }
 
     private func handleRegister() {
@@ -263,12 +254,12 @@ struct RegistrationView: View {
                     password: password,
                     firstName: firstName,
                     lastName: lastName,
-                    country: country,
-                    institution: institution,
-                    profession: profession,
-                    reason: reason,
+                    country: country.isEmpty ? nil : country,
+                    institution: institution.isEmpty ? nil : institution,
+                    profession: profession.isEmpty ? nil : profession,
+                    reason: reason.isEmpty ? nil : reason,
                     website: website.isEmpty ? nil : website,
-                    language: language,
+                    language: language.isEmpty ? nil : language,
                     unit: unit,
                     newsletter: newsletter
                 )

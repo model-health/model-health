@@ -42,10 +42,10 @@ public struct RegistrationParameters: Sendable {
     public let password: String
     public let firstName: String
     public let lastName: String
-    public let country: String
-    public let institution: String
-    public let profession: String
-    public let reason: String
+    public let country: String?
+    public let institution: String?
+    public let profession: String?
+    public let reason: String?
     public let website: String?
     public let language: String?
     public let unit: Unit?
@@ -57,10 +57,10 @@ public struct RegistrationParameters: Sendable {
         password: String,
         firstName: String,
         lastName: String,
-        country: String,
-        institution: String,
-        profession: String,
-        reason: String,
+        country: String? = nil,
+        institution: String? = nil,
+        profession: String? = nil,
+        reason: String? = nil,
         website: String? = nil,
         language: String? = nil,
         unit: Unit? = nil,
