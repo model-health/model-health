@@ -19,24 +19,30 @@ struct CameraCalibrationView: View {
                 Text("Rows")
                     .frame(width: 100, alignment: .leading)
                 TextField("4", text: $rows)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
             }
 
             HStack {
                 Text("Columns")
                     .frame(width: 100, alignment: .leading)
                 TextField("5", text: $columns)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
             }
 
             HStack {
                 Text("Square Size")
                     .frame(width: 100, alignment: .leading)
                 TextField("35", text: $squareSize)
-                    .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
                 Text("mm")
                     .foregroundColor(.secondary)
             }
@@ -101,10 +107,29 @@ struct CameraCalibrationView: View {
             try await modelHealth.calibrateCamera(
                 session,
                 checkerboardDetails: calibrationDetails
-            ) { _ in
+            ) { status in
+                switch status {
+                case .recording:
+                    print("• Recording...")
+
+                case .uploading(uploaded: let uploaded, total: let total):
+                    print("• Uploading... \(uploaded)/\(total)")
+
+                case .processing(percent: let percent):
+                    if let percent {
+                        print("• Processing... \(percent)%")
+                    } else {
+                        print("• Processing....")
+                    }
+
+                case .done:
+                    print("• Calibration complete!")
+                }
             }
 
             calibrationComplete = true
+        } catch let error as ModelHealthError {
+            print(error.message)
         } catch {
             print(error.localizedDescription)
         }
@@ -115,7 +140,7 @@ struct CameraCalibrationView: View {
 #Preview {
     NavigationStack {
         CameraCalibrationView(session: .forPreview())
-            .environmentObject(ModelHealthService())
+            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }
 #endif

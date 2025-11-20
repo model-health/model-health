@@ -101,7 +101,38 @@ public final class ModelHealthService: ObservableObject {
         self.serviceProvider = serviceProvider
     }
 
-    // MARK: - Authentication
+    // MARK: - Registration & Authentication
+
+    /// Registers a new user account.
+    ///
+    /// Creates a new user account and automatically authenticates the user.
+    /// After successful registration, the SDK is ready to use immediately
+    /// without requiring a separate login call.
+    ///
+    /// ```swift
+    /// let params = RegistrationParameters(
+    ///     username: "user123",
+    ///     email: "user@example.com",
+    ///     password: "securePassword123456789",
+    ///     firstName: "John",
+    ///     lastName: "Doe",
+    ///     country: "United States",
+    ///     institution: "Example University",
+    ///     profession: "Researcher",
+    ///     reason: "Biomechanical research",
+    ///     language: "en",
+    ///     unit: "metric"
+    /// )
+    ///
+    /// try await service.register(parameters: params)
+    /// // User is now authenticated and ready to use SDK
+    /// ```
+    ///
+    /// - Parameter parameters: Registration details including credentials and user information
+    /// - Throws: An error if registration fails (duplicate username/email, validation errors, etc.)
+    public func register(parameters: RegistrationParameters) async throws {
+        try await serviceProvider.register(parameters: parameters)
+    }
 
     /// Authenticates a user with username and password.
     ///
@@ -161,6 +192,37 @@ public final class ModelHealthService: ObservableObject {
         try await serviceProvider.verify(code: code, rememberDevice: rememberDevice)
     }
 
+    /// Logs out the current user.
+    ///
+    /// After logout, the user must call ``login(username:password:)`` or ``register(parameters:)``
+    /// to use the SDK again.
+    ///
+    /// ```swift
+    /// try await service.logout()
+    /// // User is now logged out
+    /// ```
+    ///
+    /// - Throws: An error if the logout request fails
+    public func logout() async throws {
+        try await serviceProvider.logout()
+    }
+
+    /// Checks if a user is currently authenticated.
+    ///
+    /// ```swift
+    /// if await service.isAuthenticated() {
+    ///     // Proceed with authenticated operations
+    ///     let sessions = try await service.sessionList()
+    /// } else {
+    ///     // Show login screen
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` if authenticated, `false` otherwise
+    public func isAuthenticated() async -> Bool {
+        await serviceProvider.isAuthenticated()
+    }
+
     // MARK: - Data Retrieval
 
     /// Retrieves all sessions for the authenticated user.
@@ -183,27 +245,6 @@ public final class ModelHealthService: ObservableObject {
     /// ```
     public func sessionList() async throws -> [Session] {
         try await serviceProvider.sessionList()
-    }
-
-    /// Retrieves all subjects associated with the authenticated account.
-    ///
-    /// Subjects represent individuals being monitored or assessed. Each subject
-    /// contains demographic information, physical measurements, and categorization tags.
-    ///
-    /// ```swift
-    /// let subjects = try await service.subjectList()
-    /// for subject in subjects {
-    ///     print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
-    /// }
-    ///
-    /// // Filter by tags
-    /// let athletes = subjects.filter { $0.subjectTags.contains("athlete") }
-    /// ```
-    ///
-    /// - Returns: An array of ``Subject`` objects
-    /// - Throws: An error if the request fails or authentication has expired
-    public func subjectList() async throws -> [Subject] {
-        try await serviceProvider.subjectList()
     }
 
     /// Retrieves all movement trials associated with the authenticated account.
@@ -250,6 +291,62 @@ public final class ModelHealthService: ObservableObject {
     /// - Throws: An error if the request fails or authentication has expired
     public func videoList() async throws -> [Video] {
         try await serviceProvider.videoList()
+    }
+
+    // MARK: - Subject Management
+
+    /// Retrieves all subjects associated with the authenticated account.
+    ///
+    /// Subjects represent individuals being monitored or assessed. Each subject
+    /// contains demographic information, physical measurements, and categorization tags.
+    ///
+    /// ```swift
+    /// let subjects = try await service.subjectList()
+    /// for subject in subjects {
+    ///     print("\(subject.name): \(subject.height ?? 0)cm, \(subject.weight ?? 0)kg")
+    /// }
+    ///
+    /// // Filter by tags
+    /// let athletes = subjects.filter { $0.subjectTags.contains("athlete") }
+    /// ```
+    ///
+    /// - Returns: An array of ``Subject`` objects
+    /// - Throws: An error if the request fails or authentication has expired
+    public func subjectList() async throws -> [Subject] {
+        try await serviceProvider.subjectList()
+    }
+
+    /// Creates a new subject in the system.
+    ///
+    /// Subjects represent individuals being monitored or assessed. After creating
+    /// a subject, they can be associated with sessions for neutral pose calibration
+    /// and movement trials.
+    ///
+    /// ```swift
+    /// let params = SubjectParameters(
+    ///     name: "John Doe",
+    ///     weight: 75.0,        // kilograms
+    ///     height: 180.0,       // centimeters
+    ///     birthYear: 1990,
+    ///     gender: .man,
+    ///     sexAtBirth: .man,
+    ///     characteristics: "Regular training schedule",
+    ///     subjectTags: ["athlete"],
+    ///     terms: true
+    /// )
+    ///
+    /// let subject = try await service.createSubject(parameters: params)
+    /// print("Created subject with ID: \(subject.id)")
+    ///
+    /// // Use the subject for calibration
+    /// try await service.calibrateNeutralPose(for: subject, in: session) { _ in }
+    /// ```
+    ///
+    /// - Parameter parameters: Subject details including name, measurements, and tags
+    /// - Returns: The newly created ``Subject`` with its assigned ID
+    /// - Throws: An error if creation fails (validation errors, duplicate name, etc.)
+    public func createSubject(parameters: SubjectParameters) async throws -> Subject {
+        try await serviceProvider.createSubject(parameters: parameters)
     }
 
     // MARK: - Session & Calibration
@@ -548,11 +645,20 @@ public final class ModelHealthService: ObservableObject {
 ///
 /// See ``ModelHealthService`` for detailed documentation of each method.
 public protocol ModelHealthProvider {
+    /// See ``ModelHealthService/register(parameters:)``
+    func register(parameters: RegistrationParameters) async throws
+
     /// See ``ModelHealthService/login(username:password:)``
-    func login(username: String,password: String) async throws -> LoginResult
+    func login(username: String, password: String) async throws -> LoginResult
 
     /// See ``ModelHealthService/verify(code:rememberDevice:)``
     func verify(code: String, rememberDevice: Bool) async throws
+
+    /// See ``ModelHealthService/logout()``
+    func logout() async throws
+
+    /// See ``ModelHealthService/isAuthenticated()``
+    func isAuthenticated() async -> Bool
 
     /// See ``ModelHealthService/sessionList()``
     func sessionList() async throws -> [Session]
@@ -568,6 +674,9 @@ public protocol ModelHealthProvider {
 
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
+
+    /// See ``ModelHealthService/createSubject(parameters:)``
+    func createSubject(parameters: SubjectParameters) async throws -> Subject
 
     /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
     func record(trialNamed name: String, in session: Session) async throws -> Trial
@@ -613,11 +722,15 @@ public protocol ModelHealthProvider {
 public enum ModelHealthError: Error, Sendable {
     /// Errors specific to camera or neutral pose calibration
     public enum CalibrationError: Sendable {
-        /// The calibration step did not use the minimul number of cameras required, which is at least 2
         case notEnoughCameras
-
-        /// Calibration capture occurred but there was a failure when processing the calibration data
         case calibrationFailed
+    }
+
+    /// HTTP response errors with status codes and optional server message
+    public enum HTTPError: Sendable {
+        case clientError(statusCode: Int)  // 400-499
+        case serverError(statusCode: Int)  // 500-599
+        case unexpectedStatusCode(statusCode: Int)
     }
 
     /// Errors that occur in the URL Error domain
@@ -626,7 +739,12 @@ public enum ModelHealthError: Error, Sendable {
     /// Errors that occur during calibration
     case calibration(CalibrationError)
 
+    /// HTTP response errors
+    case http(HTTPError)
+
+    /// Unexpected response from the server
+    case unexpectedResponse
+
     /// An internal SDK error occurred
     case internalError
 }
-

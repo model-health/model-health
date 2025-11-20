@@ -1,5 +1,94 @@
 import Foundation
 
+// MARK: - Login Result
+
+/// The result of a login attempt.
+///
+/// Indicates whether additional email verification is required to complete authentication.
+///
+/// ```swift
+/// let result = try await service.login(username: "user@example.com", password: "pass")
+///
+/// if case .verificationRequired = result {
+///     let code = await promptForVerificationCode()
+///     try await service.verify(code: code, rememberDevice: true)
+/// }
+/// ```
+public enum LoginResult: Sendable {
+    /// Login completed successfully without additional verification.
+    ///
+    /// This occurs when the device was previously marked as trusted
+    /// (via `rememberDevice: true`) and the 90-day trust period has not expired.
+    case ok
+
+    /// Email verification required to complete login.
+    ///
+    /// A verification code has been sent to the user's registered email address.
+    /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
+    case verificationRequired
+}
+
+/// Parameters for user registration.
+///
+/// All fields except `website`, `language`, and `unit` are required.
+public struct RegistrationParameters: Sendable {
+    public enum Unit: String, Sendable {
+        case metric
+        case imperial
+    }
+
+    public let username: String
+    public let email: String
+    public let password: String
+    public let firstName: String
+    public let lastName: String
+    public let country: String
+    public let institution: String
+    public let profession: String
+    public let reason: String
+    public let website: String?
+    public let language: String?
+    public let unit: Unit?
+    public let newsletter: Bool
+
+    public init(
+        username: String,
+        email: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        country: String,
+        institution: String,
+        profession: String,
+        reason: String,
+        website: String? = nil,
+        language: String? = nil,
+        unit: Unit? = nil,
+        newsletter: Bool = true
+    ) {
+        self.username = username
+        self.email = email
+        self.password = password
+        self.firstName = firstName
+        self.lastName = lastName
+        self.country = country
+        self.institution = institution
+        self.profession = profession
+        self.reason = reason
+        self.website = website
+        self.language = language
+        self.unit = unit
+        self.newsletter = newsletter
+    }
+}
+
+extension RegistrationParameters.Unit: Hashable {
+    /// Support for SwiftUI ForEach and Picker
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.rawValue)
+    }
+}
+
 // MARK: - Session
 
 /// Create with ``ModelHealthService/createSession()`` before performing camera calibration.
@@ -42,21 +131,21 @@ extension Session: Hashable {
 /// let subjects = try await service.subjectList()
 /// let filtered = subjects.filter { $0.subjectTags.contains("high-risk") }
 /// ```
-public struct Subject: Decodable, Identifiable, Sendable {
-    public enum Gender: String, Decodable, Sendable {
-        case woman = "woman"
-        case man = "man"
-        case transgender = "transgender"
-        case nonBinary = "non-binary"
-        case noResponse = "prefer-not-respond"
+public struct Subject: Identifiable, Sendable {
+    public enum Gender: CaseIterable, Sendable {
+        case woman
+        case man
+        case transgender
+        case nonBinary
+        case noResponse
     }
 
-    public enum Sex: String, Decodable, Sendable {
-        case woman = "woman"
-        case man = "man"
-        case intersect = "intersect"
-        case notListed = "not-listed"
-        case noResponse = "prefer-not-respond"
+    public enum Sex: CaseIterable, Sendable {
+        case woman
+        case man
+        case intersex
+        case notListed
+        case noResponse
     }
 
     public let id: Int
@@ -76,7 +165,7 @@ public struct Subject: Decodable, Identifiable, Sendable {
 
     public let gender: Gender
 
-    public let sexAtBirth: Sex?
+    public let sexAtBirth: Sex
 
     /// Freeform text describing relevant characteristics or medical conditions
     public let characteristics: String
@@ -89,6 +178,72 @@ extension Subject: Hashable {
     /// Support for SwiftUI ForEach and List
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+/// Parameters for creating a new subject.
+///
+/// All fields except `sexAtBirth`, `gender`, and `characteristics` are required.
+///
+/// ```swift
+/// let params = SubjectParameters(
+///     name: "John Doe",
+///     weight: 75.0,        // kilograms
+///     height: 180.0,       // centimeters
+///     birthYear: 1990,
+///     gender: .man,
+///     sexAtBirth: .man,
+///     characteristics: "Regular training schedule",
+///     subjectTags: ["athlete", "unimpaired"],
+///     terms: true
+/// )
+///
+/// let subject = try await service.createSubject(parameters: params)
+/// ```
+public struct SubjectParameters: Sendable {
+    public let name: String
+
+    /// Weight in kilograms
+    public let weight: Double
+
+    /// Height in centimeters
+    public let height: Double
+
+    /// Year of birth
+    public let birthYear: Int
+
+    public let sexAtBirth: Subject.Sex
+    public let gender: Subject.Gender
+
+    /// Freeform text describing relevant characteristics or medical conditions
+    public let characteristics: String
+
+    /// Tags for categorization and filtering (must contain at least one tag)
+    public let subjectTags: [String]
+
+    /// Confirmation that informed consent has been obtained
+    public let terms: Bool
+
+    public init(
+        name: String,
+        weight: Double,
+        height: Double,
+        birthYear: Int,
+        subjectTags: [String],
+        sexAtBirth: Subject.Sex? = nil,
+        gender: Subject.Gender? = nil,
+        characteristics: String = "",
+        terms: Bool = true
+    ) {
+        self.name = name
+        self.weight = weight
+        self.height = height
+        self.birthYear = birthYear
+        self.subjectTags = subjectTags
+        self.sexAtBirth = sexAtBirth ?? .noResponse
+        self.gender = gender ?? .noResponse
+        self.characteristics = characteristics
+        self.terms = terms
     }
 }
 
@@ -199,34 +354,6 @@ public struct CheckerboardDetails: Sendable {
         self.squareSize = squareSize
         self.placement = placement
     }
-}
-
-// MARK: - Login Result
-
-/// The result of a login attempt.
-///
-/// Indicates whether additional email verification is required to complete authentication.
-///
-/// ```swift
-/// let result = try await service.login(username: "user@example.com", password: "pass")
-///
-/// if case .verificationRequired = result {
-///     let code = await promptForVerificationCode()
-///     try await service.verify(code: code, rememberDevice: true)
-/// }
-/// ```
-public enum LoginResult: Sendable {
-    /// Login completed successfully without additional verification.
-    ///
-    /// This occurs when the device was previously marked as trusted
-    /// (via `rememberDevice: true`) and the 90-day trust period has not expired.
-    case ok
-
-    /// Email verification required to complete login.
-    ///
-    /// A verification code has been sent to the user's registered email address.
-    /// Call ``ModelHealthService/verify(code:rememberDevice:)`` to complete authentication.
-    case verificationRequired
 }
 
 /// Represents the current status of a calibration process.
@@ -564,7 +691,7 @@ extension Subject {
         public var age: Int? = 42
         public var birthYear: Int? = 1983
         public var gender: Subject.Gender = .man
-        public var sexAtBirth: Subject.Sex? = .man
+        public var sexAtBirth: Subject.Sex = .man
         public var characteristics = ""
         public var subjectTags: [String] = []
 
