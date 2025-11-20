@@ -636,13 +636,13 @@ private extension RegistrationParameters {
             "password": password,
             "first_name": firstName,
             "last_name": lastName,
-            "country": country,
-            "institution": institution,
-            "profession": profession,
-            "reason": reason,
             "newsletter": newsletter ? "true" : "false"
         ]
 
+        country.map { body["country"] = $0 }
+        institution.map { body["institution"] = $0 }
+        profession.map { body["profession"] = $0 }
+        reason.map { body["reason"] = $0 }
         website.map { body["website"] = $0 }
         language.map { body["language"] = $0 }
         unit.map { body["unit"] = $0.rawValue }
