@@ -436,12 +436,15 @@ private extension KeyedDecodingContainer {
         }
 
         guard !rawValue.isEmpty else {
+#if DEBUG
+            print("⚠️ Empty value for key '\(key.stringValue)'")
+#endif
             return nil
         }
 
         guard let value = T(rawValue: rawValue) else {
 #if DEBUG
-            print("⚠️ Invalid \(type) value: '\(rawValue)' for key '\(key)'")
+            print("⚠️ Invalid \(type) value: '\(rawValue)' for key '\(key.stringValue)'")
 #endif
             return nil
         }
