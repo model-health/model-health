@@ -5,10 +5,10 @@ struct CreateSubjectView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var modelHealth: ModelHealthService
 
-    @State private var name = "New Subject 1"
-    @State private var weight = "60"
-    @State private var height = "165"
-    @State private var birthYear = "2000"
+    @State private var name = ""
+    @State private var weight = ""
+    @State private var height = ""
+    @State private var birthYear = ""
     @State private var subjectTags: [String] = []
     @State private var newTag = ""
     @State private var selectedGender: Subject.Gender? = .woman
