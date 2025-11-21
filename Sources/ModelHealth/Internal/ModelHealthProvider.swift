@@ -140,7 +140,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             let sessionStatusRequest = URLRequest.get(
                 Backend.sessionStatus(id: session.id),
                 token: token,
-                parameters: ["device_id": DeviceIdentifier.getDeviceIdentifier()]
+                parameters: ["device_id": try DeviceIdentifier.getDeviceIdentifier()]
             )
 
             let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)

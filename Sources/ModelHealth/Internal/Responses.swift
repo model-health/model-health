@@ -71,6 +71,34 @@ struct SubjectResponse: Decodable, Identifiable {
     let sexAtBirth: Sex?
     let characteristics: String
     let subjectTags: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case weight
+        case height
+        case age
+        case birthYear
+        case gender
+        case sexAtBirth
+        case characteristics
+        case subjectTags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        weight = try container.decodeIfPresent(Double.self, forKey: .weight)
+        height = try container.decodeIfPresent(Double.self, forKey: .height)
+        age = try container.decodeIfPresent(Int.self, forKey: .age)
+        birthYear = try container.decodeIfPresent(Int.self, forKey: .birthYear)
+        gender = try container.decodeEnumIfPresent(Gender.self, forKey: .gender)
+        sexAtBirth = try container.decodeEnumIfPresent(Sex.self, forKey: .sexAtBirth)
+        characteristics = try container.decode(String.self, forKey: .characteristics)
+        subjectTags = try container.decode([String].self, forKey: .subjectTags)
+    }
 }
 
 extension SubjectResponse {
@@ -390,5 +418,37 @@ extension AnalysisResultResponse {
                 )
             }
         )
+    }
+}
+
+// MARK: - Decoding Helpers
+
+private extension KeyedDecodingContainer {
+    // Helper to decode optional enums from raw string values where the
+    // string may exist but is empty. In this case it should be treated
+    // as if it is nil.
+    func decodeEnumIfPresent<T: RawRepresentable>(
+        _ type: T.Type,
+        forKey key: Key
+    ) throws -> T? where T.RawValue == String {
+        guard let rawValue = try decodeIfPresent(String.self, forKey: key) else {
+            return nil
+        }
+
+        guard !rawValue.isEmpty else {
+#if DEBUG
+            print("⚠️ Empty value for key '\(key.stringValue)'")
+#endif
+            return nil
+        }
+
+        guard let value = T(rawValue: rawValue) else {
+#if DEBUG
+            print("⚠️ Invalid \(type) value: '\(rawValue)' for key '\(key.stringValue)'")
+#endif
+            return nil
+        }
+
+        return value
     }
 }

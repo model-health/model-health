@@ -746,5 +746,5 @@ public enum ModelHealthError: Error, Sendable {
     case unexpectedResponse
 
     /// An internal SDK error occurred
-    case internalError
+    case internalError(String)
 }
