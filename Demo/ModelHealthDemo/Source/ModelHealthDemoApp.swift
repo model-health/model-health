@@ -12,8 +12,12 @@ struct ModelHealthDemoApp: App {
         if isMockBackend {
             return ModelHealthService(serviceProvider: MockModelHealthProvider())
         }
-        
-        return ModelHealthService()
+
+        do {
+            return try ModelHealthService()
+        } catch {
+            fatalError("Failed to initialize ModelHealthService: \(error)")
+        }
     }
 
     var body: some Scene {

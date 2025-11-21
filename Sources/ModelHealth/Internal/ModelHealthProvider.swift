@@ -1,6 +1,20 @@
 import Foundation
 
+enum HTTPMethod: String {
+    case get
+    case post
+    case options
+    case patch
+
+    var name: String {
+        self.rawValue.uppercased()
+    }
+}
+
 actor ModelHealthProviderImpl: ModelHealthProvider {
+    private let configuration: Configuration
+    private let backend: Backend
+
     private var token: String? {
         didSet {
             if let token {
@@ -11,13 +25,15 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
     }
 
-    init() {
+    init() throws {
+        self.configuration = try Configuration.load()
+        self.backend = Backend(configuration: configuration)
         self.token = KeychainHelper.get(.authToken)
     }
 
     func register(parameters: RegistrationParameters) async throws {
         let request = URLRequest.post(
-            Backend.register,
+            backend.register,
             body: parameters.body
         )
 
@@ -27,7 +43,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
     func login(username: String, password: String) async throws -> LoginResult {
         let request = URLRequest.post(
-            Backend.login,
+            backend.login,
             body: ["username": username, "password": password]
         )
 
@@ -43,7 +59,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let request = URLRequest.post(
-            Backend.verify,
+            backend.verify,
             token: token,
             body: ["otp_token": code, "remember_device": rememberDevice ? "true" : "false"]
         )
@@ -60,27 +76,27 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     }
 
     func sessionList() async throws -> [Session] {
-        let response: [SessionResponse] = try await get(Backend.sessions)
+        let response: [SessionResponse] = try await get(backend.sessions)
         return response.map { $0.model }
     }
 
     func subjectList() async throws -> [Subject] {
-        let response: SubjectListResponse = try await get(Backend.subjects)
+        let response: SubjectListResponse = try await get(backend.subjects)
         return response.subjects.map { $0.model }
     }
 
     func trialList() async throws -> [Trial] {
-        let response: TrialListResponse = try await get(Backend.trials)
+        let response: TrialListResponse = try await get(backend.trials)
         return response.trials.map { $0.model }
     }
 
     func videoList() async throws -> [Video] {
-        let response: VideoListResponse = try await get(Backend.videos)
+        let response: VideoListResponse = try await get(backend.videos)
         return response.videos.map { $0.model }
     }
 
     func createSession() async throws -> Session {
-        let response: [SessionResponse] = try await get(Backend.createSession)
+        let response: [SessionResponse] = try await get(backend.createSession)
 
         guard let session = response.first else {
             throw ModelHealthError.url(.badServerResponse)
@@ -95,7 +111,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let request = URLRequest.post(
-            Backend.subjects,
+            backend.subjects,
             token: token,
             body: parameters.body
         )
@@ -114,7 +130,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let metadataRequest = URLRequest.get(
-            Backend.setMetadata(id: session.id),
+            backend.setMetadata(id: session.id),
             token: token,
             parameters: checkerboardDetails.parameters
         )
@@ -122,7 +138,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
 
         let calibrationRequest = URLRequest.get(
-            Backend.startRecording(id: session.id),
+            backend.startRecording(id: session.id),
             token: token,
             parameters: ["name": "calibration"]
         )
@@ -130,7 +146,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let trial: TrialResponse = try await URLSession.shared.decode(from: calibrationRequest)
 
         let calibrationImgRequest = URLRequest.get(
-            Backend.calibrationImg(id: session.id),
+            backend.calibrationImg(id: session.id),
             token: token
         )
 
@@ -138,7 +154,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             let response: CalibrationImgResponse = try await URLSession.shared.decode(from: calibrationImgRequest)
 
             let sessionStatusRequest = URLRequest.get(
-                Backend.sessionStatus(id: session.id),
+                backend.sessionStatus(id: session.id),
                 token: token,
                 parameters: ["device_id": try DeviceIdentifier.getDeviceIdentifier()]
             )
@@ -148,7 +164,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             switch response.status {
             case .done:
                 let calibratedRequest = URLRequest.get(
-                    Backend.calibratedCameras(id: session.id),
+                    backend.calibratedCameras(id: session.id),
                     token: token
                 )
 
@@ -166,7 +182,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
             default:
                 let trialRequest = URLRequest.get(
-                    Backend.trial(id: trial.id),
+                    backend.trial(id: trial.id),
                     token: token
                 )
 
@@ -202,7 +218,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let metadataRequest = URLRequest.get(
-            Backend.setMetadata(id: session.id),
+            backend.setMetadata(id: session.id),
             token: token,
             parameters: [
                 "settings_data_sharing": "Share no data",
@@ -218,7 +234,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
 
         let subjectRequest = URLRequest.get(
-            Backend.setSubject(id: session.id),
+            backend.setSubject(id: session.id),
             token: token,
             parameters: ["subject_id": "\(subject.id)"]
         )
@@ -226,7 +242,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let _: SessionResponse = try await URLSession.shared.decode(from: subjectRequest)
 
         let recordingRequest = URLRequest.get(
-            Backend.startRecording(id: session.id),
+            backend.startRecording(id: session.id),
             token: token,
             parameters: [
                 "name": "neutral",
@@ -237,7 +253,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         let trial: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
 
         let neutralImgRequest = URLRequest.get(
-            Backend.neutralImg(id: session.id),
+            backend.neutralImg(id: session.id),
             token: token
         )
 
@@ -257,7 +273,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
             default:
                 let trialRequest = URLRequest.get(
-                    Backend.trial(id: trial.id),
+                    backend.trial(id: trial.id),
                     token: token
                 )
 
@@ -268,7 +284,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
                     if isUploadingVideos {
                         let sessionStatusRequest = URLRequest.get(
-                            Backend.sessionStatus(id: session.id),
+                            backend.sessionStatus(id: session.id),
                             token: token
                         )
                         let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
@@ -295,7 +311,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let recordingRequest = URLRequest.get(
-            Backend.startRecording(id: session.id),
+            backend.startRecording(id: session.id),
             token: token,
             parameters: ["name": name]
         )
@@ -310,7 +326,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let request = try await URLRequest.get(
-            Backend.stopRecording(id: session.id),
+            backend.stopRecording(id: session.id),
             token: token
         )
 
@@ -323,7 +339,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let trialRequest = URLRequest.get(
-            Backend.trial(id: trial.id),
+            backend.trial(id: trial.id),
             token: token
         )
 
@@ -341,7 +357,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
             if isUploadingVideos {
                 let sessionStatusRequest = URLRequest.get(
-                    Backend.sessionStatus(id: updatedTrial.session),
+                    backend.sessionStatus(id: updatedTrial.session),
                     token: token
                 )
 
@@ -368,14 +384,16 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
-        guard let trialName = trial.name else {
+        guard let functionId = configuration.analysisTypeIDs[analysisType] else {
+            throw ModelHealthError.internalError("No function ID configured for analysis type \(analysisType)")
+        }
 
-            // TODO
+        guard let trialName = trial.name else {
             throw ModelHealthError.url(.badURL)
         }
 
         let invokeRequest = URLRequest.post(
-            Backend.invokeAnalysis(functionId: analysisType.id),
+            backend.invokeAnalysis(functionId: functionId),
             token: token,
             body: [
                 "session_id": session.id,
@@ -394,7 +412,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         let resultRequest = URLRequest.get(
-            Backend.analysisResult(taskId: task.taskId),
+            backend.analysisResult(taskId: task.taskId),
             token: token
         )
 
@@ -712,11 +730,11 @@ private extension SubjectParameters {
     }
 }
 
-private extension AnalysisType {
-    var id: String {
-        switch self {
-        case .counterMovementJump:
-            "36"
-        }
-    }
-}
+//private extension AnalysisType {
+//    var id: String {
+//        switch self {
+//        case .counterMovementJump:
+//            "36"
+//        }
+//    }
+//}

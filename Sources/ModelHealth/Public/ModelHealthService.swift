@@ -84,11 +84,13 @@ public final class ModelHealthService: ObservableObject {
     /// ``login(username:password:)`` to authenticate.
     ///
     /// ```swift
-    /// let service = ModelHealthService()
+    /// let service = try ModelHealthService()
     /// try await service.login(username: "user@example.com", password: "pass")
     /// ```
-    public init() {
-        self.serviceProvider = ModelHealthProviderImpl()
+    ///
+    /// - Throws: An error if the service cannot be instantiated
+    public init() throws {
+        self.serviceProvider = try ModelHealthProviderImpl()
     }
 
     /// Creates a ModelHealth SDK instance with a custom service provider.
