@@ -2,18 +2,20 @@ import Foundation
 import Security
 
 final class DeviceIdentifier {
-
     private static let service = "io.modelhealth.device-identifier"
     private static let account = "deviceIdentifier"
 
-    static func getDeviceIdentifier() -> String {
+    static func getDeviceIdentifier() throws -> String {
         if let existing = loadFromKeychain() {
             return existing
         }
 
         let newIdentifier = UUID().uuidString
-        saveToKeychain(newIdentifier)
-        return newIdentifier
+        if saveToKeychain(newIdentifier) {
+            return newIdentifier
+        }
+
+        throw ModelHealthError.internalError("Failed to generate device identifier")
     }
 }
 
@@ -40,9 +42,9 @@ extension DeviceIdentifier {
         return identifier
     }
 
-    private static func saveToKeychain(_ identifier: String) {
+    private static func saveToKeychain(_ identifier: String) -> Bool {
         guard let data = identifier.data(using: .utf8) else {
-            return
+            return false
         }
 
         let query: [String: Any] = [
@@ -54,5 +56,7 @@ extension DeviceIdentifier {
 
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
+
+        return true
     }
 }
