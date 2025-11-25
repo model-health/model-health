@@ -4,7 +4,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     private var token: String? {
         didSet {
             if let token {
-                KeychainHelper.save(token, for: .authToken)
+                _ = KeychainHelper.save(token, for: .authToken)
             } else {
                 KeychainHelper.delete(.authToken)
             }
@@ -309,7 +309,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
-        let request = try await URLRequest.get(
+        let request = URLRequest.get(
             Backend.stopRecording(id: session.id),
             token: token
         )
@@ -437,7 +437,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         forTrial trial: Trial,
         resultTag: String
     ) async throws -> AnalysisResult {
-        guard let token else {
+        guard let _ = token else {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
@@ -706,8 +706,10 @@ private extension SubjectParameters {
             "terms": terms
         ]
 
-        characteristics.map { body["characteristics"] = $0 }
-
+        if !characteristics.isEmpty {
+            body["characteristics"] = characteristics
+        }
+        
         return body
     }
 }
