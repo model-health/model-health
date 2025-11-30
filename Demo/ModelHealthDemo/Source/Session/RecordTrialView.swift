@@ -281,9 +281,7 @@ struct TrialRow: View {
         }
         .padding()
         .cornerRadius(8)
-#if os(iOS)
         .background(Color(.systemGray6))
-#endif
     }
 }
 
@@ -571,9 +569,7 @@ private struct RecordTrialView_Preview: View {
         }
         .padding()
         .navigationTitle("Record Trial")
-#if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-#endif
     }
 }
 

@@ -16,9 +16,7 @@ struct VerificationView: View {
 
             TextField("Verification Code", text: $verificationCode)
                 .textFieldStyle(.roundedBorder)
-#if os(iOS)
                 .keyboardType(.numberPad)
-#endif
 
             HStack {
                 Text("Please enter the verification code")
@@ -45,7 +43,6 @@ struct VerificationView: View {
             .padding(.bottom, 12)
         }
         .padding(.horizontal)
-#if os(iOS)
         .navigationBarTitle("Verification Required")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -54,7 +51,6 @@ struct VerificationView: View {
                 }
             }
         }
-#endif
     }
     
     private func verifyCode() {
