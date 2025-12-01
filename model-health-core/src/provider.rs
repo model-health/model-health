@@ -748,7 +748,7 @@ async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskS
     ) -> Result<AnalysisResult, ModelHealthError> {
         use crate::network::AnalysisResultResponse;
         
-        let _token = self.token.as_ref()
+        let token = self.token.as_ref()
             .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
         // Find the result with matching tag
@@ -764,7 +764,7 @@ async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskS
         let response: AnalysisResultResponse = self.network.request(
             Method::GET,
             media_url,
-            None,  // Media URL doesn't need auth token
+            Some(token),
             None::<&()>,
         ).await?;
         

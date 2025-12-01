@@ -12,6 +12,7 @@ ModelHealth-Documentation.zip
 target/
 **/*.rs.bk
 Cargo.lock
+**/include/
 
 # macOS
 .DS_Store
