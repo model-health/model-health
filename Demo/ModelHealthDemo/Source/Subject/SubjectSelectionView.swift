@@ -9,6 +9,7 @@ struct SubjectSelectionView: View {
     @State private var subjectForNavigation: Subject?
     @State private var isLoading = false
     @State private var error: Error?
+    @State private var showingCreateSubject = false
 
     @EnvironmentObject private var modelHealth: ModelHealthService
 
@@ -19,6 +20,8 @@ struct SubjectSelectionView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = error {
                 errorView(error)
+            } else if subjects.isEmpty {
+                emptyStateView
             } else {
                 List(subjects, selection: $selectedSubject) { subject in
                     SubjectRow(
@@ -43,12 +46,57 @@ struct SubjectSelectionView: View {
             }
         }
         .navigationTitle("Select Subject")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingCreateSubject = true
+                } label: {
+                    Label("Create Subject", systemImage: "plus.circle.fill")
+                }
+            }
+        }
         .navigationDestination(item: $subjectForNavigation) { subject in
             NeutralPoseCalibrationView(subject: subject, session: session)
+        }
+        .sheet(isPresented: $showingCreateSubject) {
+            CreateSubjectView { newSubject in
+                // Add the new subject to the list and select it
+                subjects.append(newSubject)
+                selectedSubject = newSubject
+            }
+            .environmentObject(modelHealth)
         }
         .task {
             await loadSubjects()
         }
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+
+            Text("No Subjects")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("Create your first subject to begin recording movement data")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Button {
+                showingCreateSubject = true
+            } label: {
+                Label("Create Subject", systemImage: "plus.circle.fill")
+                    .font(.headline)
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func errorView(_ error: Error) -> some View {
@@ -60,10 +108,17 @@ struct SubjectSelectionView: View {
             Text("Failed to load subjects")
                 .font(.headline)
 
-            Text(error.localizedDescription)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            if let error = error as? ModelHealthError {
+                Text(error.message)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text(error.localizedDescription)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             Button("Retry") {
                 Task {
@@ -105,8 +160,6 @@ struct SubjectRow: View {
                         Label("\(age)", systemImage: "calendar")
                             .font(.caption)
                     }
-                    Label(subject.gender.rawValue.capitalized, systemImage: "person")
-                        .font(.caption)
                 }
                 .foregroundColor(.secondary)
 
@@ -131,11 +184,10 @@ struct SubjectRow: View {
     }
 }
 
-#if DEBUG
 #Preview("List") {
     NavigationStack {
         SubjectSelectionView(session: .forPreview())
-            .environmentObject(ModelHealthService())
+            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }
 
@@ -146,4 +198,3 @@ struct SubjectRow: View {
     SubjectRow(subject: .forPreview(), isSelected: false)
         .padding(.horizontal)
 }
-#endif

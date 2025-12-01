@@ -14,6 +14,7 @@ enum HTTPMethod: String {
 enum Backend {
     static let baseURL = "https://api.modelhealth.io"
 
+    static let register = URL(string: "\(baseURL)/register/")!
     static let login = URL(string: "\(baseURL)/login/")!
     static let verify = URL(string: "\(baseURL)/verify/")!
     static let sessions = URL(string: "\(baseURL)/sessions/")!

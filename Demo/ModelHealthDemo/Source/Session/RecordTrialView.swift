@@ -106,6 +106,9 @@ struct RecordTrialView: View {
                 trialNamed: activityName,
                 in: session
             )
+        } catch let error as ModelHealthError {
+            errorMessage = error.message
+            currentTrial = nil
         } catch {
             errorMessage = "Failed to start recording: \(error.localizedDescription)"
             currentTrial = nil
@@ -131,6 +134,8 @@ struct RecordTrialView: View {
             if let index = completedTrials.firstIndex(where: { $0.trial.id == trial.id }) {
                 await refreshTrialStatus($completedTrials[index])
             }
+        } catch let error as ModelHealthError {
+            errorMessage = error.message
         } catch {
             errorMessage = "Failed to stop recording: \(error.localizedDescription)"
         }
@@ -149,6 +154,8 @@ struct RecordTrialView: View {
                 let analysisStatus = try await modelHealth.getAnalysisStatus(for: task)
                 trialState.wrappedValue.analysisStatus = analysisStatus
             }
+        } catch let error as ModelHealthError {
+            errorMessage = error.message
         } catch {
             errorMessage = "Failed to refresh status: \(error.localizedDescription)"
         }
@@ -172,6 +179,8 @@ struct RecordTrialView: View {
             trialState.wrappedValue.analysisStatus = .processing
 
             await refreshTrialStatus(trialState)
+        } catch let error as ModelHealthError {
+            errorMessage = error.message
         } catch {
             errorMessage = "Failed to start analysis: \(error.localizedDescription)"
         }
@@ -271,8 +280,8 @@ struct TrialRow: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
         .cornerRadius(8)
+        .background(Color(.systemGray6))
     }
 }
 
@@ -409,7 +418,17 @@ struct TrialResultsView: View {
                 analysisResult = result
             }
         } catch {
-            print("Error loading results: \(error)")
+            print("Error loading results: \(error.message)")
+        }
+    }
+}
+
+private extension Error {
+    var message: String {
+        if let modelHealthError = self as? ModelHealthError {
+            return modelHealthError.message
+        } else {
+            return localizedDescription
         }
     }
 }
@@ -422,7 +441,7 @@ struct TrialResultsView: View {
             subject: .forPreview(),
             session: .forPreview()
         )
-        .environmentObject(ModelHealthService())
+        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }
 

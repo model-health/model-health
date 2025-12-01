@@ -66,6 +66,11 @@ struct VerificationView: View {
                     isVerified = true
                     dismiss()
                 }
+            } catch let error as ModelHealthError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.message
+                }
             } catch {
                 await MainActor.run {
                     isLoading = false
@@ -79,6 +84,6 @@ struct VerificationView: View {
 #Preview {
     NavigationStack {
         VerificationView(isVerified: .constant(false))
-            .environmentObject(ModelHealthService())
+            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }
