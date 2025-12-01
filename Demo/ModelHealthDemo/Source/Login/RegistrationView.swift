@@ -36,9 +36,7 @@ struct RegistrationView: View {
                     TextField("Enter username", text: $username)
                         .textFieldStyle(.roundedBorder)
                         .autocorrectionDisabled()
-#if os(iOS)
                         .textInputAutocapitalization(.never)
-#endif
                 }
                 .padding(.horizontal)
 
@@ -52,9 +50,7 @@ struct RegistrationView: View {
                         .textFieldStyle(.roundedBorder)
                         .autocorrectionDisabled()
                         .keyboardType(.emailAddress)
-#if os(iOS)
                         .textInputAutocapitalization(.never)
-#endif
                 }
                 .padding(.horizontal)
 
@@ -150,9 +146,7 @@ struct RegistrationView: View {
                     TextField("Website", text: $website)
                         .textFieldStyle(.roundedBorder)
                         .keyboardType(.URL)
-#if os(iOS)
                         .textInputAutocapitalization(.never)
-#endif
                 }
                 .padding(.horizontal)
 

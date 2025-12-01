@@ -4,3 +4,6 @@ Demo/ModelHealthDemo.xcodeproj/xcuserdata
 .swiftpm
 .build
 Demo/ModelHealthDemo.xcodeproj/xcshareddata
+sdk-docs
+ModelHealth-Documentation.tar.gz
+ModelHealth-Documentation.zip

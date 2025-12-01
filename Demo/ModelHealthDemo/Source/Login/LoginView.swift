@@ -23,9 +23,7 @@ struct LoginView: View {
                 TextField("Enter username", text: $username)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
-#if os(iOS)
                     .textInputAutocapitalization(.never)
-#endif
             }
             .padding(.horizontal)
 

@@ -1,17 +1,20 @@
 import Foundation
 
 actor ModelHealthProviderImpl: ModelHealthProvider {
+    private let networkService: NetworkService
+
     private var token: String? {
         didSet {
             if let token {
-                KeychainHelper.save(token, for: .authToken)
+                _ = KeychainHelper.save(token, for: .authToken)
             } else {
                 KeychainHelper.delete(.authToken)
             }
         }
     }
 
-    init() {
+    init(networkService: NetworkService = URLSessionNetworkService()) {
+        self.networkService = networkService
         self.token = KeychainHelper.get(.authToken)
     }
 
@@ -21,7 +24,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             body: parameters.body
         )
 
-        let registerResponse: RegisterResponse = try await URLSession.shared.decode(from: request)
+        let registerResponse: RegisterResponse = try await networkService.decode(from: request)
         token = registerResponse.token
     }
 
@@ -31,7 +34,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             body: ["username": username, "password": password]
         )
 
-        let loginResponse: LoginResponse = try await URLSession.shared.decode(from: request)
+        let loginResponse: LoginResponse = try await networkService.decode(from: request)
         token = loginResponse.token
 
         return loginResponse.otpChallengeSent ? .verificationRequired : .ok
@@ -48,7 +51,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             body: ["otp_token": code, "remember_device": rememberDevice ? "true" : "false"]
         )
 
-        let _: EmptyResponse = try await URLSession.shared.decode(from: request)
+        let _: EmptyResponse = try await networkService.decode(from: request)
     }
 
     func logout() async throws {
@@ -100,7 +103,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             body: parameters.body
         )
 
-        let subject: SubjectResponse = try await URLSession.shared.decode(from: request)
+        let subject: SubjectResponse = try await networkService.decode(from: request)
         return subject.model
     }
 
@@ -119,7 +122,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: checkerboardDetails.parameters
         )
 
-        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
+        let _: SessionResponse = try await networkService.decode(from: metadataRequest)
 
         let calibrationRequest = URLRequest.get(
             Backend.startRecording(id: session.id),
@@ -127,7 +130,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["name": "calibration"]
         )
 
-        let trial: TrialResponse = try await URLSession.shared.decode(from: calibrationRequest)
+        let trial: TrialResponse = try await networkService.decode(from: calibrationRequest)
 
         let calibrationImgRequest = URLRequest.get(
             Backend.calibrationImg(id: session.id),
@@ -135,7 +138,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         )
 
         while true {
-            let response: CalibrationImgResponse = try await URLSession.shared.decode(from: calibrationImgRequest)
+            let response: CalibrationImgResponse = try await networkService.decode(from: calibrationImgRequest)
 
             let sessionStatusRequest = URLRequest.get(
                 Backend.sessionStatus(id: session.id),
@@ -143,7 +146,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                 parameters: ["device_id": try DeviceIdentifier.getDeviceIdentifier()]
             )
 
-            let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+            let sessionStatus: SessionStatusResponse = try await networkService.decode(from: sessionStatusRequest)
 
             switch response.status {
             case .done:
@@ -152,7 +155,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                     token: token
                 )
 
-                let calibratedResponse: CalibratedCamerasResponse = try await URLSession.shared.decode(from: calibratedRequest)
+                let calibratedResponse: CalibratedCamerasResponse = try await networkService.decode(from: calibratedRequest)
 
                 guard calibratedResponse.calibratedCamerasCount >= 2 else {
                     throw ModelHealthError.calibration(.notEnoughCameras)
@@ -170,7 +173,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                     token: token
                 )
 
-                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+                let trialStatus: TrialResponse = try await networkService.decode(from: trialRequest)
 
                 if trialStatus.status == "stopped" || trialStatus.status == "processing" {
                     let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
@@ -215,7 +218,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             ]
         )
 
-        let _: SessionResponse = try await URLSession.shared.decode(from: metadataRequest)
+        let _: SessionResponse = try await networkService.decode(from: metadataRequest)
 
         let subjectRequest = URLRequest.get(
             Backend.setSubject(id: session.id),
@@ -223,7 +226,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["subject_id": "\(subject.id)"]
         )
 
-        let _: SessionResponse = try await URLSession.shared.decode(from: subjectRequest)
+        let _: SessionResponse = try await networkService.decode(from: subjectRequest)
 
         let recordingRequest = URLRequest.get(
             Backend.startRecording(id: session.id),
@@ -234,7 +237,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             ]
         )
 
-        let trial: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
+        let trial: TrialResponse = try await networkService.decode(from: recordingRequest)
 
         let neutralImgRequest = URLRequest.get(
             Backend.neutralImg(id: session.id),
@@ -242,7 +245,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         )
 
         while true {
-            let response: NeutralImgResponse = try await URLSession.shared.decode(from: neutralImgRequest)
+            let response: NeutralImgResponse = try await networkService.decode(from: neutralImgRequest)
 
             switch response.status {
             case .done:
@@ -261,7 +264,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                     token: token
                 )
 
-                let trialStatus: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+                let trialStatus: TrialResponse = try await networkService.decode(from: trialRequest)
 
                 if trialStatus.status == "stopped" || trialStatus.status == "processing" {
                     let isUploadingVideos = trialStatus.videos.contains { $0.video == nil }
@@ -271,7 +274,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                             Backend.sessionStatus(id: session.id),
                             token: token
                         )
-                        let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+                        let sessionStatus: SessionStatusResponse = try await networkService.decode(from: sessionStatusRequest)
 
                         statusUpdate(
                             .uploading(
@@ -300,7 +303,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             parameters: ["name": name]
         )
 
-        let response: TrialResponse = try await URLSession.shared.decode(from: recordingRequest)
+        let response: TrialResponse = try await networkService.decode(from: recordingRequest)
         return response.model
     }
 
@@ -309,12 +312,12 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
-        let request = try await URLRequest.get(
+        let request = URLRequest.get(
             Backend.stopRecording(id: session.id),
             token: token
         )
 
-        let _: TrialResponse = try await URLSession.shared.decode(from: request)
+        let _: TrialResponse = try await networkService.decode(from: request)
     }
 
     func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
@@ -327,7 +330,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             token: token
         )
 
-        let updatedTrial: TrialResponse = try await URLSession.shared.decode(from: trialRequest)
+        let updatedTrial: TrialResponse = try await networkService.decode(from: trialRequest)
 
         switch updatedTrial.status {
         case "done":
@@ -345,7 +348,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
                     token: token
                 )
 
-                let sessionStatus: SessionStatusResponse = try await URLSession.shared.decode(from: sessionStatusRequest)
+                let sessionStatus: SessionStatusResponse = try await networkService.decode(from: sessionStatusRequest)
 
                 return .uploading(
                     uploaded: sessionStatus.nVideosUploaded,
@@ -383,7 +386,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             ]
         )
 
-        let response: InvokeAnalysisResponse = try await URLSession.shared.decode(from: invokeRequest)
+        let response: InvokeAnalysisResponse = try await networkService.decode(from: invokeRequest)
 
         return AnalysisTask(taskId: response.taskId)
     }
@@ -398,7 +401,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
             token: token
         )
 
-        let (data, response) = try await URLSession.shared.data(for: resultRequest)
+        let (data, response) = try await networkService.data(for: resultRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw ModelHealthError.url(.badServerResponse)
@@ -406,11 +409,9 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
 
         switch httpResponse.statusCode {
         case 202:
-            // Still processing
             return .processing
 
         case 200:
-            // Complete - decode the status response
             let result = try JSONDecoder.snakeCase.decode(
                 AnalysisStatusResponse.self,
                 from: data
@@ -437,16 +438,14 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         forTrial trial: Trial,
         resultTag: String
     ) async throws -> AnalysisResult {
-        guard let token else {
+        guard let _ = token else {
             throw ModelHealthError.url(.userAuthenticationRequired)
         }
 
-        // Find the result with matching tag
         guard let result = trial.results.first(where: { $0.tag == resultTag }) else {
             throw ModelHealthError.url(.fileDoesNotExist)
         }
 
-        // Download from media URL
         guard let media = result.media, let mediaURL = URL(string: media) else {
             throw ModelHealthError.url(.badURL)
         }
@@ -463,7 +462,7 @@ extension ModelHealthProviderImpl {
         }
 
         let request = URLRequest.get(url, token: token)
-        return try await URLSession.shared.decode(from: request)
+        return try await networkService.decode(from: request)
     }
 }
 
@@ -543,77 +542,6 @@ private extension URLRequest {
             body: body,
             parameters: parameters
         )
-    }
-}
-
-// MARK: - Configured Decoder
-extension JSONDecoder {
-    static var snakeCase: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        return decoder
-    }
-
-    static var snakeCaseWithSimpleDate: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        decoder.dateDecodingStrategy = .formatted(formatter)
-
-        return decoder
-    }
-}
-
-// MARK: - URLSession Extension
-extension URLSession {
-    func decode<T: Decodable>(
-        from request: URLRequest,
-        using decoder: JSONDecoder = .snakeCase
-    ) async throws -> T {
-        let (data, response) = try await self.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ModelHealthError.url(.badServerResponse)
-        }
-
-        switch httpResponse.statusCode {
-        case 200...299:
-            break
-
-        case 400...499:
-            throw ModelHealthError.http(
-                .clientError(statusCode: httpResponse.statusCode)
-            )
-
-        case 500...599:
-            throw ModelHealthError.http(
-                .serverError(statusCode: httpResponse.statusCode)
-            )
-
-        default:
-            throw ModelHealthError.http(
-                .unexpectedStatusCode(statusCode: httpResponse.statusCode)
-            )
-        }
-
-        guard !data.isEmpty else {
-            throw ModelHealthError.url(.zeroByteResource)
-        }
-
-        do {
-            return try decoder.decode(T.self, from: data)
-        } catch {
-            throw ModelHealthError.unexpectedResponse
-        }
-    }
-
-    func decode<T: SimpleDateDecodable>(
-        from request: URLRequest
-    ) async throws -> T {
-        try await decode(from: request, using: .snakeCaseWithSimpleDate)
     }
 }
 
@@ -706,8 +634,10 @@ private extension SubjectParameters {
             "terms": terms
         ]
 
-        characteristics.map { body["characteristics"] = $0 }
-
+        if !characteristics.isEmpty {
+            body["characteristics"] = characteristics
+        }
+        
         return body
     }
 }
