@@ -17,6 +17,7 @@ reqwest = { workspace = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 log = { workspace = true }
+urlencoding = "2.1"
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -6,7 +6,7 @@ use crate::network::{NetworkService, ReqwestNetworkService};
 use reqwest::Method;
 use crate::models::{
     AnalysisResult, AnalysisTask, AnalysisTaskStatus, AnalysisType, CalibrationStatus,
-    CheckerboardDetails, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
+    CheckerboardDetails, CheckerboardPlacement, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
     SubjectParameters, Trial, TrialProcessingStatus, Unit, Video,
 };
 
@@ -349,56 +349,426 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         Ok(response.to_model())
     }
 
-    // Stub implementations for remaining methods - we'll implement these later
-    async fn record(&mut self, _trial_name: String, _session: &Session) -> Result<Trial, ModelHealthError> {
-        todo!("Implement in Day 4")
+    async fn record(&mut self, trial_name: String, session: &Session) -> Result<Trial, ModelHealthError> {
+        use crate::network::TrialResponse;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let encoded_name = urlencoding::encode(&trial_name);
+        let path = format!("/sessions/{}/record/?name={}", session.id, encoded_name);
+        
+        let response: TrialResponse = self.network.request(
+            Method::GET,
+            &path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        Ok(response.to_model())
     }
 
-    async fn stop_recording(&mut self, _session: &Session) -> Result<(), ModelHealthError> {
-        todo!("Implement in Day 4")
+    async fn stop_recording(&mut self, session: &Session) -> Result<(), ModelHealthError> {
+        use crate::network::TrialResponse;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let path = format!("/sessions/{}/stop/", session.id);
+        
+        let _: TrialResponse = self.network.request(
+            Method::GET,
+            &path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        Ok(())
     }
 
-    async fn calibrate_camera(
+async fn calibrate_camera(
         &mut self,
-        _session: &Session,
-        _checkerboard_details: CheckerboardDetails,
-        _status_update: Box<dyn Fn(CalibrationStatus) + Send + Sync>,
+        session: &Session,
+        checkerboard_details: CheckerboardDetails,
+        status_update: Box<dyn Fn(CalibrationStatus) + Send + Sync>,
     ) -> Result<(), ModelHealthError> {
-        todo!("Implement in Day 4")
+        use crate::network::{SessionResponse, TrialResponse, CalibrationImgResponse, 
+                             ImgResponseStatus, SessionStatusResponse, CalibratedCamerasResponse};
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        // Set metadata with checkerboard details
+        let metadata_path = format!(
+            "/sessions/{}/set_metadata/?cb_rows={}&cb_cols={}&cb_square={}&cb_placement={}",
+            session.id,
+            checkerboard_details.rows,
+            checkerboard_details.columns,
+            checkerboard_details.square_size,
+            match checkerboard_details.placement {
+                CheckerboardPlacement::Perpendicular => "Perpendicular",
+                CheckerboardPlacement::Parallel => "Parallel",
+            }
+        );
+        
+        let _: SessionResponse = self.network.request(
+            Method::GET,
+            &metadata_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        // Start recording for calibration
+        let calibration_path = format!("/sessions/{}/record/?name=calibration", session.id);
+        let trial: TrialResponse = self.network.request(
+            Method::GET,
+            &calibration_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        let calibration_img_path = format!("/sessions/{}/calibration_img/", session.id);
+        
+        // Poll until calibration is complete
+        loop {
+            let response: CalibrationImgResponse = self.network.request(
+                Method::GET,
+                &calibration_img_path,
+                Some(token),
+                None::<&()>,
+            ).await?;
+            
+            // Get session status for upload progress
+            let session_status_path = format!("/sessions/{}/status/", session.id);
+            let session_status: SessionStatusResponse = self.network.request(
+                Method::GET,
+                &session_status_path,
+                Some(token),
+                None::<&()>,
+            ).await?;
+            
+            match response.status {
+                ImgResponseStatus::Done => {
+                    // Check we have enough calibrated cameras
+                    let calibrated_path = format!("/sessions/{}/get_n_calibrated_cameras/", session.id);
+                    let calibrated_response: CalibratedCamerasResponse = self.network.request(
+                        Method::GET,
+                        &calibrated_path,
+                        Some(token),
+                        None::<&()>,
+                    ).await?;
+                    
+                    if calibrated_response.calibrated_cameras_count < 2 {
+                        return Err(ModelHealthError::Calibration(
+                            crate::error::CalibrationError::NotEnoughCameras
+                        ));
+                    }
+                    
+                    status_update(CalibrationStatus::Done);
+                    return Ok(());
+                }
+                ImgResponseStatus::Error => {
+                    return Err(ModelHealthError::Calibration(
+                        crate::error::CalibrationError::CalibrationFailed
+                    ));
+                }
+                _ => {
+                    // Check trial status
+                    let trial_path = format!("/trials/{}/", trial.id);
+                    let trial_status: TrialResponse = self.network.request(
+                        Method::GET,
+                        &trial_path,
+                        Some(token),
+                        None::<&()>,
+                    ).await?;
+                    
+                    if trial_status.status == "stopped" || trial_status.status == "processing" {
+                        let is_uploading = trial_status.videos.iter().any(|v| v.video.is_none());
+                        
+                        if is_uploading {
+                            status_update(CalibrationStatus::Uploading {
+                                uploaded: session_status.n_videos_uploaded,
+                                total: session_status.n_cameras_connected,
+                            });
+                        } else {
+                            status_update(CalibrationStatus::Processing { percent: None });
+                        }
+                    }
+                }
+            }
+            
+            // Sleep for 1 second before next poll
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
     }
 
     async fn calibrate_neutral_pose(
         &mut self,
-        _subject: &Subject,
-        _session: &Session,
-        _status_update: Box<dyn Fn(CalibrationStatus) + Send + Sync>,
+        subject: &Subject,
+        session: &Session,
+        status_update: Box<dyn Fn(CalibrationStatus) + Send + Sync>,
     ) -> Result<(), ModelHealthError> {
-        todo!("Implement in Day 4")
+        use crate::network::{SessionResponse, TrialResponse, NeutralImgResponse, 
+                             ImgResponseStatus, SessionStatusResponse};
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let metadata_path = format!(
+            "/sessions/{}/set_metadata/?settings_data_sharing={}&settings_scaling_setup={}&settings_framerate={}&settings_session_name={}&settings_openSimModel={}&settings_augmenter_model={}&settings_filter_frequency={}",
+            session.id,
+            urlencoding::encode("Share no data"),
+            "any_pose",
+            "60",
+            urlencoding::encode(&session.name),
+            "LaiUhlrich2022",
+            "v0.3",
+            "default"
+        );
+        
+        let _: SessionResponse = self.network.request(
+            Method::GET,
+            &metadata_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        let subject_path = format!("/sessions/{}/set_subject/?subject_id={}", session.id, subject.id);
+        let _: SessionResponse = self.network.request(
+            Method::GET,
+            &subject_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        let recording_path = format!(
+            "/sessions/{}/record/?name=neutral&subject_id={}",
+            session.id,
+            subject.id
+        );
+
+        let trial: TrialResponse = self.network.request(
+            Method::GET,
+            &recording_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        let neutral_img_path = format!("/sessions/{}/neutral_img/", session.id);
+        
+        loop {
+            let response: NeutralImgResponse = self.network.request(
+                Method::GET,
+                &neutral_img_path,
+                Some(token),
+                None::<&()>,
+            ).await?;
+            
+            match response.status {
+                ImgResponseStatus::Done => {
+                    status_update(CalibrationStatus::Done);
+                    return Ok(());
+                }
+                ImgResponseStatus::Error => {
+                    return Err(ModelHealthError::Calibration(
+                        crate::error::CalibrationError::CalibrationFailed
+                    ));
+                }
+                ImgResponseStatus::Recording => {
+                    status_update(CalibrationStatus::Recording);
+                }
+                _ => {
+                    // Check trial status
+                    let trial_path = format!("/trials/{}/", trial.id);
+                    let trial_status: TrialResponse = self.network.request(
+                        Method::GET,
+                        &trial_path,
+                        Some(token),
+                        None::<&()>,
+                    ).await?;
+                    
+                    if trial_status.status == "stopped" || trial_status.status == "processing" {
+                        let is_uploading = trial_status.videos.iter().any(|v| v.video.is_none());
+                        
+                        if is_uploading {
+                            let session_status_path = format!("/sessions/{}/status/", session.id);
+                            let session_status: SessionStatusResponse = self.network.request(
+                                Method::GET,
+                                &session_status_path,
+                                Some(token),
+                                None::<&()>,
+                            ).await?;
+                            
+                            status_update(CalibrationStatus::Uploading {
+                                uploaded: session_status.n_videos_uploaded,
+                                total: session_status.n_cameras_connected,
+                            });
+                        } else if trial_status.results.is_empty() {
+                            status_update(CalibrationStatus::Processing {
+                                percent: response.progress_info.as_ref().map(|p| p.percent),
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Sleep for 1 second before next poll
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
     }
 
-    async fn get_status(&self, _trial: &Trial) -> Result<TrialProcessingStatus, ModelHealthError> {
-        todo!("Implement in Day 4")
+    async fn get_status(&self, trial: &Trial) -> Result<TrialProcessingStatus, ModelHealthError> {
+        use crate::network::{TrialResponse, SessionStatusResponse};
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let trial_path = format!("/trials/{}/", trial.id);
+        
+        let updated_trial: TrialResponse = self.network.request(
+            Method::GET,
+            &trial_path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        match updated_trial.status.as_str() {
+            "done" => Ok(TrialProcessingStatus::Ready),
+            "error" => Ok(TrialProcessingStatus::Failed),
+            "stopped" | "processing" => {
+                // Check if videos are still uploading
+                let is_uploading = updated_trial.videos.iter().any(|v| v.video.is_none());
+                
+                if is_uploading {
+                    let status_path = format!("/sessions/{}/status/", updated_trial.session);
+                    
+                    let session_status: SessionStatusResponse = self.network.request(
+                        Method::GET,
+                        &status_path,
+                        Some(token),
+                        None::<&()>,
+                    ).await?;
+                    
+                    Ok(TrialProcessingStatus::Uploading {
+                        uploaded: session_status.n_videos_uploaded,
+                        total: session_status.n_cameras_connected,
+                    })
+                } else {
+                    Ok(TrialProcessingStatus::Processing)
+                }
+            }
+            _ => Ok(TrialProcessingStatus::Processing),
+        }
     }
 
     async fn start_analysis(
         &mut self,
-        _analysis_type: AnalysisType,
-        _trial: &Trial,
-        _session: &Session,
+        analysis_type: AnalysisType,
+        trial: &Trial,
+        session: &Session,
     ) -> Result<AnalysisTask, ModelHealthError> {
-        todo!("Implement in Day 4")
+        use crate::network::InvokeAnalysisResponse;
+        use serde_json::json;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let trial_name = trial.name.as_ref()
+            .ok_or_else(|| ModelHealthError::InternalError("Trial has no name".to_string()))?;        
+        
+        // Get function ID based on analysis type
+        let function_id = match analysis_type {
+            AnalysisType::CounterMovementJump => "36",
+        };
+        
+        let path = format!("/analysis-functions/{function_id}/invoke/");
+        
+        let body = json!({
+            "session_id": session.id,
+            "specific_trial_names": [trial_name],
+        });
+        
+        let response: InvokeAnalysisResponse = self.network.request(
+            Method::POST,
+            &path,
+            Some(token),
+            Some(&body),
+        ).await?;
+        
+        Ok(AnalysisTask {
+            task_id: response.task_id,
+        })
     }
 
-    async fn get_analysis_status(&self, _task: &AnalysisTask) -> Result<AnalysisTaskStatus, ModelHealthError> {
-        todo!("Implement in Day 4")
+async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskStatus, ModelHealthError> {
+        use crate::network::{AnalysisStatusResponse, AnalysisState, HttpResponse};
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let path = format!("/analysis-result/{}/", task.task_id);
+        
+        let response: HttpResponse<Option<AnalysisStatusResponse>> = self.network.request_with_status(
+            Method::GET,
+            &path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        match response.status_code {
+            202 => {
+                // Still processing (no body)
+                Ok(AnalysisTaskStatus::Processing)
+            }
+            200 => {
+                // Complete - parse the response
+                if let Some(data) = response.data {
+                    match data.state {
+                        AnalysisState::Successful => {
+                            let tags = data.results
+                                .map(|results| results.into_iter().map(|r| r.tag).collect())
+                                .unwrap_or_default();
+                            Ok(AnalysisTaskStatus::Completed { result_tags: tags })
+                        }
+                        AnalysisState::Failed => Ok(AnalysisTaskStatus::Failed),
+                        AnalysisState::Processing => Ok(AnalysisTaskStatus::Processing),
+                    }
+                } else {
+                    Err(ModelHealthError::UnexpectedResponse)
+                }
+            }
+            _ => Err(ModelHealthError::UnexpectedResponse),
+        }
     }
 
     async fn download_analysis_result(
         &self,
-        _trial: &Trial,
-        _result_tag: String,
+        trial: &Trial,
+        result_tag: String,
     ) -> Result<AnalysisResult, ModelHealthError> {
-        todo!("Implement in Day 4")
+        use crate::network::AnalysisResultResponse;
+        
+        let _token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        // Find the result with matching tag
+        let result = trial.results.iter()
+            .find(|r| r.tag.as_ref() == Some(&result_tag))
+            .ok_or_else(|| ModelHealthError::InternalError("Result tag not found".to_string()))?;        
+        
+        let media_url = result.media.as_ref()
+            .ok_or_else(|| ModelHealthError::InternalError("Result has no media URL".to_string()))?;        
+        
+        // Fetch the analysis result from the media URL
+        // Note: This is a full URL, not a path
+        let response: AnalysisResultResponse = self.network.request(
+            Method::GET,
+            media_url,
+            None,  // Media URL doesn't need auth token
+            None::<&()>,
+        ).await?;
+        
+        Ok(response.to_model())
     }
 }
 

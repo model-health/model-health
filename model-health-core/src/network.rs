@@ -6,6 +6,11 @@ use std::time::Duration;
 use crate::error::{ModelHealthError, HTTPError, URLErrorCode};
 use crate::config::Config;
 
+pub struct HttpResponse<T> {
+    pub status_code: u16,
+    pub data: T,
+}
+
 /// Trait for making HTTP requests
 #[async_trait]
 pub trait NetworkService: Send + Sync {
@@ -16,6 +21,14 @@ pub trait NetworkService: Send + Sync {
         token: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<T, ModelHealthError>;
+    
+    async fn request_with_status<T: for<'de> Deserialize<'de>>(
+        &self,
+        method: Method,
+        path: &str,
+        token: Option<&str>,
+        body: Option<&(impl Serialize + Send + Sync)>,
+    ) -> Result<HttpResponse<Option<T>>, ModelHealthError>;
 }
 
 /// HTTP client implementation using reqwest
@@ -74,7 +87,6 @@ impl NetworkService for ReqwestNetworkService {
         
         log::debug!("HTTP {method} {url} -> {status}");
         
-        // Handle different status codes
         match status {
             StatusCode::OK | StatusCode::CREATED => {
                 let data = response.json::<T>().await
@@ -89,6 +101,73 @@ impl NetworkService for ReqwestNetworkService {
                     status_code: status.as_u16() 
                 }))
             }            
+            code if code.is_client_error() => {
+                Err(ModelHealthError::Http(HTTPError::ClientError { 
+                    status_code: code.as_u16() 
+                }))
+            }
+            code if code.is_server_error() => {
+                Err(ModelHealthError::Http(HTTPError::ServerError { 
+                    status_code: code.as_u16() 
+                }))
+            }
+            code => {
+                Err(ModelHealthError::Http(HTTPError::UnexpectedStatusCode { 
+                    status_code: code.as_u16() 
+                }))
+            }
+        }
+    }
+
+    async fn request_with_status<T: for<'de> Deserialize<'de>>(
+        &self,
+        method: Method,
+        path: &str,
+        token: Option<&str>,
+        body: Option<&(impl Serialize + Send + Sync)>,
+    ) -> Result<HttpResponse<Option<T>>, ModelHealthError> {
+        let url = format!("{}{}", self.base_url, path);
+        
+        log::debug!("HTTP {method} {url}");
+        
+        let mut request = self.client.request(method.clone(), &url);
+        
+        if let Some(token) = token {
+            request = request.header("Authorization", format!("Token {token}"));
+        }
+        
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        
+        let response = request.send().await?;
+        let status = response.status();
+        let status_code = status.as_u16();
+        
+        log::debug!("HTTP {method} {url} -> {status}");
+        
+        match status {
+            StatusCode::OK | StatusCode::CREATED | StatusCode::ACCEPTED => {
+                // Try to parse JSON if there's a body
+                let bytes = response.bytes().await?;
+                
+                let data = if bytes.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::from_slice(&bytes)
+                        .map_err(|_| ModelHealthError::UnexpectedResponse)?)
+                };
+                
+                Ok(HttpResponse { status_code, data })
+            }
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+                Err(ModelHealthError::Url(URLErrorCode::UserAuthenticationRequired))
+            }
+            StatusCode::NOT_FOUND | StatusCode::BAD_REQUEST => {
+                Err(ModelHealthError::Http(HTTPError::ClientError { 
+                    status_code: status.as_u16() 
+                }))
+            }
             code if code.is_client_error() => {
                 Err(ModelHealthError::Http(HTTPError::ClientError { 
                     status_code: code.as_u16() 
