@@ -1,0 +1,35 @@
+[workspace]
+members = ["model-health-core", "model-health-ffi"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Warren Gavin <warren@modelhealth.io>"]
+license = "MIT"
+repository = "https://github.com/model-health/model-health"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+thiserror = "1.0"
+async-trait = "0.1"
+log = "0.4"
+
+[workspace.lints.rust]
+warnings = "deny"           # Treat all warnings as errors
+unsafe_code = "deny"        # No unsafe code (except in FFI crate)
+unused_must_use = "deny"    # Must handle Result types
+
+[workspace.lints.clippy]
+all = "warn"               # Enable all clippy warnings
+pedantic = "warn"          # Extra pedantic checks
+nursery = "warn"           # Unstable/experimental lints
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

@@ -7,3 +7,24 @@ Demo/ModelHealthDemo.xcodeproj/xcshareddata
 sdk-docs
 ModelHealth-Documentation.tar.gz
 ModelHealth-Documentation.zip
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Swift Package Manager
+.swiftpm/
+
+# IDE
+.vscode/
+.idea/
+
+# Node/TypeScript
+node_modules/
+dist/
