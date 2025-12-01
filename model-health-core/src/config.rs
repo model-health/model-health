@@ -1,4 +1,6 @@
-/// Configuration for the ModelHealth SDK
+use std::env;
+
+/// Configuration for the `ModelHealth` SDK
 #[derive(Debug, Clone)]
 pub struct Config {
     pub base_url: String,
@@ -6,16 +8,9 @@ pub struct Config {
 }
 
 impl Config {
-    /// Production endpoint (default)
-    pub fn default() -> Self {
-        Self {
-            base_url: "https://api.modelhealth.io".to_string(),
-            timeout_seconds: 30,
-        }
-    }
-    
-    /// Create config with custom base URL
-    pub fn with_base_url(base_url: String) -> Self {
+    /// Create config with custom base URL (for testing)
+    #[must_use]
+    pub const fn with_base_url(base_url: String) -> Self {
         Self {
             base_url,
             timeout_seconds: 30,
@@ -24,7 +19,33 @@ impl Config {
 }
 
 impl Default for Config {
+    /// Production endpoint (default)
     fn default() -> Self {
-        Self::default()
+        // Check environment variable first (set by wrapper Makefile)
+        let base_url = env::var("MODEL_HEALTH_API_URL")
+            .unwrap_or_else(|_| "https://api.modelhealth.io".to_string());
+        
+        Self {
+            base_url,
+            timeout_seconds: 30,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_default_config() {
+        let config = Config::default();
+        assert!(config.base_url.contains("modelhealth.io"));
+        assert_eq!(config.timeout_seconds, 30);
+    }
+    
+    #[test]
+    fn test_custom_config() {
+        let config = Config::with_base_url("https://dev.example.com".to_string());
+        assert_eq!(config.base_url, "https://dev.example.com");
     }
 }

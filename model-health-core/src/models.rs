@@ -268,18 +268,20 @@ pub enum MetricValue {
 
 impl MetricValue {
     /// Get single value if available
-    pub fn single_value(&self) -> Option<f64> {
+    #[must_use]
+    pub const fn single_value(&self) -> Option<f64> {
         match self {
-            MetricValue::Single(v) => Some(*v),
-            MetricValue::Bilateral { .. } => None,
+            Self::Single(v) => Some(*v),
+            Self::Bilateral { .. } => None,
         }
     }
     
     /// Get bilateral values if available
-    pub fn bilateral_values(&self) -> Option<(f64, f64)> {
+    #[must_use]
+    pub const fn bilateral_values(&self) -> Option<(f64, f64)> {
         match self {
-            MetricValue::Single(_) => None,
-            MetricValue::Bilateral { left, right } => Some((*left, *right)),
+            Self::Single(_) => None,
+            Self::Bilateral { left, right } => Some((*left, *right)),
         }
     }
 }
@@ -288,61 +290,73 @@ impl MetricValue {
 
 impl AnalysisResult {
     /// Jump height in centimeters
+    #[must_use]
     pub fn jump_height(&self) -> Option<f64> {
         self.metrics.get("00_jump_height_COM")?.value.single_value()
     }
     
     /// Jump time in seconds
+    #[must_use]
     pub fn jump_time(&self) -> Option<f64> {
         self.metrics.get("01_jump_time")?.value.single_value()
     }
     
     /// Concentric/eccentric time ratio
+    #[must_use]
     pub fn concentric_eccentric_time_ratio(&self) -> Option<f64> {
         self.metrics.get("02_ratio_concentric_eccentric_time")?.value.single_value()
     }
     
     /// Reactive strength index in m/s
+    #[must_use]
     pub fn reactive_strength_index(&self) -> Option<f64> {
         self.metrics.get("03_reactive_strength_index_COM")?.value.single_value()
     }
     
     /// Peak vertical velocity in m/s
+    #[must_use]
     pub fn peak_vertical_velocity(&self) -> Option<f64> {
         self.metrics.get("04_peak_vertical_COM_speed_during_takeoff")?.value.single_value()
     }
     
     /// Peak knee extension speed (left, right) in deg/s
+    #[must_use]
     pub fn peak_knee_extension_speed(&self) -> Option<(f64, f64)> {
         self.metrics.get("05_peak_knee_extension_speed_during_takeoff")?.value.bilateral_values()
     }
     
     /// Peak hip extension speed (left, right) in deg/s
+    #[must_use]
     pub fn peak_hip_extension_speed(&self) -> Option<(f64, f64)> {
         self.metrics.get("06_peak_hip_extension_speed_during_takeoff")?.value.bilateral_values()
     }
     
     /// Peak knee flexion during landing (left, right) in degrees
+    #[must_use]
     pub fn peak_knee_flexion_landing(&self) -> Option<(f64, f64)> {
         self.metrics.get("07_peak_knee_flexion_angle_during_landing")?.value.bilateral_values()
     }
     
     /// Peak knee valgus during landing (left, right) in degrees
+    #[must_use]
     pub fn peak_knee_valgus_landing(&self) -> Option<(f64, f64)> {
         self.metrics.get("08_peak_dynamic_knee_valgus_angle_during_landing")?.value.bilateral_values()
     }
     
     /// Peak hip flexion during landing (left, right) in degrees
+    #[must_use]
     pub fn peak_hip_flexion_landing(&self) -> Option<(f64, f64)> {
         self.metrics.get("09_peak_hip_flexion_angle_during_landing")?.value.bilateral_values()
     }
     
     /// Peak trunk flexion during landing in degrees
+    #[must_use]
     pub fn peak_trunk_flexion_landing(&self) -> Option<f64> {
         self.metrics.get("10_peak_trunk_flexion_relative_to_ground_during_landing")?.value.single_value()
     }
     
     /// Peak trunk lean during landing in degrees
+    #[must_use]
     pub fn peak_trunk_lean_landing(&self) -> Option<f64> {
         self.metrics.get("11_peak_trunk_lean_relative_to_ground_during_landing")?.value.single_value()
     }

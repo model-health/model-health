@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Errors that can occur in the ModelHealth SDK
+/// Errors that can occur in the `ModelHealth` SDK
 #[derive(Error, Debug, Clone)]
 pub enum ModelHealthError {
     /// Errors specific to camera or neutral pose calibration
@@ -85,31 +85,29 @@ pub enum URLErrorCode {
 impl From<reqwest::Error> for ModelHealthError {
     fn from(err: reqwest::Error) -> Self {
         if err.is_timeout() {
-            ModelHealthError::Url(URLErrorCode::TimedOut)
+            Self::Url(URLErrorCode::TimedOut)
         } else if err.is_connect() {
-            ModelHealthError::Url(URLErrorCode::CannotConnectToHost)
+            Self::Url(URLErrorCode::CannotConnectToHost)
         } else if err.is_status() {
-            if let Some(status) = err.status() {
+            err.status().map_or(Self::Url(URLErrorCode::BadServerResponse), |status| {
                 let code = status.as_u16();
                 if (400..500).contains(&code) {
-                    ModelHealthError::Http(HTTPError::ClientError { status_code: code })
+                    Self::Http(HTTPError::ClientError { status_code: code })
                 } else if (500..600).contains(&code) {
-                    ModelHealthError::Http(HTTPError::ServerError { status_code: code })
+                    Self::Http(HTTPError::ServerError { status_code: code })
                 } else {
-                    ModelHealthError::Http(HTTPError::UnexpectedStatusCode { status_code: code })
+                    Self::Http(HTTPError::UnexpectedStatusCode { status_code: code })
                 }
-            } else {
-                ModelHealthError::Url(URLErrorCode::BadServerResponse)
-            }
+            })
         } else {
-            ModelHealthError::Url(URLErrorCode::Other(err.to_string()))
+            Self::Url(URLErrorCode::Other(err.to_string()))
         }
     }
 }
 
 impl From<serde_json::Error> for ModelHealthError {
     fn from(err: serde_json::Error) -> Self {
-        ModelHealthError::InternalError(format!("JSON error: {}", err))
+        Self::InternalError(format!("JSON error: {err}"))
     }
 }
 

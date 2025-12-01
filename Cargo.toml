@@ -18,6 +18,16 @@ thiserror = "1.0"
 async-trait = "0.1"
 log = "0.4"
 
+[workspace.lints.rust]
+warnings = "deny"           # Treat all warnings as errors
+unsafe_code = "deny"        # No unsafe code (except in FFI crate)
+unused_must_use = "deny"    # Must handle Result types
+
+[workspace.lints.clippy]
+all = "warn"               # Enable all clippy warnings
+pedantic = "warn"          # Extra pedantic checks
+nursery = "warn"           # Unstable/experimental lints
+
 [profile.release]
 opt-level = 3
 lto = true

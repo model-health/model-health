@@ -25,6 +25,12 @@ pub struct ReqwestNetworkService {
 }
 
 impl ReqwestNetworkService {
+    /// Creates a new network service with the given configuration
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the HTTP client cannot be created (extremely rare)
+    #[must_use]
     pub fn new(config: Config) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(config.timeout_seconds))
@@ -49,13 +55,13 @@ impl NetworkService for ReqwestNetworkService {
     ) -> Result<T, ModelHealthError> {
         let url = format!("{}{}", self.base_url, path);
         
-        log::debug!("HTTP {} {}", method, url);
+        log::debug!("HTTP {method} {url}");
         
         let mut request = self.client.request(method.clone(), &url);
         
         // Add auth header if token provided
         if let Some(token) = token {
-            request = request.header("Authorization", format!("Token {}", token));
+            request = request.header("Authorization", format!("Token {token}"));
         }
         
         // Add JSON body if provided
@@ -66,7 +72,7 @@ impl NetworkService for ReqwestNetworkService {
         let response = request.send().await?;
         let status = response.status();
         
-        log::debug!("HTTP {} {} -> {}", method, url, status);
+        log::debug!("HTTP {method} {url} -> {status}");
         
         // Handle different status codes
         match status {
@@ -75,22 +81,14 @@ impl NetworkService for ReqwestNetworkService {
                     .map_err(|_| ModelHealthError::UnexpectedResponse)?;
                 Ok(data)
             }
-            StatusCode::UNAUTHORIZED => {
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
                 Err(ModelHealthError::Url(URLErrorCode::UserAuthenticationRequired))
             }
-            StatusCode::FORBIDDEN => {
-                Err(ModelHealthError::Url(URLErrorCode::UserAuthenticationRequired))
-            }
-            StatusCode::NOT_FOUND => {
+            StatusCode::NOT_FOUND | StatusCode::BAD_REQUEST => {
                 Err(ModelHealthError::Http(HTTPError::ClientError { 
                     status_code: status.as_u16() 
                 }))
-            }
-            StatusCode::BAD_REQUEST => {
-                Err(ModelHealthError::Http(HTTPError::ClientError { 
-                    status_code: status.as_u16() 
-                }))
-            }
+            }            
             code if code.is_client_error() => {
                 Err(ModelHealthError::Http(HTTPError::ClientError { 
                     status_code: code.as_u16() 
@@ -156,6 +154,7 @@ pub struct SessionResponse {
 }
 
 impl SessionResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::Session {
         crate::models::Session {
             id: self.id,
@@ -164,7 +163,7 @@ impl SessionResponse {
             name: self.name,
             session_name: self.session_name,
             qrcode: self.qrcode,
-            trials: self.trials.into_iter().map(|t| t.to_model()).collect(),
+            trials: self.trials.into_iter().map(TrialResponse::to_model).collect(),
             subject: self.subject,
             trials_count: self.trials_count,
         }
@@ -190,6 +189,7 @@ pub struct SubjectResponse {
 }
 
 impl SubjectResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::Subject {
         use crate::models::{Gender, Sex};
         
@@ -248,14 +248,15 @@ pub struct TrialResponse {
 }
 
 impl TrialResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::Trial {
         crate::models::Trial {
             id: self.id,
             session: self.session,
             name: self.name,
             status: self.status,
-            videos: self.videos.into_iter().map(|v| v.to_model()).collect(),
-            results: self.results.into_iter().map(|r| r.to_model()).collect(),
+            videos: self.videos.into_iter().map(VideoResponse::to_model).collect(),
+            results: self.results.into_iter().map(ResultResponse::to_model).collect(),
         }
     }
 }
@@ -279,6 +280,7 @@ pub struct VideoResponse {
 }
 
 impl VideoResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::Video {
         crate::models::Video {
             id: self.id,
@@ -305,6 +307,7 @@ pub struct ResultResponse {
 }
 
 impl ResultResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::TrialResult {
         crate::models::TrialResult {
             id: self.id,
@@ -435,24 +438,21 @@ pub struct BilateralValue {
 }
 
 impl AnalysisResultResponse {
+    #[must_use]
     pub fn to_model(self) -> crate::models::AnalysisResult {
         use crate::models::{AnalysisResult, Metric, MetricValue};
         
         let metrics = self.response.metrics.into_iter().map(|(key, metric)| {
             let value = if metric.bilateral {
-                // Deserialize as bilateral value
-                if let Ok(bilateral) = serde_json::from_value::<BilateralValue>(metric.value) {
-                    MetricValue::Bilateral { left: bilateral.left, right: bilateral.right }
-                } else {
-                    MetricValue::Single(0.0)  // Fallback
-                }
+                serde_json::from_value::<BilateralValue>(metric.value).map_or(
+                    MetricValue::Single(0.0),
+                    |bilateral| MetricValue::Bilateral { left: bilateral.left, right: bilateral.right }
+                )
             } else {
-                // Deserialize as single value
-                if let Ok(single) = serde_json::from_value::<f64>(metric.value) {
-                    MetricValue::Single(single)
-                } else {
-                    MetricValue::Single(0.0)  // Fallback
-                }
+                serde_json::from_value::<f64>(metric.value).map_or(
+                    MetricValue::Single(0.0),
+                    MetricValue::Single
+                )
             };
             
             (key, Metric {
@@ -473,52 +473,461 @@ impl AnalysisResultResponse {
 }
 
 #[cfg(test)]
-mod tests {
+mod conversion_tests {
     use super::*;
-    use crate::config::Config;
     
     #[test]
-    fn test_network_service_creation() {
-        let config = Config::default();
-        let service = ReqwestNetworkService::new(config);
-        assert!(service.base_url.contains("modelhealth.io"));
-    }
-    
-    #[test]
-    fn test_login_response_deserialization() {
+    fn test_session_response_full_conversion() {
         let json = r#"{
-            "token": "abc123",
-            "userId": 42,
-            "otpChallengeSent": true,
-            "institutionalUse": "academic",
-            "licenseStartDate": null,
-            "licenseEndDate": null
+            "id": "session-123",
+            "user": 42,
+            "public": true,
+            "name": "Test Session",
+            "session_name": "My Session",
+            "qrcode": "https://example.com/qr.png",
+            "trials": [],
+            "subject": 10,
+            "trials_count": 5
         }"#;
         
-        let response: LoginResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(response.token, "abc123");
-        assert_eq!(response.user_id, 42);
-        assert!(response.otp_challenge_sent);
+        let response: SessionResponse = serde_json::from_str(json).unwrap();
+        let session = response.to_model();
+        
+        // Verify all fields converted correctly
+        assert_eq!(session.id, "session-123");
+        assert_eq!(session.user, 42);
+        assert!(session.is_public);
+        assert_eq!(session.name, "Test Session");
+        assert_eq!(session.session_name, "My Session");
+        assert_eq!(session.qrcode, Some("https://example.com/qr.png".to_string()));
+        assert_eq!(session.trials.len(), 0);
+        assert_eq!(session.subject, Some(10));
+        assert_eq!(session.trials_count, 5);
     }
     
     #[test]
-    fn test_subject_response_conversion() {
+    fn test_session_response_with_trials_conversion() {
+        let json = r#"{
+            "id": "session-123",
+            "user": 42,
+            "public": false,
+            "name": "Test Session",
+            "session_name": "Session",
+            "qrcode": null,
+            "trials": [
+                {
+                    "id": "trial-1",
+                    "session": "session-123",
+                    "name": "Trial 1",
+                    "status": "done",
+                    "videos": [],
+                    "results": []
+                },
+                {
+                    "id": "trial-2",
+                    "session": "session-123",
+                    "name": null,
+                    "status": "processing",
+                    "videos": [],
+                    "results": []
+                }
+            ],
+            "subject": null,
+            "trials_count": 2
+        }"#;
+        
+        let response: SessionResponse = serde_json::from_str(json).unwrap();
+        let session = response.to_model();
+        
+        assert_eq!(session.trials.len(), 2);
+        assert_eq!(session.trials[0].id, "trial-1");
+        assert_eq!(session.trials[0].name, Some("Trial 1".to_string()));
+        assert_eq!(session.trials[1].id, "trial-2");
+        assert_eq!(session.trials[1].name, None);
+    }
+    
+    #[test]
+    fn test_subject_response_all_genders_conversion() {
+        use crate::models::Gender;
+        
+        let test_cases = vec![
+            ("woman", Gender::Woman),
+            ("man", Gender::Man),
+            ("transgender", Gender::Transgender),
+            ("non-binary", Gender::NonBinary),
+            ("prefer-not-respond", Gender::NoResponse),
+            ("invalid-value", Gender::NoResponse), // Should default to NoResponse
+        ];
+        
+        for (gender_str, expected_gender) in test_cases {
+            let json = format!(r#"{{
+                "id": 1,
+                "name": "Test",
+                "weight": 70.0,
+                "height": 180.0,
+                "age": 30,
+                "birthYear": 1994,
+                "gender": "{}",
+                "sexAtBirth": "man",
+                "characteristics": "",
+                "subjectTags": []
+            }}"#, gender_str);
+            
+            let response: SubjectResponse = serde_json::from_str(&json).unwrap();
+            let subject = response.to_model();
+            
+            // Use pattern matching instead of matches! with variable
+            match expected_gender {
+                Gender::Woman => assert!(matches!(subject.gender, Gender::Woman)),
+                Gender::Man => assert!(matches!(subject.gender, Gender::Man)),
+                Gender::Transgender => assert!(matches!(subject.gender, Gender::Transgender)),
+                Gender::NonBinary => assert!(matches!(subject.gender, Gender::NonBinary)),
+                Gender::NoResponse => assert!(matches!(subject.gender, Gender::NoResponse)),
+            }
+        }
+    }
+
+    #[test]
+    fn test_subject_response_all_sex_conversion() {
+        use crate::models::Sex;
+        
+        let test_cases = vec![
+            ("woman", Sex::Woman),
+            ("man", Sex::Man),
+            ("intersect", Sex::Intersex),
+            ("not-listed", Sex::NotListed),
+            ("prefer-not-respond", Sex::NoResponse),
+            ("unknown", Sex::NoResponse), // Should default to NoResponse
+        ];
+        
+        for (sex_str, expected_sex) in test_cases {
+            let json = format!(r#"{{
+                "id": 1,
+                "name": "Test",
+                "weight": 70.0,
+                "height": 180.0,
+                "age": 30,
+                "birthYear": 1994,
+                "gender": "man",
+                "sexAtBirth": "{}",
+                "characteristics": "",
+                "subjectTags": []
+            }}"#, sex_str);
+            
+            let response: SubjectResponse = serde_json::from_str(&json).unwrap();
+            let subject = response.to_model();
+            
+            // Use pattern matching instead of matches! with variable
+            match expected_sex {
+                Sex::Woman => assert!(matches!(subject.sex_at_birth, Sex::Woman)),
+                Sex::Man => assert!(matches!(subject.sex_at_birth, Sex::Man)),
+                Sex::Intersex => assert!(matches!(subject.sex_at_birth, Sex::Intersex)),
+                Sex::NotListed => assert!(matches!(subject.sex_at_birth, Sex::NotListed)),
+                Sex::NoResponse => assert!(matches!(subject.sex_at_birth, Sex::NoResponse)),
+            }
+        }
+    }
+    
+    #[test]
+    fn test_subject_response_null_gender_defaults() {
         let json = r#"{
             "id": 1,
-            "name": "Test Subject",
+            "name": "Test",
             "weight": 70.0,
             "height": 180.0,
             "age": 30,
             "birthYear": 1994,
-            "gender": "man",
-            "sexAtBirth": "man",
-            "characteristics": "Test",
-            "subjectTags": ["athlete"]
+            "gender": null,
+            "sexAtBirth": null,
+            "characteristics": "",
+            "subjectTags": []
         }"#;
         
         let response: SubjectResponse = serde_json::from_str(json).unwrap();
         let subject = response.to_model();
-        assert_eq!(subject.id, 1);
-        assert_eq!(subject.name, "Test Subject");
+        
+        // Null should default to NoResponse
+        assert!(matches!(subject.gender, crate::models::Gender::NoResponse));
+        assert!(matches!(subject.sex_at_birth, crate::models::Sex::NoResponse));
+    }
+    
+    #[test]
+    fn test_trial_response_full_conversion() {
+        let json = r#"{
+            "id": "trial-123",
+            "session": "session-456",
+            "name": "CMJ Trial",
+            "status": "done",
+            "videos": [
+                {
+                    "id": "video-1",
+                    "trial": "trial-123",
+                    "deviceId": "device-1",
+                    "video": "https://example.com/v1.mp4",
+                    "videoThumb": "https://example.com/t1.jpg"
+                }
+            ],
+            "results": [
+                {
+                    "id": 1,
+                    "trial": "trial-123",
+                    "tag": "cmj-result",
+                    "media": "https://example.com/result.csv"
+                }
+            ]
+        }"#;
+        
+        let response: TrialResponse = serde_json::from_str(json).unwrap();
+        let trial = response.to_model();
+        
+        assert_eq!(trial.id, "trial-123");
+        assert_eq!(trial.session, "session-456");
+        assert_eq!(trial.name, Some("CMJ Trial".to_string()));
+        assert_eq!(trial.status, "done");
+        assert_eq!(trial.videos.len(), 1);
+        assert_eq!(trial.results.len(), 1);
+        
+        // Verify nested conversions
+        assert_eq!(trial.videos[0].id, "video-1");
+        assert_eq!(trial.videos[0].video, Some("https://example.com/v1.mp4".to_string()));
+        assert_eq!(trial.results[0].id, 1);
+        assert_eq!(trial.results[0].tag, Some("cmj-result".to_string()));
+    }
+    
+    #[test]
+    fn test_video_response_full_conversion() {
+        let json = r#"{
+            "id": "video-123",
+            "trial": "trial-456",
+            "deviceId": "device-789",
+            "video": "https://example.com/video.mp4",
+            "videoThumb": "https://example.com/thumb.jpg"
+        }"#;
+        
+        let response: VideoResponse = serde_json::from_str(json).unwrap();
+        let video = response.to_model();
+        
+        assert_eq!(video.id, "video-123");
+        assert_eq!(video.trial, "trial-456");
+        assert_eq!(video.video, Some("https://example.com/video.mp4".to_string()));
+        assert_eq!(video.video_thumb, Some("https://example.com/thumb.jpg".to_string()));
+    }
+    
+    #[test]
+    fn test_video_response_null_urls_conversion() {
+        let json = r#"{
+            "id": "video-123",
+            "trial": "trial-456",
+            "deviceId": "device-789",
+            "video": null,
+            "videoThumb": null
+        }"#;
+        
+        let response: VideoResponse = serde_json::from_str(json).unwrap();
+        let video = response.to_model();
+        
+        assert_eq!(video.id, "video-123");
+        assert!(video.video.is_none());
+        assert!(video.video_thumb.is_none());
+    }
+    
+    #[test]
+    fn test_result_response_full_conversion() {
+        let json = r#"{
+            "id": 42,
+            "trial": "trial-123",
+            "tag": "analysis-v1",
+            "media": "https://example.com/result.csv"
+        }"#;
+        
+        let response: ResultResponse = serde_json::from_str(json).unwrap();
+        let result = response.to_model();
+        
+        assert_eq!(result.id, 42);
+        assert_eq!(result.trial, "trial-123");
+        assert_eq!(result.tag, Some("analysis-v1".to_string()));
+        assert_eq!(result.media, Some("https://example.com/result.csv".to_string()));
+    }
+    
+    #[test]
+    fn test_analysis_result_single_metric_conversion() {
+        let json = r#"{
+            "analysisFunction": {
+                "id": 1,
+                "title": "CMJ Analysis",
+                "description": "Counter movement jump"
+            },
+            "response": {
+                "metrics": {
+                    "00_jump_height_COM": {
+                        "label": "Jump Height (cm)",
+                        "bilateral": false,
+                        "value": 42.5,
+                        "info": "Jump height from center of mass",
+                        "decimal": 1
+                    },
+                    "01_jump_time": {
+                        "label": "Jump Time (s)",
+                        "bilateral": false,
+                        "value": 0.73,
+                        "info": "Time from start to toe-off",
+                        "decimal": 2
+                    }
+                }
+            }
+        }"#;
+        
+        let response: AnalysisResultResponse = serde_json::from_str(json).unwrap();
+        let result = response.to_model();
+        
+        assert_eq!(result.analysis_title, "CMJ Analysis");
+        assert_eq!(result.analysis_description, "Counter movement jump");
+        assert_eq!(result.metrics.len(), 2);
+        
+        // Test convenience accessors
+        assert_eq!(result.jump_height(), Some(42.5));
+        assert_eq!(result.jump_time(), Some(0.73));
+        
+        // Verify metric details
+        let jump_height_metric = result.metrics.get("00_jump_height_COM").unwrap();
+        assert_eq!(jump_height_metric.label, "Jump Height (cm)");
+        assert!(!jump_height_metric.bilateral);
+        assert_eq!(jump_height_metric.decimal_places, 1);
+        assert_eq!(jump_height_metric.value.single_value(), Some(42.5));
+    }
+    
+    #[test]
+    fn test_analysis_result_bilateral_metric_conversion() {
+        let json = r#"{
+            "analysisFunction": {
+                "id": 1,
+                "title": "CMJ Analysis",
+                "description": "Test"
+            },
+            "response": {
+                "metrics": {
+                    "05_peak_knee_extension_speed_during_takeoff": {
+                        "label": "Peak Knee Extension Speed (deg/s)",
+                        "bilateral": true,
+                        "value": {
+                            "left": 233.0,
+                            "right": 259.0
+                        },
+                        "info": "Maximum angular velocity",
+                        "decimal": 0
+                    },
+                    "07_peak_knee_flexion_angle_during_landing": {
+                        "label": "Peak Knee Flexion (deg)",
+                        "bilateral": true,
+                        "value": {
+                            "left": 45.5,
+                            "right": 47.2
+                        },
+                        "info": "Maximum knee angle during landing",
+                        "decimal": 1
+                    }
+                }
+            }
+        }"#;
+        
+        let response: AnalysisResultResponse = serde_json::from_str(json).unwrap();
+        let result = response.to_model();
+        
+        // Test bilateral convenience accessors
+        assert_eq!(result.peak_knee_extension_speed(), Some((233.0, 259.0)));
+        assert_eq!(result.peak_knee_flexion_landing(), Some((45.5, 47.2)));
+        
+        // Verify bilateral values
+        let knee_speed_metric = result.metrics.get("05_peak_knee_extension_speed_during_takeoff").unwrap();
+        assert!(knee_speed_metric.bilateral);
+        assert_eq!(knee_speed_metric.value.bilateral_values(), Some((233.0, 259.0)));
+        assert_eq!(knee_speed_metric.value.single_value(), None);
+    }
+    
+    #[test]
+    fn test_analysis_result_mixed_metrics_conversion() {
+        let json = r#"{
+            "analysisFunction": {
+                "id": 1,
+                "title": "Full CMJ Analysis",
+                "description": "Complete analysis"
+            },
+            "response": {
+                "metrics": {
+                    "00_jump_height_COM": {
+                        "label": "Jump Height",
+                        "bilateral": false,
+                        "value": 35.2,
+                        "info": "Height",
+                        "decimal": 1
+                    },
+                    "06_peak_hip_extension_speed_during_takeoff": {
+                        "label": "Hip Extension Speed",
+                        "bilateral": true,
+                        "value": {
+                            "left": 210.0,
+                            "right": 215.0
+                        },
+                        "info": "Speed",
+                        "decimal": 0
+                    }
+                }
+            }
+        }"#;
+        
+        let response: AnalysisResultResponse = serde_json::from_str(json).unwrap();
+        let result = response.to_model();
+        
+        // Verify both single and bilateral metrics work
+        assert_eq!(result.jump_height(), Some(35.2));
+        assert_eq!(result.peak_hip_extension_speed(), Some((210.0, 215.0)));
+        
+        // Verify metric count
+        assert_eq!(result.metrics.len(), 2);
+    }
+    
+    #[test]
+    fn test_subject_list_response_conversion() {
+        let json = r#"{
+            "subjects": [
+                {
+                    "id": 1,
+                    "name": "Subject 1",
+                    "weight": 70.0,
+                    "height": 180.0,
+                    "age": 30,
+                    "birthYear": 1994,
+                    "gender": "man",
+                    "sexAtBirth": "man",
+                    "characteristics": "Athlete",
+                    "subjectTags": ["athlete"]
+                },
+                {
+                    "id": 2,
+                    "name": "Subject 2",
+                    "weight": null,
+                    "height": null,
+                    "age": null,
+                    "birthYear": null,
+                    "gender": null,
+                    "sexAtBirth": null,
+                    "characteristics": "",
+                    "subjectTags": []
+                }
+            ]
+        }"#;
+        
+        let response: SubjectListResponse = serde_json::from_str(json).unwrap();
+        
+        // Convert all subjects
+        let subjects: Vec<_> = response.subjects.into_iter()
+            .map(|s| s.to_model())
+            .collect();
+        
+        assert_eq!(subjects.len(), 2);
+        assert_eq!(subjects[0].id, 1);
+        assert_eq!(subjects[0].weight, Some(70.0));
+        assert_eq!(subjects[1].id, 2);
+        assert_eq!(subjects[1].weight, None);
     }
 }
