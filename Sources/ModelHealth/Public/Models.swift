@@ -260,6 +260,23 @@ public struct Video: Sendable {
     public let videoThumb: String?
 }
 
+/// Specifies the type of video to retrieve from a trial.
+///
+/// Videos in a trial can exist in different processing states. Use this enumeration to specify
+/// which version of the videos you want to download.
+public enum VideoVersion: Sendable {
+    /// The original, unprocessed video as captured or uploaded.
+    ///
+    /// Raw videos represent the source material before any synchronization has been applied.
+    case raw
+
+    /// Videos that have been synchronized.
+    ///
+    /// Synced videos have undergone processing and may include temporal alignment,
+    /// or other transformations applied during analysis.
+    case synced
+}
+
 // MARK: - Trial
 
 /// A movement recording session with associated videos and analysis results.
@@ -292,6 +309,16 @@ public struct Trial: Sendable {
     public let status: String
     public let videos: [Video]
     public let results: [Result]
+}
+
+extension Trial: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    public static func == (lhs: Trial, rhs: Trial) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 // MARK: - Checkerboard Placement

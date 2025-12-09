@@ -293,6 +293,34 @@ public final class ModelHealthService: ObservableObject {
         try await serviceProvider.videoList()
     }
 
+    /// Download video data for a specific trial.
+    ///
+    /// Asynchronously fetches all videos associated with a given trial that match the specified type.
+    /// Videos with invalid URLs or failed downloads are silently excluded from the result.
+    ///
+    /// - Parameters:
+    ///   - trial: The trial whose videos should be downloaded.
+    ///   - version: The version type of videos to download (e.g., raw, processed).
+    ///
+    /// - Returns: An array of `Data` objects containing the downloaded video data. The array may be
+    ///            empty if no valid videos are available or all downloads fail.
+    ///
+    /// - Note: This method performs concurrent downloads for optimal performance. Individual download
+    ///         failures do not affect other requests.
+    ///
+    /// ## Example
+    /// ```swift
+    /// let trial = // ... obtained trial
+    /// let videoData = await service.videos(for: trial, version: .raw)
+    ///
+    /// for data in videoData {
+    ///     // Process video data
+    /// }
+    /// ```
+    public func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+        await serviceProvider.videos(for: trial, version: version)
+    }
+
     // MARK: - Subject Management
 
     /// Retrieves all subjects associated with the authenticated account.
@@ -671,6 +699,9 @@ public protocol ModelHealthProvider {
 
     /// See ``ModelHealthService/videoList()``
     func videoList() async throws -> [Video]
+
+    /// See ``ModelHealthService/download(videos:)
+    func videos(for trial: Trial, version: VideoVersion) async -> [Data]
 
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session

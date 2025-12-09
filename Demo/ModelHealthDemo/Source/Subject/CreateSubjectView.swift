@@ -201,7 +201,10 @@ struct CreateSubjectView: View {
     }
 
     private var isValidBirthYear: Bool {
-        guard let year = Int(birthYear) else { return false }
+        guard let year = Int(birthYear) else {
+            return false
+        }
+        
         let currentYear = Calendar.current.component(.year, from: Date())
         return year >= 1900 && year <= currentYear
     }
