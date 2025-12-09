@@ -17,7 +17,7 @@ enum Backend {
     static let register = URL(string: "\(baseURL)/register/")!
     static let login = URL(string: "\(baseURL)/login/")!
     static let verify = URL(string: "\(baseURL)/verify/")!
-    static let sessions = URL(string: "\(baseURL)/sessions/")!
+    static let sessions = URL(string: "\(baseURL)/sessions/valid/")!
     static let subjects = URL(string: "\(baseURL)/subjects/")!
     static let trials = URL(string: "\(baseURL)/trials/")!
     static let videos = URL(string: "\(baseURL)/videos/")!

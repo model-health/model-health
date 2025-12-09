@@ -23,7 +23,7 @@ struct ModelHealthDemoApp: App {
                     ProgressView("Checking authentication...")
                 } else if isAuthenticated {
                     NavigationStack {
-                        CreateSessionView()
+                        SessionListView()
                             .onShakeDeveloperMenu(
                                 isAuthenticated: $isAuthenticated,
                                 isMockBackend: $isMockBackend

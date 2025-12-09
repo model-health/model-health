@@ -82,6 +82,12 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         return response.videos.map { $0.model }
     }
 
+    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+        await networkService.download(
+            urls: videoUrls(for: trial, version: version)
+        )
+    }
+
     func createSession() async throws -> Session {
         let response: [SessionResponse] = try await get(Backend.createSession)
 
@@ -463,6 +469,23 @@ extension ModelHealthProviderImpl {
 
         let request = URLRequest.get(url, token: token)
         return try await networkService.decode(from: request)
+    }
+
+    private func videoUrls(for trial: Trial, version: VideoVersion) -> [URL] {
+        switch version {
+        case .raw:
+            trial.videos.compactMap {
+                $0.video.flatMap { URL(string: $0) }
+            }
+
+        case .synced:
+            trial
+                .results
+                .filter { $0.tag == "video-sync" }
+                .compactMap {
+                    $0.media.flatMap { URL(string: $0) }
+                }
+        }
     }
 }
 

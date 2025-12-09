@@ -10,7 +10,7 @@ final class DeviceIdentifier {
             return existing
         }
 
-        let newIdentifier = UUID().uuidString
+        let newIdentifier = UUID().uuidString.lowercased()
         if saveToKeychain(newIdentifier) {
             return newIdentifier
         }

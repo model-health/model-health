@@ -156,6 +156,10 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
+    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+        []
+    }
+
     func createSession() async throws -> Session {
         try? await Task.sleep(nanoseconds: 400_000_000)
         return .forPreview { builder in
