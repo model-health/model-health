@@ -33,6 +33,7 @@ struct RecordTrialView: View {
     @State private var completedTrials: [TrialState] = []
     @State private var selectedTrialForResults: TrialState?
     @State private var selectedTrialForVideos: Trial?
+    @State private var selectedTrialForData: Trial?
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
@@ -131,7 +132,8 @@ struct RecordTrialView: View {
                                 onRefreshStatus: { await refreshTrialStatus($trialState) },
                                 onStartAnalysis: { await startAnalysis($trialState) },
                                 onViewResults: { selectedTrialForResults = trialState },
-                                onViewVideos: { selectedTrialForVideos = trialState.trial }
+                                onViewVideos: { selectedTrialForVideos = trialState.trial },
+                                onViewData: { selectedTrialForData = trialState.trial }
                             )
                         }
                     }
@@ -152,6 +154,9 @@ struct RecordTrialView: View {
             }
             .navigationDestination(item: $selectedTrialForVideos) { trial in
                 TrialVideoView(trial: trial)
+            }
+            .navigationDestination(item: $selectedTrialForData) { trial in
+                TrialDataView(trial: trial)
             }
             .task {
                 guard case .notStarted = loadingState else {
@@ -329,25 +334,25 @@ struct TrialState: Identifiable {
 
 // MARK: - Trial Row
 
-struct TrialRow: View {
+private struct TrialRow: View {
     @Binding var trialState: TrialState
     let onRefreshStatus: () async -> Void
     let onStartAnalysis: () async -> Void
     let onViewResults: () -> Void
     let onViewVideos: () -> Void
+    let onViewData: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(trialState.name)
-                .font(.headline)
-
-            HStack(spacing: 12) {
-                StatusIndicator(
-                    processingStatus: trialState.processingStatus,
-                    analysisStatus: trialState.analysisStatus
-                )
-
-                Spacer()
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(trialState.name)
+                        .font(.headline)
+                    StatusIndicator(
+                        processingStatus: trialState.processingStatus,
+                        analysisStatus: trialState.analysisStatus
+                    )
+                }
 
                 Button {
                     Task {
@@ -359,48 +364,72 @@ struct TrialRow: View {
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "arrow.clockwise")
+                            .frame(width: 84, height: 18)
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(trialState.isRefreshing)
-
-                if trialState.processingStatus != nil {
-                    Button {
-                        onViewVideos()
-                    } label: {
-                        Image(systemName: "film.stack")
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-
-                if trialState.canAnalyze {
-                    Button {
-                        Task {
-                            await onStartAnalysis()
-                        }
-                    } label: {
-                        if trialState.isAnalyzing {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "chart.line.text.clipboard")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(trialState.isAnalyzing)
-                }
-
-                if trialState.canViewResults {
-                    Button("Results") {
-                        onViewResults()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
             }
+
+            Spacer()
+
+            buttonGrid
         }
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
         .cornerRadius(8)
         .background(Color(.systemGray6))
+    }
+
+    private var buttonGrid: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Button {
+                    onViewVideos()
+                } label: {
+                    Image(systemName: "film.stack")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(trialState.processingStatus == nil)
+                .frame(width: 44, height: 44)
+
+                Button {
+                    onViewData()
+                } label: {
+                    Image(systemName: "curlybraces")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(trialState.processingStatus == nil)
+                .frame(width: 44, height: 44)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Task {
+                        await onStartAnalysis()
+                    }
+                } label: {
+                    if trialState.isAnalyzing {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "chart.line.text.clipboard")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!trialState.canAnalyze || trialState.isAnalyzing)
+                .frame(width: 44, height: 44)
+
+                Button {
+                    onViewResults()
+                } label: {
+                    Image(systemName: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!trialState.canViewResults)
+                .frame(width: 44, height: 44)
+            }
+        }
     }
 }
 
@@ -488,8 +517,6 @@ struct StatusIndicator: View {
         return "Unknown status"
     }
 }
-
-// MARK: - Trial Results View (Stub)
 
 struct TrialResultsView: View {
     let trialState: TrialState
@@ -685,7 +712,8 @@ private struct RecordTrialView_Preview: View {
                         onRefreshStatus: {},
                         onStartAnalysis: {},
                         onViewResults: {},
-                        onViewVideos: {}
+                        onViewVideos: {},
+                        onViewData: {}
                     )
                 }
             }

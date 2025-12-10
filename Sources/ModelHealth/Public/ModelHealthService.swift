@@ -301,6 +301,56 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
         await serviceProvider.videos(for: trial, version: version)
     }
 
+    /// Downloads result data files from a processed trial.
+    ///
+    /// After a trial completes processing, various result files become available for download.
+    /// Use this method to retrieve specific types of data (kinematic measurements, visualizations)
+    /// in their native file formats (JSON, CSV).
+    ///
+    /// This method is useful when you need access to raw analysis data rather than the
+    /// structured metrics provided by ``downloadAnalysisResult(forTrial:resultTag:)``.
+    ///
+    /// - Parameters:
+    ///   - types: The types of result data to download (kinematic, visualization, or both)
+    ///   - trial: The completed trial to download data from
+    /// - Returns: An array of result files with their formats. Returns an empty array if no
+    ///   results are available or all downloads fail.
+    ///
+    /// ## Example
+    /// ```swift
+    /// // Download kinematic data only
+    /// let kinematicData = await service.data(ofType: [.kinematic], for: trial)
+    ///
+    /// for result in kinematicData {
+    ///     switch result.fileType {
+    ///     case .json:
+    ///         let decoder = JSONDecoder()
+    ///         if let jsonData = try? decoder.decode([String: Any].self, from: result.data) {
+    ///             print("Parsed kinematic JSON")
+    ///         }
+    ///
+    ///     case .csv:
+    ///         if let csvString = String(data: result.data, encoding: .utf8) {
+    ///             print("CSV data:\n\(csvString)")
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// // Download all available data types
+    /// let allData = await service.data(
+    ///     ofType: [.kinematic, .visualization],
+    ///     for: trial
+    /// )
+    /// print("Downloaded \(allData.count) result files")
+    /// ```
+    ///
+    /// - Note: This method performs concurrent downloads for optimal performance.
+    ///   Individual download failures do not affect other requests and failed downloads
+    ///   are silently excluded from results.
+    public func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
+        await serviceProvider.data(ofType: types, for: trial)
+    }
+
     // MARK: - Subject Management
 
     /// Retrieves all subjects associated with the authenticated account.
@@ -677,8 +727,11 @@ public protocol ModelHealthProvider {
     /// See ``ModelHealthService/trialList(for:)``
     func trialList(for session: Session) async throws -> [Trial]
 
-    /// See ``ModelHealthService/download(videos:)
+    /// See ``ModelHealthService/download(videos:)``
     func videos(for trial: Trial, version: VideoVersion) async -> [Data]
+
+    /// See ``ModelHealthService/data(ofType:for:)``
+    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData]
 
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
@@ -741,6 +794,13 @@ public enum ModelHealthError: Error, Sendable {
         case unexpectedStatusCode(statusCode: Int)
     }
 
+    /// Data file conversion errors
+    public enum ConversionError: Sendable {
+        case invalidEncoding
+        case couldNotDetermineCSVColumns
+        case emptyFile
+    }
+
     /// Errors that occur in the URL Error domain
     case url(URLError.Code)
 
@@ -755,4 +815,7 @@ public enum ModelHealthError: Error, Sendable {
 
     /// An internal SDK error occurred
     case internalError(String)
+
+    /// An error related to data file parsing & converting
+    case dataFile(ConversionError)
 }

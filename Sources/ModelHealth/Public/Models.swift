@@ -313,6 +313,69 @@ extension Trial: Hashable {
     }
 }
 
+/// Specifies the type of result data to retrieve from a trial.
+///
+/// Trials can generate different types of output data during processing and analysis.
+/// Use this enumeration to specify which types of data you want to download.
+///
+/// ```swift
+/// // Download all visualization data
+/// let vizData = await service.data(ofType: [.visualization], for: trial)
+///
+/// // Download both kinematic and visualization data
+/// let allData = await service.data(ofType: [.kinematic, .visualization], for: trial)
+/// ```
+public enum ResultDataType: Sendable {
+    /// Visualization data for interpreting movement analysis results.
+    case visualization
+
+    /// Raw kinematic data including joint positions, angles, and velocities.
+    case kinematic
+}
+
+/// Result data downloaded from a trial with its associated file format.
+///
+/// Trial analysis generates output files in different formats. This structure
+/// wraps the raw data along with its file type, allowing you to process it appropriately.
+///
+/// ```swift
+/// let resultData = await service.data(ofType: [.kinematic], for: trial)
+///
+/// for result in resultData {
+///     switch result.fileType {
+///     case .json:
+///         let decoder = JSONDecoder()
+///         let kinematicData = try decoder.decode(KinematicData.self, from: result.data)
+///         // Process JSON data
+///
+///     case .csv:
+///         let csvString = String(data: result.data, encoding: .utf8)
+///         // Process CSV data
+///     }
+/// }
+/// ```
+public struct ResultData: Sendable {
+    /// The format of the result data file.
+    ///
+    /// Use this to determine how to parse the contents of ``data``.
+    public enum FileType: Sendable {
+        /// JSON-formatted data, suitable for structured parsing
+        case json
+
+        /// CSV-formatted data, suitable for spreadsheet import or manual inspection
+        case csv
+    }
+
+    /// The format of this result file
+    public let fileType: FileType
+
+    /// The raw file data
+    ///
+    /// Parse this data according to the ``fileType``. For JSON files, use `JSONDecoder`.
+    /// For CSV files, convert to a string with UTF-8 encoding.
+    public let data: Data
+}
+
 // MARK: - Checkerboard Placement
 
 /// Orientation of the calibration checkerboard relative to the camera.

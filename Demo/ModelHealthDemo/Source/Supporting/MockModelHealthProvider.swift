@@ -141,6 +141,10 @@ final class MockModelHealthProvider: ModelHealthProvider {
         []
     }
 
+    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
+        []
+    }
+
     func createSession() async throws -> Session {
         try? await Task.sleep(nanoseconds: 400_000_000)
         return .forPreview { builder in
