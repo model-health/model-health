@@ -72,20 +72,47 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         return response.subjects.map { $0.model }
     }
 
-    func trialList() async throws -> [Trial] {
-        let response: TrialListResponse = try await get(Backend.trials)
+    func trialList(for session: Session) async throws -> [Trial] {
+        let response: SessionResponse = try await get(Backend.session(session.id))
         return response.trials.map { $0.model }
-    }
-
-    func videoList() async throws -> [Video] {
-        let response: VideoListResponse = try await get(Backend.videos)
-        return response.videos.map { $0.model }
     }
 
     func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
         await networkService.download(
             urls: videoUrls(for: trial, version: version)
         )
+    }
+
+    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
+        await withTaskGroup(of: (ResultData.FileType, Data?).self) { group in
+            for resultType in types {
+                group.addTask {
+                    guard
+                        let result = trial.results.first(where: { $0.tag == resultType.tag }),
+                        let media = result.media,
+                        let mediaURL = URL(string: media)
+                    else {
+                        return (resultType.fileType, nil)
+                    }
+
+                    let data = try? await self.networkService.data(from: mediaURL).0
+
+                    return (resultType.fileType, resultType.convert(data))
+                }
+            }
+
+            var results: [ResultData] = []
+
+            for await (type, data) in group {
+                if let data {
+                    results.append(
+                        ResultData(fileType: type, data: data)
+                    )
+                }
+            }
+
+            return results
+        }
     }
 
     func createSession() async throws -> Session {
@@ -670,6 +697,42 @@ private extension AnalysisType {
         switch self {
         case .counterMovementJump:
             "36"
+        }
+    }
+}
+
+private extension ResultDataType {
+    var tag: String {
+        switch self {
+        case .visualization:
+            "visualizerTransforms-json"
+
+        case .kinematic:
+            "ik_results"
+        }
+    }
+
+    var fileType: ResultData.FileType {
+        switch self {
+        case .visualization:
+            .json
+
+        case .kinematic:
+            .csv
+        }
+    }
+
+    func convert(_ data: Data?) -> Data? {
+        switch self {
+        case .visualization:
+            return data
+
+        case .kinematic:
+            guard let data else {
+                return nil
+            }
+
+            return try? MotToCSVConverter().convert(data)
         }
     }
 }

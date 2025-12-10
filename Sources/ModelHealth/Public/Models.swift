@@ -104,7 +104,6 @@ public struct Session: Identifiable, Sendable {
     public let name: String
     public let sessionName: String
     public let qrcode: String?
-    public let trials: [Trial]
     public let subject: Int?
     public let trialsCount: Int
 }
@@ -285,8 +284,8 @@ public enum VideoVersion: Sendable {
 /// processing to final analysis.
 ///
 /// ```swift
-/// let trials = try await service.trialList()
-/// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
+/// let trials = try await service.trialList(for: session)
+/// let completed = trials.filter { $0.status == "completed" }
 /// ```
 public struct Trial: Sendable {
     public struct Result: Sendable {
@@ -294,13 +293,6 @@ public struct Trial: Sendable {
         public let trial: String
         public let tag: String?
         public let media: String?
-    }
-
-    public enum Status: Sendable {
-        case done
-        case error
-        case stopped
-        case processing
     }
 
     public let id: String
@@ -319,6 +311,69 @@ extension Trial: Hashable {
     public static func == (lhs: Trial, rhs: Trial) -> Bool {
         lhs.id == rhs.id
     }
+}
+
+/// Specifies the type of result data to retrieve from a trial.
+///
+/// Trials can generate different types of output data during processing and analysis.
+/// Use this enumeration to specify which types of data you want to download.
+///
+/// ```swift
+/// // Download all visualization data
+/// let vizData = await service.data(ofType: [.visualization], for: trial)
+///
+/// // Download both kinematic and visualization data
+/// let allData = await service.data(ofType: [.kinematic, .visualization], for: trial)
+/// ```
+public enum ResultDataType: Sendable {
+    /// Visualization data for interpreting movement analysis results.
+    case visualization
+
+    /// Raw kinematic data including joint positions, angles, and velocities.
+    case kinematic
+}
+
+/// Result data downloaded from a trial with its associated file format.
+///
+/// Trial analysis generates output files in different formats. This structure
+/// wraps the raw data along with its file type, allowing you to process it appropriately.
+///
+/// ```swift
+/// let resultData = await service.data(ofType: [.kinematic], for: trial)
+///
+/// for result in resultData {
+///     switch result.fileType {
+///     case .json:
+///         let decoder = JSONDecoder()
+///         let kinematicData = try decoder.decode(KinematicData.self, from: result.data)
+///         // Process JSON data
+///
+///     case .csv:
+///         let csvString = String(data: result.data, encoding: .utf8)
+///         // Process CSV data
+///     }
+/// }
+/// ```
+public struct ResultData: Sendable {
+    /// The format of the result data file.
+    ///
+    /// Use this to determine how to parse the contents of ``data``.
+    public enum FileType: Sendable {
+        /// JSON-formatted data, suitable for structured parsing
+        case json
+
+        /// CSV-formatted data, suitable for spreadsheet import or manual inspection
+        case csv
+    }
+
+    /// The format of this result file
+    public let fileType: FileType
+
+    /// The raw file data
+    ///
+    /// Parse this data according to the ``fileType``. For JSON files, use `JSONDecoder`.
+    /// For CSV files, convert to a string with UTF-8 encoding.
+    public let data: Data
 }
 
 // MARK: - Checkerboard Placement
@@ -681,7 +736,6 @@ extension Session {
         public var name = "Preview Session"
         public var sessionName = "Session Name"
         public var qrcode: String? = "https://example.com/qr.png"
-        public var trials: [Trial] = []
         public var subject: Int? = nil
         public var trialsCount = 0
 
@@ -693,7 +747,6 @@ extension Session {
                 name: name,
                 sessionName: sessionName,
                 qrcode: qrcode,
-                trials: trials,
                 subject: subject,
                 trialsCount: trialsCount
             )

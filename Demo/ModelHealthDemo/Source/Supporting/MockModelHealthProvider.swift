@@ -81,7 +81,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.user = 1
                 builder.public = false
                 builder.qrcode = nil
-                builder.trials = []
                 builder.subject = nil
                 builder.trialsCount = 0
             }
@@ -110,7 +109,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return newSubject
     }
 
-    func trialList() async throws -> [Trial] {
+    func trialList(for session: Session) async throws -> [Trial] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return [
             .forPreview { builder in
@@ -138,25 +137,11 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
-    func videoList() async throws -> [Video] {
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        return [
-            .forPreview { builder in
-                builder.id = "vid-001"
-                builder.trial = "trial-001"
-                builder.video = "video-001"
-                builder.videoThumb = "thumb-001"
-            },
-            .forPreview { builder in
-                builder.id = "vid-002"
-                builder.trial = "trial-001"
-                builder.video = "video-002"
-                builder.videoThumb = "thumb-002"
-            }
-        ]
+    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+        []
     }
 
-    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
         []
     }
 
@@ -169,7 +154,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.user = 1
             builder.public = false
             builder.qrcode = nil
-            builder.trials = []
             builder.subject = nil
             builder.trialsCount = 0
         }

@@ -82,6 +82,18 @@ extension ModelHealthError {
         case .unexpectedResponse:
             return "Unexpected Server Response"
 
+        case .dataFile(let dataFileError):
+            switch dataFileError {
+            case .invalidEncoding:
+                return "File encoding is not valid UTF-8"
+
+            case .couldNotDetermineCSVColumns:
+                return "Could not determine number of columns for CSV file"
+
+            case .emptyFile:
+                return "File contains no data"
+            }
+
         case .internalError:
             return "Internal Error"
         }

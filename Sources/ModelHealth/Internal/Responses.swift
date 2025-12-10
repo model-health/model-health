@@ -37,7 +37,6 @@ extension SessionResponse {
             name: name,
             sessionName: sessionName,
             qrcode: qrcode,
-            trials: trials.map { $0.model },
             subject: subject,
             trialsCount: trialsCount
         )
@@ -290,24 +289,6 @@ struct TrialResponse: Decodable, Sendable {
     let status: String
     let videos: [VideoResponse]
     let results: [ResultResponse]
-}
-
-extension TrialResponse.Status {
-    var model: Trial.Status {
-        switch self {
-        case .done:
-            return .done
-
-        case .error:
-            return .error
-
-        case .stopped:
-            return .stopped
-
-        case .processing:
-            return .processing
-        }
-    }
 }
 
 extension TrialResponse {
