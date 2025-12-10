@@ -30,7 +30,7 @@ struct RecordTrialView: View {
 
     @State private var activityName: String = ""
     @State private var currentTrial: Trial?
-    @State private var completedTrials: [TrialState]
+    @State private var completedTrials: [TrialState] = []
     @State private var selectedTrialForResults: TrialState?
     @State private var selectedTrialForVideos: Trial?
     @State private var loadingState: LoadingState = .notStarted
@@ -41,8 +41,134 @@ struct RecordTrialView: View {
     init(subject: Subject, session: Session) {
         self.subject = subject
         self.session = session
-        self._completedTrials = State(
-            initialValue: session.trials.map { trial in
+    }
+
+    private var isRecording: Bool {
+        currentTrial != nil
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activity Name")
+                        .font(.headline)
+                    
+                    TextField("e.g., Walking, Squatting, Jump", text: $activityName)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(isRecording)
+                        .autocorrectionDisabled()
+                }
+                
+                if isRecording {
+                    VStack(spacing: 8) {
+                        Image(systemName: "record.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.red)
+                            .symbolEffect(.pulse)
+                        
+                        Text("Recording trial: \"\(activityName)\"")
+                            .font(.headline)
+                        
+                        Text("Have the subject perform the activity")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                
+                LoadingButton(
+                    title: isRecording ? "Stop Recording" : "Start Recording",
+                    isLoading: false,
+                    isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
+                ) {
+                    Task {
+                        await isRecording ? stopRecordingTrial() : startRecordingTrial()
+                    }
+                }
+                
+                switch loadingState {
+                case .notStarted:
+                    EmptyView()
+                    
+                case .loading:
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading existing trials...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    
+                case .loaded where completedTrials.isEmpty:
+                    EmptyView()
+                    
+                case .loaded:
+                    Divider()
+                        .padding(.vertical)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Completed Trials")
+                            .font(.headline)
+                        
+                        ForEach($completedTrials) { $trialState in
+                            TrialRow(
+                                trialState: $trialState,
+                                onRefreshStatus: { await refreshTrialStatus($trialState) },
+                                onStartAnalysis: { await startAnalysis($trialState) },
+                                onViewResults: { selectedTrialForResults = trialState },
+                                onViewVideos: { selectedTrialForVideos = trialState.trial }
+                            )
+                        }
+                    }
+                    
+                case .error(let message):
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                        .padding()
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Record Trial")
+            .sheet(item: $selectedTrialForResults) { trialState in
+                TrialResultsView(trialState: trialState)
+            }
+            .navigationDestination(item: $selectedTrialForVideos) { trial in
+                TrialVideoView(trial: trial)
+            }
+            .task {
+                guard case .notStarted = loadingState else {
+                    return
+                }
+                
+                await loadExistingTrials()
+            }
+        }
+    }
+
+    private func loadExistingTrials() async {
+        loadingState = .loading
+
+        do {
+            let trials = try await modelHealth.trialList(for: session)
+            completedTrials = trials.map { trial in
                 TrialState(
                     trial: trial,
                     name: trial.name ?? "Trial \(trial.id)",
@@ -51,135 +177,9 @@ struct RecordTrialView: View {
                     analysisStatus: nil
                 )
             }
-        )
-    }
-
-    private var isRecording: Bool {
-        currentTrial != nil
-    }
-
-    var body: some View {
-        VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Activity Name")
-                    .font(.headline)
-
-                TextField("e.g., Walking, Squatting, Jump", text: $activityName)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(isRecording)
-                    .autocorrectionDisabled()
-            }
-
-            if isRecording {
-                VStack(spacing: 8) {
-                    Image(systemName: "record.circle.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.red)
-                        .symbolEffect(.pulse)
-
-                    Text("Recording trial: \"\(activityName)\"")
-                        .font(.headline)
-
-                    Text("Have the subject perform the activity")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(12)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(8)
-            }
-
-            LoadingButton(
-                title: isRecording ? "Stop Recording" : "Start Recording",
-                isLoading: false,
-                isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
-            ) {
-                Task {
-                    await isRecording ? stopRecordingTrial() : startRecordingTrial()
-                }
-            }
-
-            switch loadingState {
-            case .notStarted:
-                EmptyView()
-
-            case .loading:
-                HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Loading existing trials...")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-
-            case .loaded where completedTrials.isEmpty:
-                EmptyView()
-
-            case .loaded:
-                Divider()
-                    .padding(.vertical)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Completed Trials")
-                        .font(.headline)
-
-                    ForEach($completedTrials) { $trialState in
-                        TrialRow(
-                            trialState: $trialState,
-                            onRefreshStatus: { await refreshTrialStatus($trialState) },
-                            onStartAnalysis: { await startAnalysis($trialState) },
-                            onViewResults: { selectedTrialForResults = trialState },
-                            onViewVideos: { selectedTrialForVideos = trialState.trial }
-                        )
-                    }
-                }
-
-            case .error(let message):
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                    .padding()
-            }
-
-            Spacer()
+        } catch {
+            print("Could not load existing trials: \(error)")
         }
-        .padding()
-        .navigationTitle("Record Trial")
-        .sheet(item: $selectedTrialForResults) { trialState in
-            TrialResultsView(trialState: trialState)
-        }
-        .navigationDestination(item: $selectedTrialForVideos) { trial in
-            TrialVideoView(trial: trial)
-        }
-        .task {
-            guard case .notStarted = loadingState else {
-                return
-            }
-
-            if completedTrials.isEmpty {
-                print("No trials found.")
-                loadingState = .loaded
-                return
-            }
-
-            await loadExistingTrials()
-        }
-    }
-
-    private func loadExistingTrials() async {
-        loadingState = .loading
 
         await refreshAllTrialStatuses()
 

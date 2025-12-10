@@ -72,14 +72,9 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
         return response.subjects.map { $0.model }
     }
 
-    func trialList() async throws -> [Trial] {
-        let response: TrialListResponse = try await get(Backend.trials)
+    func trialList(for session: Session) async throws -> [Trial] {
+        let response: SessionResponse = try await get(Backend.session(session.id))
         return response.trials.map { $0.model }
-    }
-
-    func videoList() async throws -> [Video] {
-        let response: VideoListResponse = try await get(Backend.videos)
-        return response.videos.map { $0.model }
     }
 
     func videos(for trial: Trial, version: VideoVersion) async -> [Data] {

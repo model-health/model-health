@@ -104,7 +104,6 @@ public struct Session: Identifiable, Sendable {
     public let name: String
     public let sessionName: String
     public let qrcode: String?
-    public let trials: [Trial]
     public let subject: Int?
     public let trialsCount: Int
 }
@@ -285,8 +284,8 @@ public enum VideoVersion: Sendable {
 /// processing to final analysis.
 ///
 /// ```swift
-/// let trials = try await service.trialList()
-/// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
+/// let trials = try await service.trialList(for: session)
+/// let completed = trials.filter { $0.status == "completed" }
 /// ```
 public struct Trial: Sendable {
     public struct Result: Sendable {
@@ -294,13 +293,6 @@ public struct Trial: Sendable {
         public let trial: String
         public let tag: String?
         public let media: String?
-    }
-
-    public enum Status: Sendable {
-        case done
-        case error
-        case stopped
-        case processing
     }
 
     public let id: String
@@ -681,7 +673,6 @@ extension Session {
         public var name = "Preview Session"
         public var sessionName = "Session Name"
         public var qrcode: String? = "https://example.com/qr.png"
-        public var trials: [Trial] = []
         public var subject: Int? = nil
         public var trialsCount = 0
 
@@ -693,7 +684,6 @@ extension Session {
                 name: name,
                 sessionName: sessionName,
                 qrcode: qrcode,
-                trials: trials,
                 subject: subject,
                 trialsCount: trialsCount
             )

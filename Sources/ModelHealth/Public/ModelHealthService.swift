@@ -60,8 +60,7 @@ import Foundation
 ///
 /// ### Data Retrieval
 /// - ``subjectList()``
-/// - ``trialList()``
-/// - ``videoList()``
+/// - ``trialList(for:)``
 ///
 /// ### Session & Calibration
 /// - ``createSession()``
@@ -75,7 +74,7 @@ import Foundation
 /// - ``startAnalysis(_:for:in:)``
 /// - ``getAnalysisStatus(for:)``
 /// - ``downloadAnalysisResult(forTrial:resultTag:)``
-public final class ModelHealthService: ObservableObject {
+public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     private let serviceProvider: ModelHealthProvider
 
     /// Creates a new ModelHealth SDK instance.
@@ -254,7 +253,7 @@ public final class ModelHealthService: ObservableObject {
     /// fetch analysis for completed trials.
     ///
     /// ```swift
-    /// let trials = try await service.trialList()
+    /// let trials = try await service.trialList(for: session)
     ///
     /// // Find completed trials ready for analysis
     /// let completed = trials.filter { $0.status == "completed" }
@@ -268,29 +267,10 @@ public final class ModelHealthService: ObservableObject {
     /// ```
     ///
     /// - Returns: An array of ``Trial`` objects
+    /// - Parameters: session The session to retrieve trials for
     /// - Throws: An error if the request fails or authentication has expired
-    public func trialList() async throws -> [Trial] {
-        try await serviceProvider.trialList()
-    }
-
-    /// Retrieves all videos associated with the authenticated account.
-    ///
-    /// ```swift
-    /// let videos = try await service.videoList()
-    ///
-    /// // Group by trial
-    /// let videosByTrial = Dictionary(grouping: videos) { $0.trial }
-    ///
-    /// // Download a specific video
-    /// if let videoUrl = videos.first?.video {
-    ///     // Use videoUrl to download the video file
-    /// }
-    /// ```
-    ///
-    /// - Returns: An array of ``Video`` objects
-    /// - Throws: An error if the request fails or authentication has expired
-    public func videoList() async throws -> [Video] {
-        try await serviceProvider.videoList()
+    public func trialList(for session: Session) async throws -> [Trial] {
+        try await serviceProvider.trialList(for: session)
     }
 
     /// Download video data for a specific trial.
@@ -694,11 +674,8 @@ public protocol ModelHealthProvider {
     /// See ``ModelHealthService/subjectList()``
     func subjectList() async throws -> [Subject]
 
-    /// See ``ModelHealthService/trialList()``
-    func trialList() async throws -> [Trial]
-
-    /// See ``ModelHealthService/videoList()``
-    func videoList() async throws -> [Video]
+    /// See ``ModelHealthService/trialList(for:)``
+    func trialList(for session: Session) async throws -> [Trial]
 
     /// See ``ModelHealthService/download(videos:)
     func videos(for trial: Trial, version: VideoVersion) async -> [Data]
