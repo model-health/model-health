@@ -110,7 +110,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return newSubject
     }
 
-    func trialList() async throws -> [Trial] {
+    func trialList(for session: ModelHealth.Session) async throws -> [ModelHealth.Trial] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return [
             .forPreview { builder in
@@ -138,22 +138,16 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
-    func videoList() async throws -> [Video] {
+    func videos(for trial: ModelHealth.Trial, version: ModelHealth.VideoVersion) async -> [Data] {
         try? await Task.sleep(nanoseconds: 300_000_000)
-        return [
-            .forPreview { builder in
-                builder.id = "vid-001"
-                builder.trial = "trial-001"
-                builder.video = "video-001"
-                builder.videoThumb = "thumb-001"
-            },
-            .forPreview { builder in
-                builder.id = "vid-002"
-                builder.trial = "trial-001"
-                builder.video = "video-002"
-                builder.videoThumb = "thumb-002"
-            }
-        ]
+        return []
+    }
+
+    func data(ofType types: Set<ModelHealth.ResultDataType>, for trial: ModelHealth.Trial) async -> [ModelHealth.ResultData] {
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return types.map { type in
+            ModelHealth.ResultData.forPreview()
+        }
     }
 
     func createSession() async throws -> Session {

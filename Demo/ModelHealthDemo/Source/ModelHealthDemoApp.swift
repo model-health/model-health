@@ -4,16 +4,21 @@ import ModelHealth
 
 @main
 struct ModelHealthDemoApp: App {
-    @State private var isMockBackend: Bool = CommandLine.arguments.contains("--mock")
+    @State private var isMockBackend: Bool
     @State private var isAuthenticated = false
     @State private var isCheckingAuth = true
 
-    private var service: ModelHealthService {
+    private let service: ModelHealthService
+
+    init() {
+        let isMockBackend = CommandLine.arguments.contains("--mock")
+        self._isMockBackend = .init(initialValue: isMockBackend)
+
         if isMockBackend {
-            return ModelHealthService(serviceProvider: MockModelHealthProvider())
+            service = ModelHealthService(serviceProvider: MockModelHealthProvider())
+        } else {
+            service = try! ModelHealthService()
         }
-        
-        return ModelHealthService()
     }
 
     var body: some Scene {
@@ -84,6 +89,9 @@ extension ModelHealthError {
 
         case .internalError:
             return "Internal Error"
+
+        case .dataFile(_):
+            return "Data File Error"
         }
     }
 }

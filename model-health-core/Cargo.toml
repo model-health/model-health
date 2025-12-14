@@ -22,3 +22,8 @@ futures = "0.3"
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+[features]
+default = ["production"]
+development = []
+production = []

@@ -59,9 +59,6 @@ pub trait ModelHealthProvider: Send + Sync {
     /// Download videos from URLs
     async fn download_videos(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError>;
 
-    /// Download result data from URLs (returns raw bytes)
-    async fn download_result_data(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError>;
-
     /// Create a new session
     async fn create_session(&mut self) -> Result<Session, ModelHealthError>;
 
@@ -298,7 +295,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         let token = self.token.as_ref()
             .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
-        let path = format!("/sessions/{}/", session_id);
+        let path = format!("/sessions/{session_id}/");
         let response: SessionResponse = self.network.request(
             Method::GET,
             &path,
@@ -334,7 +331,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
             }
             VideoVersion::Synced => {
                 trial.results.iter()
-                    .filter(|r| r.tag.as_ref().map(|t| t == "video-sync").unwrap_or(false))
+                    .filter(|r| r.tag.as_ref().is_some_and(|t| t == "video-sync"))
                     .filter_map(|r| r.media.clone())
                     .collect()
             }
@@ -351,15 +348,14 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         use futures::future::join_all;
         
         let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?
-            .clone();
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
         // Collect URLs with their corresponding data types
         let mut urls_with_types: Vec<(String, ResultDataType)> = Vec::new();
         
         for data_type in data_types {
             if let Some(result) = trial.results.iter()
-                .find(|r| r.tag.as_ref().map(|t| t == data_type.tag()).unwrap_or(false))
+                .find(|r| r.tag.as_ref().is_some_and(|t| t == data_type.tag()))
             {
                 if let Some(media) = &result.media {
                     urls_with_types.push((media.clone(), data_type));
@@ -371,29 +367,15 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
             return Ok(Vec::new());
         }
         
-        let client = reqwest::Client::new();
-        
         let downloads = urls_with_types.into_iter().map(|(url, data_type)| {
             let token = token.clone();
-            let client = client.clone();
             async move {
-                let response = client
-                    .get(&url)
-                    .header("Authorization", format!("Token {}", token))
-                    .send()
-                    .await
-                    .ok()?;
-                
-                if response.status().is_success() {
-                    let raw_data = response.bytes().await.ok()?.to_vec();
-                    let converted_data = data_type.convert(raw_data).ok()?;
-                    Some(ResultData {
-                        file_type: data_type.file_type(),
-                        data: converted_data,
-                    })
-                } else {
-                    None
-                }
+                let raw_data = self.network.download_data(&url, Some(&token)).await.ok()?;
+                let converted_data = data_type.convert(raw_data).ok()?;
+                Some(ResultData {
+                    file_type: data_type.file_type(),
+                    data: converted_data,
+                })
             }
         });
         
@@ -406,38 +388,18 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         use futures::future::join_all;
         
         let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?
-            .clone();
-        
-        let client = reqwest::Client::new();
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
         let downloads = urls.into_iter().map(|url| {
             let token = token.clone();
-            let client = client.clone();
             async move {
-                let response = client
-                    .get(&url)
-                    .header("Authorization", format!("Token {}", token))
-                    .send()
-                    .await
-                    .ok()?;
-                
-                if response.status().is_success() {
-                    Some(response.bytes().await.ok()?.to_vec())
-                } else {
-                    None
-                }
+                self.network.download_data(&url, Some(&token)).await.ok()
             }
         });
         
         let results: Vec<Option<Vec<u8>>> = join_all(downloads).await;
         
         Ok(results.into_iter().flatten().collect())
-    }
-
-    async fn download_result_data(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError> {
-        // Same implementation as download_videos for now
-        self.download_videos(urls).await
     }
 
     async fn create_session(&mut self) -> Result<Session, ModelHealthError> {

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		80D595762EBB8B71009C7B5C /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 80D595752EBB8B71009C7B5C /* ModelHealth */; };
+		805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 805EFA822EEE9C14006B9AEE /* ModelHealth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,7 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				80D595762EBB8B71009C7B5C /* ModelHealth in Frameworks */,
+				805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,7 +70,7 @@
 			);
 			name = ModelHealthDemo;
 			packageProductDependencies = (
-				80D595752EBB8B71009C7B5C /* ModelHealth */,
+				805EFA822EEE9C14006B9AEE /* ModelHealth */,
 			);
 			productName = ModelHealthDemo;
 			productReference = 801D65F92EBA415A00FB51D7 /* ModelHealthDemo.app */;
@@ -101,7 +101,7 @@
 			mainGroup = 801D65F02EBA415A00FB51D7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				80D595742EBB8B71009C7B5C /* XCLocalSwiftPackageReference "../../model-health" */,
+				805EFA812EEE9C14006B9AEE /* XCLocalSwiftPackageReference "../model-health-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 801D65FA2EBA415A00FB51D7 /* Products */;
@@ -285,6 +285,7 @@
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -327,6 +328,7 @@
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -358,14 +360,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		80D595742EBB8B71009C7B5C /* XCLocalSwiftPackageReference "../../model-health" */ = {
+		805EFA812EEE9C14006B9AEE /* XCLocalSwiftPackageReference "../model-health-swift" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../model-health";
+			relativePath = "../model-health-swift";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		80D595752EBB8B71009C7B5C /* ModelHealth */ = {
+		805EFA822EEE9C14006B9AEE /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ModelHealth;
 		};

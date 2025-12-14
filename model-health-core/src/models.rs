@@ -207,29 +207,35 @@ pub struct ResultData {
 
 impl ResultDataType {
     /// Get the result tag for this data type
-    pub fn tag(&self) -> &str {
+    #[must_use]
+    pub const fn tag(&self) -> &str {
         match self {
-            ResultDataType::Visualization => "visualizerTransforms-json",
-            ResultDataType::Kinematic => "ik_results",
+            Self::Visualization => "visualizerTransforms-json",
+            Self::Kinematic => "ik_results",
         }
     }
     
     /// Get the file type for this data type
-    pub fn file_type(&self) -> FileType {
+    #[must_use]
+    pub const fn file_type(&self) -> FileType {
         match self {
-            ResultDataType::Visualization => FileType::Json,
-            ResultDataType::Kinematic => FileType::Csv,
+            Self::Visualization => FileType::Json,
+            Self::Kinematic => FileType::Csv,
         }
     }
     
     /// Convert raw data if needed (e.g., MOT to CSV)
+    /// 
+    /// # Errors
+    ///
+    /// Will return `ModelHealthError` if conversion fails
+    /// Convert raw data if needed (e.g., MOT to CSV)
     pub fn convert(&self, data: Vec<u8>) -> Result<Vec<u8>, ModelHealthError> {
         match self {
-            ResultDataType::Visualization => Ok(data),
-            ResultDataType::Kinematic => {
-                // TODO: Implement MOT to CSV conversion
-                // For now, just return raw data
-                Ok(data)
+            Self::Visualization => Ok(data),
+            Self::Kinematic => {
+                crate::mot_to_csv(&data)
+                    .map_err(|e| ModelHealthError::InternalError(format!("MOT to CSV conversion failed: {}", e)))
             }
         }
     }

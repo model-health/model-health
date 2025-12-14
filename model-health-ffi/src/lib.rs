@@ -17,6 +17,18 @@ use model_health_core::provider::{ModelHealthProvider, ModelHealthProviderImpl};
 use model_health_core::models::*;
 use model_health_core::error::ModelHealthError;
 
+use std::sync::Once;
+
+static INIT_LOGGER: Once = Once::new();
+
+fn init_logger() {
+    INIT_LOGGER.call_once(|| {
+        env_logger::Builder::from_default_env()
+            .filter_level(log::LevelFilter::Debug)
+            .init();
+    });
+}
+
 // MARK: - Opaque Handle Types
 
 /// Opaque handle to a `ModelHealthProvider` instance
@@ -89,6 +101,9 @@ pub extern "C" fn model_health_free_string(string: *mut c_char) {
 /// Create a new `ModelHealth` provider with default configuration
 #[no_mangle]
 pub extern "C" fn model_health_provider_new() -> *mut ModelHealthProviderHandle {
+    init_logger();
+    log::debug!("Creating new ModelHealth provider");
+
     let provider = ModelHealthProviderImpl::new();
     let Ok(runtime) = Runtime::new() else {
         return ptr::null_mut();
@@ -217,20 +232,29 @@ pub extern "C" fn model_health_login(
     let state = unsafe {
         match get_state(handle) {
             Some(s) => s,
-            None => return FFIResult::error("Invalid handle".to_string()),
+            None => {
+                log::error!("Login failed: Invalid handle");
+                return FFIResult::error("Invalid handle".to_string());
+            }
         }
     };
     
     let username = match unsafe { CStr::from_ptr(username).to_str() } {
         Ok(s) => s.to_string(),
-        Err(_) => return FFIResult::error("Invalid username".to_string()),
+        Err(e) => {
+            log::error!("Login failed - invalid username: {:?}", e);
+            return FFIResult::error("Invalid username encoding".to_string());
+        }
     };
-    
+
     let password = match unsafe { CStr::from_ptr(password).to_str() } {
         Ok(s) => s.to_string(),
-        Err(_) => return FFIResult::error("Invalid password".to_string()),
+        Err(e) => {
+            log::error!("Login failed - invalid password: {:?}", e);
+            return FFIResult::error("Invalid password encoding".to_string());
+        }
     };
-    
+
     state.runtime.block_on(async {
         let mut provider = state.provider.lock().await;
         match provider.login(username, password).await {
@@ -243,6 +267,7 @@ pub extern "C" fn model_health_login(
                 FFIResult::success()
             }
             Err(e) => {
+                log::error!("Login failed: {:?}", e);
                 unsafe { *result = -1; }
                 FFIResult::from(e)
             }
@@ -889,11 +914,10 @@ pub extern "C" fn model_health_download_trial_videos(
             Err(e) => return FFIResult::from(e),
         };
         
-        let full_trial = match full_trial {
-            Some(t) => t,
-            None => return FFIResult::error("Trial not found".to_string()),
+        let Some(full_trial) = full_trial else {
+            return FFIResult::error("Trial not found".to_string())
         };
-        
+
         match provider.download_trial_videos(&full_trial, video_version).await {
             Ok(data_vec) => {
                 let c_data: Vec<CData> = data_vec
@@ -988,11 +1012,10 @@ pub extern "C" fn model_health_download_trial_result_data(
             Err(e) => return FFIResult::from(e),
         };
         
-        let full_trial = match full_trial {
-            Some(t) => t,
-            None => return FFIResult::error("Trial not found".to_string()),
+        let Some(full_trial) = full_trial else {
+            return FFIResult::error("Trial not found".to_string()) 
         };
-        
+
         match provider.download_trial_result_data(&full_trial, data_type_vec).await {
             Ok(result_data_vec) => {
                 let c_result_data: Vec<CResultData> = result_data_vec
@@ -1062,68 +1085,6 @@ pub extern "C" fn model_health_download_videos(
     state.runtime.block_on(async {
         let provider = state.provider.lock().await;
         match provider.download_videos(url_vec).await {
-            Ok(data_vec) => {
-                let c_data: Vec<CData> = data_vec
-                    .into_iter()
-                    .map(|bytes| {
-                        let len = bytes.len();
-                        let mut boxed = bytes.into_boxed_slice();
-                        let ptr = boxed.as_mut_ptr();
-                        std::mem::forget(boxed);
-                        
-                        CData {
-                            data: ptr,
-                            length: len,
-                        }
-                    })
-                    .collect();
-                
-                let count = c_data.len();
-                let mut boxed = c_data.into_boxed_slice();
-                let ptr = boxed.as_mut_ptr();
-                std::mem::forget(boxed);
-                
-                unsafe {
-                    *result = CDataArray {
-                        items: ptr,
-                        count,
-                    };
-                }
-                FFIResult::success()
-            }
-            Err(e) => FFIResult::from(e),
-        }
-    })
-}
-
-/// Download result data from URLs
-#[no_mangle]
-pub extern "C" fn model_health_download_result_data(
-    handle: *mut ModelHealthProviderHandle,
-    urls: *const *const c_char,
-    url_count: usize,
-    result: *mut CDataArray,
-) -> FFIResult {
-    let state = unsafe {
-        match get_state(handle) {
-            Some(s) => s,
-            None => return FFIResult::error("Invalid handle".to_string()),
-        }
-    };
-    
-    // Convert C string array to Vec<String>
-    let url_vec: Vec<String> = unsafe {
-        (0..url_count)
-            .map(|i| {
-                let url_ptr = *urls.add(i);
-                CStr::from_ptr(url_ptr).to_string_lossy().to_string()
-            })
-            .collect()
-    };
-    
-    state.runtime.block_on(async {
-        let provider = state.provider.lock().await;
-        match provider.download_result_data(url_vec).await {
             Ok(data_vec) => {
                 let c_data: Vec<CData> = data_vec
                     .into_iter()

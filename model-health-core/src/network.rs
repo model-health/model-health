@@ -29,6 +29,12 @@ pub trait NetworkService: Send + Sync {
         token: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<HttpResponse<Option<T>>, ModelHealthError>;
+
+    async fn download_data(
+        &self,
+        url: &str,
+        token: Option<&str>,
+    ) -> Result<Vec<u8>, ModelHealthError>;
 }
 
 /// HTTP client implementation using reqwest
@@ -79,6 +85,8 @@ impl NetworkService for ReqwestNetworkService {
         
         // Add JSON body if provided
         if let Some(body) = body {
+            let body_json = serde_json::to_string(body).unwrap_or_default();
+            log::debug!("Request body: {}", body_json);
             request = request.json(body);
         }
         
@@ -87,10 +95,18 @@ impl NetworkService for ReqwestNetworkService {
         
         log::debug!("HTTP {method} {url} -> {status}");
         
+        // Get response body as text first for logging
+        let response_text = response.text().await?;
+        log::debug!("Response body: {}", response_text);
+        
         match status {
             StatusCode::OK | StatusCode::CREATED => {
-                let data = response.json::<T>().await
-                    .map_err(|_| ModelHealthError::UnexpectedResponse)?;
+                // Parse from the text we already got
+                let data = serde_json::from_str::<T>(&response_text)
+                    .map_err(|e| {
+                        log::error!("Failed to parse response: {}", e);
+                        ModelHealthError::UnexpectedResponse
+                    })?;
                 Ok(data)
             }
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
@@ -185,6 +201,43 @@ impl NetworkService for ReqwestNetworkService {
             }
         }
     }
+
+    async fn download_data(
+        &self,
+        url: &str,
+        token: Option<&str>,
+    ) -> Result<Vec<u8>, ModelHealthError> {
+        log::debug!("Downloading data from {url}");
+        
+        let mut request = self.client.get(url);
+        
+        if let Some(token) = token {
+            request = request.header("Authorization", format!("Token {token}"));
+        }
+        
+        let response = request.send().await?;
+        let status = response.status();
+        
+        log::debug!("Download from {url} -> {status}");
+        
+        if status.is_success() {
+            Ok(response.bytes().await?.to_vec())
+        } else if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+            Err(ModelHealthError::Url(URLErrorCode::UserAuthenticationRequired))
+        } else if status.is_client_error() {
+            Err(ModelHealthError::Http(HTTPError::ClientError {
+                status_code: status.as_u16(),
+            }))
+        } else if status.is_server_error() {
+            Err(ModelHealthError::Http(HTTPError::ServerError {
+                status_code: status.as_u16(),
+            }))
+        } else {
+            Err(ModelHealthError::Http(HTTPError::UnexpectedStatusCode {
+                status_code: status.as_u16(),
+            }))
+        }
+    }
 }
 
 // MARK: - Response Types
@@ -193,15 +246,10 @@ impl NetworkService for ReqwestNetworkService {
 #[derive(Debug, Deserialize)]
 pub struct LoginResponse {
     pub token: String,
-    #[serde(rename = "userId")]
     pub user_id: i32,
-    #[serde(rename = "otpChallengeSent")]
     pub otp_challenge_sent: bool,
-    #[serde(rename = "institutionalUse")]
     pub institutional_use: String,
-    #[serde(rename = "licenseStartDate")]
     pub license_start_date: Option<String>,
-    #[serde(rename = "licenseEndDate")]
     pub license_end_date: Option<String>,
 }
 
@@ -223,12 +271,11 @@ pub struct SessionResponse {
     #[serde(rename = "public")]
     pub is_public: bool,
     pub name: String,
-    #[serde(rename = "session_name")]
+    #[serde(rename = "sessionName")]
     pub session_name: String,
     pub qrcode: Option<String>,
     pub trials: Vec<TrialResponse>,
     pub subject: Option<i32>,
-    #[serde(rename = "trials_count")]
     pub trials_count: i32,
 }
 
@@ -257,13 +304,10 @@ pub struct SubjectResponse {
     pub weight: Option<f64>,
     pub height: Option<f64>,
     pub age: Option<i32>,
-    #[serde(rename = "birthYear")]
     pub birth_year: Option<i32>,
     pub gender: Option<String>,
-    #[serde(rename = "sexAtBirth")]
     pub sex_at_birth: Option<String>,
     pub characteristics: String,
-    #[serde(rename = "subjectTags")]
     pub subject_tags: Vec<String>,
 }
 
@@ -351,10 +395,8 @@ pub struct TrialListResponse {
 pub struct VideoResponse {
     pub id: String,
     pub trial: String,
-    #[serde(rename = "deviceId")]
     pub device_id: String,
     pub video: Option<String>,
-    #[serde(rename = "videoThumb")]
     pub video_thumb: Option<String>,
 }
 
@@ -427,7 +469,6 @@ pub struct ProgressInfo {
 pub struct NeutralImgResponse {
     pub status: ImgResponseStatus,
     pub images: Option<Vec<String>>,
-    #[serde(rename = "progressInfo")]
     pub progress_info: Option<ProgressInfo>,
 }
 
@@ -444,18 +485,16 @@ pub struct SessionStatusResponse {
     pub status: String,
     pub trial: String,
     pub framerate: i32,
-    #[serde(rename = "nCamerasConnected")]
+    #[serde(rename = "newSessionUrl")]
+    pub new_session_url: Option<String>,
     pub n_cameras_connected: i32,
-    #[serde(rename = "nVideosUploaded")]
     pub n_videos_uploaded: i32,
-    #[serde(rename = "nCalibratedCameras")]
     pub n_calibrated_cameras: Option<i32>,
 }
 
 /// Response from invoking analysis
 #[derive(Debug, Deserialize)]
 pub struct InvokeAnalysisResponse {
-    #[serde(rename = "taskId")]
     pub task_id: String,
 }
 

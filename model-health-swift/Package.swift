@@ -5,24 +5,23 @@ let package = Package(
     name: "ModelHealth",
     platforms: [
         .iOS(.v15),
-        .macOS(.v12)
+        .macOS(.v12),
     ],
     products: [
         .library(
             name: "ModelHealth",
             targets: ["ModelHealth"]
-        ),
+        )
     ],
     targets: [
+        .binaryTarget(
+            name: "ModelHealthFFI",
+            path: "ModelHealthFFI.xcframework"
+        ),
         .target(
             name: "ModelHealth",
-            path: "Sources/ModelHealth",
-            linkerSettings: [
-                .unsafeFlags([
-                    "-L", "../model-health-ffi/target/release",
-                    "-lmodel_health_ffi"
-                ])
-            ]
+            dependencies: ["ModelHealthFFI"],
+            path: "Sources/ModelHealth"
         ),
         .testTarget(
             name: "ModelHealthTests",
