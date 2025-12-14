@@ -854,6 +854,16 @@ extension Trial {
     }
 }
 
+extension Trial: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    public static func == (lhs: Trial, rhs: Trial) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 extension Trial.Result {
     public static func forPreview(
         customizing: (inout PreviewBuilder) -> Void = { _ in }

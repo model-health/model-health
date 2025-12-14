@@ -5,96 +5,215 @@ struct RecordTrialView: View {
     let subject: Subject
     let session: Session
 
+    enum LoadingState {
+        case notStarted
+        case loading
+        case loaded
+        case error(String)
+
+        var isLoading: Bool {
+            if case .loading = self {
+                return true
+            }
+
+            return false
+        }
+
+        var errorMessage: String? {
+            if case .error(let message) = self {
+                return message
+            }
+
+            return nil
+        }
+    }
+
     @State private var activityName: String = ""
     @State private var currentTrial: Trial?
     @State private var completedTrials: [TrialState] = []
     @State private var selectedTrialForResults: TrialState?
+    @State private var selectedTrialForVideos: Trial?
+    @State private var selectedTrialForData: Trial?
+    @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
     @EnvironmentObject private var modelHealth: ModelHealthService
+
+    init(subject: Subject, session: Session) {
+        self.subject = subject
+        self.session = session
+    }
 
     private var isRecording: Bool {
         currentTrial != nil
     }
 
     var body: some View {
-        VStack(spacing: 24) {
-            // Activity Name Input
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Activity Name")
-                    .font(.headline)
-
-                TextField("e.g., Walking, Squatting, Jump", text: $activityName)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(isRecording)
-                    .autocorrectionDisabled()
-            }
-
-            if isRecording {
-                VStack(spacing: 8) {
-                    Image(systemName: "record.circle.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.red)
-                        .symbolEffect(.pulse)
-
-                    Text("Recording trial: \"\(activityName)\"")
+        ScrollView {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activity Name")
                         .font(.headline)
-
-                    Text("Have the subject perform the activity")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    
+                    TextField("e.g., Walking, Squatting, Jump", text: $activityName)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(isRecording)
+                        .autocorrectionDisabled()
                 }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(12)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
+                
+                if isRecording {
+                    VStack(spacing: 8) {
+                        Image(systemName: "record.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.red)
+                            .symbolEffect(.pulse)
+                        
+                        Text("Recording trial: \"\(activityName)\"")
+                            .font(.headline)
+                        
+                        Text("Have the subject perform the activity")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                     .padding()
                     .frame(maxWidth: .infinity)
                     .background(Color.red.opacity(0.1))
-                    .cornerRadius(8)
-            }
-
-            LoadingButton(
-                title: isRecording ? "Stop Recording" : "Start Recording",
-                isLoading: false,
-                isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
-            ) {
-                Task {
-                    await isRecording ? stopRecordingTrial() : startRecordingTrial()
+                    .cornerRadius(12)
                 }
+                
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                
+                LoadingButton(
+                    title: isRecording ? "Stop Recording" : "Start Recording",
+                    isLoading: false,
+                    isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
+                ) {
+                    Task {
+                        await isRecording ? stopRecordingTrial() : startRecordingTrial()
+                    }
+                }
+                
+                switch loadingState {
+                case .notStarted:
+                    EmptyView()
+                    
+                case .loading:
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading existing trials...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    
+                case .loaded where completedTrials.isEmpty:
+                    EmptyView()
+                    
+                case .loaded:
+                    Divider()
+                        .padding(.vertical)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Completed Trials")
+                            .font(.headline)
+                        
+                        ForEach($completedTrials) { $trialState in
+                            TrialRow(
+                                trialState: $trialState,
+                                onRefreshStatus: { await refreshTrialStatus($trialState) },
+                                onStartAnalysis: { await startAnalysis($trialState) },
+                                onViewResults: { selectedTrialForResults = trialState },
+                                onViewVideos: { selectedTrialForVideos = trialState.trial },
+                                onViewData: { selectedTrialForData = trialState.trial }
+                            )
+                        }
+                    }
+                    
+                case .error(let message):
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                        .padding()
+                }
+                
+                Spacer()
             }
+            .padding()
+            .navigationTitle("Record Trial")
+            .sheet(item: $selectedTrialForResults) { trialState in
+                TrialResultsView(trialState: trialState)
+            }
+            .navigationDestination(item: $selectedTrialForVideos) { trial in
+                TrialVideoView(trial: trial)
+            }
+            .navigationDestination(item: $selectedTrialForData) { trial in
+                TrialDataView(trial: trial)
+            }
+            .task {
+                guard case .notStarted = loadingState else {
+                    return
+                }
+                
+                await loadExistingTrials()
+            }
+        }
+    }
 
-            if !completedTrials.isEmpty {
-                Divider()
-                    .padding(.vertical)
+    private func loadExistingTrials() async {
+        loadingState = .loading
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Completed Trials")
-                        .font(.headline)
+        do {
+            let trials = try await modelHealth.trialList(for: session)
+            completedTrials = trials.map { trial in
+                TrialState(
+                    trial: trial,
+                    name: trial.name ?? "Trial \(trial.id)",
+                    processingStatus: nil,
+                    analysisTask: nil,
+                    analysisStatus: nil
+                )
+            }
+        } catch {
+            print("Could not load existing trials: \(error)")
+        }
 
-                    ForEach($completedTrials) { $trialState in
-                        TrialRow(
-                            trialState: $trialState,
-                            onRefreshStatus: { await refreshTrialStatus($trialState) },
-                            onStartAnalysis: { await startAnalysis($trialState) },
-                            onViewResults: { selectedTrialForResults = trialState }
-                        )
+        await refreshAllTrialStatuses()
+
+        loadingState = .loaded
+    }
+
+    private func refreshAllTrialStatuses() async {
+        await withTaskGroup(of: (Int, TrialProcessingStatus?, AnalysisTaskStatus?).self) { group in
+            for (index, trialState) in completedTrials.enumerated() {
+                group.addTask {
+                    do {
+                        let status = try await self.modelHealth.getStatus(forTrial: trialState.trial)
+
+                        var analysisStatus = trialState.analysisStatus
+                        if let task = trialState.analysisTask {
+                            analysisStatus = try await self.modelHealth.getAnalysisStatus(for: task)
+                        }
+
+                        return (index, status, analysisStatus)
+                    } catch {
+                        return (index, trialState.processingStatus, trialState.analysisStatus)
                     }
                 }
             }
 
-            Spacer()
-        }
-        .padding()
-        .navigationTitle("Record Trial")
-        .sheet(item: $selectedTrialForResults) { trialState in
-            TrialResultsView(trialState: trialState)
+            for await (index, processingStatus, analysisStatus) in group {
+                completedTrials[index].processingStatus = processingStatus
+                completedTrials[index].analysisStatus = analysisStatus
+            }
         }
     }
 
@@ -149,7 +268,6 @@ struct RecordTrialView: View {
             let status = try await modelHealth.getStatus(forTrial: trialState.wrappedValue.trial)
             trialState.wrappedValue.processingStatus = status
 
-            // If analysis is in progress, check its status too
             if let task = trialState.wrappedValue.analysisTask {
                 let analysisStatus = try await modelHealth.getAnalysisStatus(for: task)
                 trialState.wrappedValue.analysisStatus = analysisStatus
@@ -163,10 +281,7 @@ struct RecordTrialView: View {
 
     private func startAnalysis(_ trialState: Binding<TrialState>) async {
         trialState.wrappedValue.isAnalyzing = true
-
-        defer {
-            trialState.wrappedValue.isAnalyzing = false
-        }
+        defer { trialState.wrappedValue.isAnalyzing = false }
 
         do {
             let task = try await modelHealth.startAnalysis(
@@ -219,69 +334,102 @@ struct TrialState: Identifiable {
 
 // MARK: - Trial Row
 
-struct TrialRow: View {
+private struct TrialRow: View {
     @Binding var trialState: TrialState
     let onRefreshStatus: () async -> Void
     let onStartAnalysis: () async -> Void
     let onViewResults: () -> Void
+    let onViewVideos: () -> Void
+    let onViewData: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Trial name
-            Text(trialState.name)
-                .font(.headline)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(trialState.name)
+                        .font(.headline)
+                    StatusIndicator(
+                        processingStatus: trialState.processingStatus,
+                        analysisStatus: trialState.analysisStatus
+                    )
+                }
 
-            // Status information
-            HStack(spacing: 12) {
-                StatusIndicator(
-                    processingStatus: trialState.processingStatus,
-                    analysisStatus: trialState.analysisStatus
-                )
-
-                Spacer()
-
-                // Refresh button
                 Button {
-                    Task { await onRefreshStatus() }
+                    Task {
+                        await onRefreshStatus()
+                    }
                 } label: {
                     if trialState.isRefreshing {
                         ProgressView()
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "arrow.clockwise")
+                            .frame(width: 84, height: 18)
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
                 .disabled(trialState.isRefreshing)
-
-                // Analyze button
-                if trialState.canAnalyze {
-                    Button {
-                        Task { await onStartAnalysis() }
-                    } label: {
-                        if trialState.isAnalyzing {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        } else {
-                            Text("Analyze")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(trialState.isAnalyzing)
-                }
-
-                // View Results button
-                if trialState.canViewResults {
-                    Button("Results") {
-                        onViewResults()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
             }
+
+            Spacer()
+
+            buttonGrid
         }
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
         .cornerRadius(8)
         .background(Color(.systemGray6))
+    }
+
+    private var buttonGrid: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Button {
+                    onViewVideos()
+                } label: {
+                    Image(systemName: "film.stack")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(trialState.processingStatus == nil)
+                .frame(width: 44, height: 44)
+
+                Button {
+                    onViewData()
+                } label: {
+                    Image(systemName: "curlybraces")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(trialState.processingStatus == nil)
+                .frame(width: 44, height: 44)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Task {
+                        await onStartAnalysis()
+                    }
+                } label: {
+                    if trialState.isAnalyzing {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "chart.line.text.clipboard")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!trialState.canAnalyze || trialState.isAnalyzing)
+                .frame(width: 44, height: 44)
+
+                Button {
+                    onViewResults()
+                } label: {
+                    Image(systemName: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!trialState.canViewResults)
+                .frame(width: 44, height: 44)
+            }
+        }
     }
 }
 
@@ -308,8 +456,10 @@ struct StatusIndicator: View {
             switch analysisStatus {
             case .processing:
                 return .yellow
+
             case .completed:
                 return .blue
+
             case .failed:
                 return .red
             }
@@ -319,10 +469,13 @@ struct StatusIndicator: View {
             switch processingStatus {
             case .uploading:
                 return .black
+
             case .processing:
                 return .yellow
+
             case .ready:
                 return .blue
+
             case .failed:
                 return .red
             }
@@ -336,8 +489,10 @@ struct StatusIndicator: View {
             switch analysisStatus {
             case .processing:
                 return "Analyzing..."
+
             case .completed:
                 return "Analysis complete"
+
             case .failed:
                 return "Analysis failed"
             }
@@ -347,10 +502,13 @@ struct StatusIndicator: View {
             switch processingStatus {
             case .uploading(let uploaded, let total):
                 return "Uploading \(uploaded)/\(total)"
+
             case .processing:
                 return "Processing..."
+
             case .ready:
                 return "Ready for analysis"
+
             case .failed:
                 return "Processing failed"
             }
@@ -359,8 +517,6 @@ struct StatusIndicator: View {
         return "Unknown status"
     }
 }
-
-// MARK: - Trial Results View (Stub)
 
 struct TrialResultsView: View {
     let trialState: TrialState
@@ -400,17 +556,14 @@ struct TrialResultsView: View {
         defer { isLoading = false }
 
         do {
-            // Get the analysis task and status from trial state
             guard let task = trialState.analysisTask else {
                 print("No analysis task found")
                 return
             }
 
-            // Check the current status
             let status = try await service.getAnalysisStatus(for: task)
 
             if case .completed(let tags) = status, let firstTag = tags.first {
-                // Download the result using the first available tag
                 let result = try await service.downloadAnalysisResult(
                     forTrial: trialState.trial,
                     resultTag: firstTag
@@ -427,9 +580,9 @@ private extension Error {
     var message: String {
         if let modelHealthError = self as? ModelHealthError {
             return modelHealthError.message
-        } else {
-            return localizedDescription
         }
+
+        return localizedDescription
     }
 }
 
@@ -531,7 +684,6 @@ private struct RecordTrialView_Preview: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            // Recording section (disabled)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Activity Name")
                     .font(.headline)
@@ -547,7 +699,6 @@ private struct RecordTrialView_Preview: View {
                 isDisabled: true
             ) { }
 
-            // Completed Trials Section
             Divider()
                 .padding(.vertical)
 
@@ -558,9 +709,11 @@ private struct RecordTrialView_Preview: View {
                 ForEach($completedTrials) { $trialState in
                     TrialRow(
                         trialState: $trialState,
-                        onRefreshStatus: { },
-                        onStartAnalysis: { },
-                        onViewResults: { }
+                        onRefreshStatus: {},
+                        onStartAnalysis: {},
+                        onViewResults: {},
+                        onViewVideos: {},
+                        onViewData: {}
                     )
                 }
             }

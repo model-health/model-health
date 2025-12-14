@@ -1,6 +1,8 @@
 import Foundation
 
 protocol NetworkService: Sendable {
+    func data(from url: URL) async throws -> (Data, URLResponse)
+
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 
     func decode<T: Decodable>(
@@ -56,6 +58,22 @@ extension NetworkService {
     func decode<T: SimpleDateDecodable>(from request: URLRequest) async throws -> T {
         try await decode(from: request, using: .snakeCaseWithSimpleDate)
     }
+
+    func download(urls: [URL]) async -> [Data] {
+        await withTaskGroup(of: Data?.self) { group in
+            urls.forEach { url in
+                group.addTask {
+                    try? await URLSession.shared.data(from: url).0
+                }
+            }
+
+            return await group.reduce(into: []) { result, data in
+                if let data {
+                    result.append(data)
+                }
+            }
+        }
+    }
 }
 
 struct URLSessionNetworkService: NetworkService {
@@ -63,6 +81,10 @@ struct URLSessionNetworkService: NetworkService {
 
     init(session: URLSession = .shared) {
         self.session = session
+    }
+
+    func data(from url: URL) async throws -> (Data, URLResponse) {
+        try await session.data(from: url)
     }
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
