@@ -415,7 +415,7 @@ public final class ModelHealthService: ObservableObject {
     public func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         try await serviceProvider.calibrateCamera(
             session,
@@ -449,7 +449,7 @@ public final class ModelHealthService: ObservableObject {
     public func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         try await serviceProvider.calibrateNeutralPose(
             for: subject,
@@ -688,14 +688,14 @@ public protocol ModelHealthProvider {
     func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws
 
     /// See ``ModelHealthService/calibrateNeutralPose(for:in:statusUpdate:)``
     func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws
 
     /// See ``ModelHealthService/getStatus(forTrial:)``

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::error::ModelHealthError;
 
 /// The result of a login attempt.
 ///
@@ -170,6 +171,68 @@ pub enum TrialProcessingStatus {
     Ready,
     #[serde(rename = "failed")]
     Failed,
+}
+
+/// Video version type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VideoVersion {
+    /// Original raw videos from trial
+    Raw,
+    /// Synchronized videos from processing
+    Synced,
+}
+
+/// Result data type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResultDataType {
+    /// Visualization transforms JSON
+    Visualization,
+    /// Kinematic results (IK)
+    Kinematic,
+}
+
+/// File type for result data
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileType {
+    Json,
+    Csv,
+}
+
+/// Downloaded result data with file type
+#[derive(Debug, Clone)]
+pub struct ResultData {
+    pub file_type: FileType,
+    pub data: Vec<u8>,
+}
+
+impl ResultDataType {
+    /// Get the result tag for this data type
+    pub fn tag(&self) -> &str {
+        match self {
+            ResultDataType::Visualization => "visualizerTransforms-json",
+            ResultDataType::Kinematic => "ik_results",
+        }
+    }
+    
+    /// Get the file type for this data type
+    pub fn file_type(&self) -> FileType {
+        match self {
+            ResultDataType::Visualization => FileType::Json,
+            ResultDataType::Kinematic => FileType::Csv,
+        }
+    }
+    
+    /// Convert raw data if needed (e.g., MOT to CSV)
+    pub fn convert(&self, data: Vec<u8>) -> Result<Vec<u8>, ModelHealthError> {
+        match self {
+            ResultDataType::Visualization => Ok(data),
+            ResultDataType::Kinematic => {
+                // TODO: Implement MOT to CSV conversion
+                // For now, just return raw data
+                Ok(data)
+            }
+        }
+    }
 }
 
 // MARK: - Checkerboard

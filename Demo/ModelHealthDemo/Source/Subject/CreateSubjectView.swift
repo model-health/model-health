@@ -222,21 +222,39 @@ struct CreateSubjectView: View {
 
     private func formatGenderLabel(_ gender: Subject.Gender) -> String {
         switch gender {
-        case .woman: return "Woman"
-        case .man: return "Man"
-        case .transgender: return "Transgender"
-        case .nonBinary: return "Non-binary"
-        case .noResponse: return "Prefer not to respond"
+        case .woman:
+         return "Woman"
+        
+        case .man:
+         return "Man"
+        
+        case .transgender:
+         return "Transgender"
+        
+        case .nonBinary:
+         return "Non-binary"
+        
+        case .noResponse:
+         return "Prefer not to respond"
         }
     }
 
     private func formatSexLabel(_ sex: Subject.Sex) -> String {
         switch sex {
-        case .woman: return "Woman"
-        case .man: return "Man"
-        case .intersex: return "Intersex"
-        case .notListed: return "Not listed"
-        case .noResponse: return "Prefer not to respond"
+        case .woman:
+         return "Woman"
+        
+        case .man:
+         return "Man"
+        
+        case .intersex:
+         return "Intersex"
+        
+        case .notListed:
+         return "Not listed"
+        
+        case .noResponse:
+         return "Prefer not to respond"
         }
     }
 

@@ -110,7 +110,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         guard let token else {
             throw ModelHealthError.url(.userAuthenticationRequired)
@@ -198,7 +198,7 @@ actor ModelHealthProviderImpl: ModelHealthProvider {
     func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         guard let token else {
             throw ModelHealthError.url(.userAuthenticationRequired)

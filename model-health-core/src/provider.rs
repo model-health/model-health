@@ -7,7 +7,7 @@ use reqwest::Method;
 use crate::models::{
     AnalysisResult, AnalysisTask, AnalysisTaskStatus, AnalysisType, CalibrationStatus,
     CheckerboardDetails, CheckerboardPlacement, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
-    SubjectParameters, Trial, TrialProcessingStatus, Unit, Video,
+    SubjectParameters, Trial, TrialProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
 };
 
 /// Defines `ModelHealth` SDK operations for dependency injection and testing.
@@ -30,17 +30,37 @@ pub trait ModelHealthProvider: Send + Sync {
     /// Check if currently authenticated
     async fn is_authenticated(&self) -> bool;
 
-    /// Get list of all sessions
+    /// Get list of all sessions, empty trials
     async fn session_list(&self) -> Result<Vec<Session>, ModelHealthError>;
+
+    /// Get a specific session by ID with populated trials
+    async fn get_session(&self, session_id: String) -> Result<Session, ModelHealthError>;
 
     /// Get list of all subjects
     async fn subject_list(&self) -> Result<Vec<Subject>, ModelHealthError>;
 
-    /// Get list of all trials
-    async fn trial_list(&self) -> Result<Vec<Trial>, ModelHealthError>;
+    /// Get list of all trials for a session
+    async fn trial_list(&self, session_id: String) -> Result<Vec<Trial>, ModelHealthError>;
+    
+    /// Download videos for a trial
+    async fn download_trial_videos(
+        &self,
+        trial: &Trial,
+        version: VideoVersion,
+    ) -> Result<Vec<Vec<u8>>, ModelHealthError>;
 
-    /// Get list of all videos
-    async fn video_list(&self) -> Result<Vec<Video>, ModelHealthError>;
+    /// Download result data for a trial
+    async fn download_trial_result_data(
+        &self,
+        trial: &Trial,
+        data_types: Vec<ResultDataType>,
+    ) -> Result<Vec<ResultData>, ModelHealthError>;
+
+    /// Download videos from URLs
+    async fn download_videos(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError>;
+
+    /// Download result data from URLs (returns raw bytes)
+    async fn download_result_data(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError>;
 
     /// Create a new session
     async fn create_session(&mut self) -> Result<Session, ModelHealthError>;
@@ -268,8 +288,25 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn session_list(&self) -> Result<Vec<Session>, ModelHealthError> {
         use crate::network::SessionResponse;
         
-        let responses: Vec<SessionResponse> = self.get("/sessions/").await?;
+        let responses: Vec<SessionResponse> = self.get("/sessions/valid/").await?;
         Ok(responses.into_iter().map(SessionResponse::to_model).collect())
+    }
+
+    async fn get_session(&self, session_id: String) -> Result<Session, ModelHealthError> {
+        use crate::network::SessionResponse;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let path = format!("/sessions/{}/", session_id);
+        let response: SessionResponse = self.network.request(
+            Method::GET,
+            &path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        Ok(response.to_model())
     }
 
     async fn subject_list(&self) -> Result<Vec<Subject>, ModelHealthError> {
@@ -279,20 +316,128 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         Ok(response.subjects.into_iter().map(crate::network::SubjectResponse::to_model).collect())
     }
 
-    async fn trial_list(&self) -> Result<Vec<Trial>, ModelHealthError> {
-        use crate::network::TrialListResponse;
-        use crate::network::TrialResponse;
-        
-        let response: TrialListResponse = self.get("/trials/").await?;
-        Ok(response.trials.into_iter().map(TrialResponse::to_model).collect())
+    async fn trial_list(&self, session_id: String) -> Result<Vec<Trial>, ModelHealthError> {
+        let session = self.get_session(session_id).await?;
+        Ok(session.trials)
     }
 
-    async fn video_list(&self) -> Result<Vec<Video>, ModelHealthError> {
-        use crate::network::VideoListResponse;
-        use crate::network::VideoResponse;
+    async fn download_trial_videos(
+        &self,
+        trial: &Trial,
+        version: VideoVersion,
+    ) -> Result<Vec<Vec<u8>>, ModelHealthError> {
+        let urls: Vec<String> = match version {
+            VideoVersion::Raw => {
+                trial.videos.iter()
+                    .filter_map(|v| v.video.clone())
+                    .collect()
+            }
+            VideoVersion::Synced => {
+                trial.results.iter()
+                    .filter(|r| r.tag.as_ref().map(|t| t == "video-sync").unwrap_or(false))
+                    .filter_map(|r| r.media.clone())
+                    .collect()
+            }
+        };
         
-        let response: VideoListResponse = self.get("/videos/").await?;
-        Ok(response.videos.into_iter().map(VideoResponse::to_model).collect())
+        self.download_videos(urls).await
+    }
+
+    async fn download_trial_result_data(
+        &self,
+        trial: &Trial,
+        data_types: Vec<ResultDataType>,
+    ) -> Result<Vec<ResultData>, ModelHealthError> {
+        use futures::future::join_all;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?
+            .clone();
+        
+        // Collect URLs with their corresponding data types
+        let mut urls_with_types: Vec<(String, ResultDataType)> = Vec::new();
+        
+        for data_type in data_types {
+            if let Some(result) = trial.results.iter()
+                .find(|r| r.tag.as_ref().map(|t| t == data_type.tag()).unwrap_or(false))
+            {
+                if let Some(media) = &result.media {
+                    urls_with_types.push((media.clone(), data_type));
+                }
+            }
+        }
+        
+        if urls_with_types.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let client = reqwest::Client::new();
+        
+        let downloads = urls_with_types.into_iter().map(|(url, data_type)| {
+            let token = token.clone();
+            let client = client.clone();
+            async move {
+                let response = client
+                    .get(&url)
+                    .header("Authorization", format!("Token {}", token))
+                    .send()
+                    .await
+                    .ok()?;
+                
+                if response.status().is_success() {
+                    let raw_data = response.bytes().await.ok()?.to_vec();
+                    let converted_data = data_type.convert(raw_data).ok()?;
+                    Some(ResultData {
+                        file_type: data_type.file_type(),
+                        data: converted_data,
+                    })
+                } else {
+                    None
+                }
+            }
+        });
+        
+        let results: Vec<Option<ResultData>> = join_all(downloads).await;
+        
+        Ok(results.into_iter().flatten().collect())
+    }
+
+    async fn download_videos(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError> {
+        use futures::future::join_all;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?
+            .clone();
+        
+        let client = reqwest::Client::new();
+        
+        let downloads = urls.into_iter().map(|url| {
+            let token = token.clone();
+            let client = client.clone();
+            async move {
+                let response = client
+                    .get(&url)
+                    .header("Authorization", format!("Token {}", token))
+                    .send()
+                    .await
+                    .ok()?;
+                
+                if response.status().is_success() {
+                    Some(response.bytes().await.ok()?.to_vec())
+                } else {
+                    None
+                }
+            }
+        });
+        
+        let results: Vec<Option<Vec<u8>>> = join_all(downloads).await;
+        
+        Ok(results.into_iter().flatten().collect())
+    }
+
+    async fn download_result_data(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError> {
+        // Same implementation as download_videos for now
+        self.download_videos(urls).await
     }
 
     async fn create_session(&mut self) -> Result<Session, ModelHealthError> {

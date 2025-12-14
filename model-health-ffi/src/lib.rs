@@ -327,6 +327,9 @@ pub struct CSession {
     pub session_name: *mut c_char,
     pub user: i32,
     pub is_public: bool,
+    pub qrcode: *mut c_char,
+    pub subject: i32,              // -1 for None
+    pub trials_count: i32,
 }
 
 /// C-compatible array of sessions
@@ -352,19 +355,27 @@ pub extern "C" fn model_health_free_session_array(array: CSessionArray) {
                 if !session.session_name.is_null() {
                     drop(CString::from_raw(session.session_name));
                 }
+                if !session.qrcode.is_null() {
+                    drop(CString::from_raw(session.qrcode));
+                }
             }
         }
     }
 }
 
-/// C-compatible Subject
+// C-compatible Subject
 #[repr(C)]
 pub struct CSubject {
     pub id: i32,
     pub name: *mut c_char,
-    pub weight: f64,
-    pub height: f64,
-    pub birth_year: i32,
+    pub weight: f64,               // 0.0 for None
+    pub height: f64,               // 0.0 for None
+    pub age: i32,                  // -1 for None
+    pub birth_year: i32,           // 0 for None
+    pub gender: i32,               // 0=Man, 1=Woman, 2=Transgender, 3=NonBinary, 4=NoResponse
+    pub sex_at_birth: i32,         // 0=Man, 1=Woman, 2=Intersex, 3=NotListed, 4=NoResponse
+    pub characteristics: *mut c_char,
+    pub subject_tags_json: *mut c_char,  // JSON array string
 }
 
 /// C-compatible array of subjects
@@ -384,6 +395,12 @@ pub extern "C" fn model_health_free_subject_array(array: CSubjectArray) {
                 if !subject.name.is_null() {
                     drop(CString::from_raw(subject.name));
                 }
+                if !subject.characteristics.is_null() {
+                    drop(CString::from_raw(subject.characteristics));
+                }
+                if !subject.subject_tags_json.is_null() {
+                    drop(CString::from_raw(subject.subject_tags_json));
+                }
             }
         }
     }
@@ -392,10 +409,44 @@ pub extern "C" fn model_health_free_subject_array(array: CSubjectArray) {
 /// C-compatible Trial
 #[repr(C)]
 pub struct CTrial {
-    pub id: *mut c_char,  // String in Rust
+    pub id: *mut c_char,
     pub session: *mut c_char,
     pub name: *mut c_char,
     pub status: *mut c_char,
+    pub videos: CVideoArray,
+    pub results: CTrialResultArray,
+}
+
+/// C-compatible Video
+#[repr(C)]
+pub struct CVideo {
+    pub id: *mut c_char,
+    pub trial: *mut c_char,
+    pub video: *mut c_char,
+    pub video_thumb: *mut c_char,
+}
+
+/// C-compatible array of videos
+#[repr(C)]
+pub struct CVideoArray {
+    pub videos: *mut CVideo,
+    pub count: usize,
+}
+
+/// C-compatible Trial Result
+#[repr(C)]
+pub struct CTrialResult {
+    pub id: i32,
+    pub trial: *mut c_char,
+    pub tag: *mut c_char,
+    pub media: *mut c_char,
+}
+
+/// C-compatible array of trial results
+#[repr(C)]
+pub struct CTrialResultArray {
+    pub results: *mut CTrialResult,
+    pub count: usize,
 }
 
 /// C-compatible array of trials
@@ -423,6 +474,113 @@ pub extern "C" fn model_health_free_trial_array(array: CTrialArray) {
                 }
                 if !trial.status.is_null() {
                     drop(CString::from_raw(trial.status));
+                }
+                
+                model_health_free_video_array(trial.videos);
+                model_health_free_trial_result_array(trial.results);
+            }
+        }
+    }
+}
+
+/// Free a video array
+#[no_mangle]
+pub extern "C" fn model_health_free_video_array(array: CVideoArray) {
+    if !array.videos.is_null() {
+        unsafe {
+            let videos = Vec::from_raw_parts(array.videos, array.count, array.count);
+            for video in videos {
+                if !video.id.is_null() {
+                    drop(CString::from_raw(video.id));
+                }
+                if !video.trial.is_null() {
+                    drop(CString::from_raw(video.trial));
+                }
+                if !video.video.is_null() {
+                    drop(CString::from_raw(video.video));
+                }
+                if !video.video_thumb.is_null() {
+                    drop(CString::from_raw(video.video_thumb));
+                }
+            }
+        }
+    }
+}
+
+/// Free a trial result array
+#[no_mangle]
+pub extern "C" fn model_health_free_trial_result_array(array: CTrialResultArray) {
+    if !array.results.is_null() {
+        unsafe {
+            let results = Vec::from_raw_parts(array.results, array.count, array.count);
+            for result in results {
+                if !result.trial.is_null() {
+                    drop(CString::from_raw(result.trial));
+                }
+                if !result.tag.is_null() {
+                    drop(CString::from_raw(result.tag));
+                }
+                if !result.media.is_null() {
+                    drop(CString::from_raw(result.media));
+                }
+            }
+        }
+    }
+}
+
+/// C-compatible result data with file type
+#[repr(C)]
+pub struct CResultData {
+    pub file_type: i32,  // 0=Json, 1=Csv
+    pub data: *mut u8,
+    pub length: usize,
+}
+
+/// C-compatible array of result data
+#[repr(C)]
+pub struct CResultDataArray {
+    pub items: *mut CResultData,
+    pub count: usize,
+}
+
+/// Free a result data array
+#[no_mangle]
+pub extern "C" fn model_health_free_result_data_array(array: CResultDataArray) {
+    if !array.items.is_null() {
+        unsafe {
+            let items = Vec::from_raw_parts(array.items, array.count, array.count);
+            for item in items {
+                if !item.data.is_null() {
+                    drop(Vec::from_raw_parts(item.data, item.length, item.length));
+                }
+            }
+        }
+    }
+}
+
+/// C-compatible byte data
+#[repr(C)]
+pub struct CData {
+    pub data: *mut u8,
+    pub length: usize,
+}
+
+/// C-compatible array of byte data
+#[repr(C)]
+pub struct CDataArray {
+    pub items: *mut CData,
+    pub count: usize,
+}
+
+/// Free a data array
+#[no_mangle]
+pub extern "C" fn model_health_free_data_array(array: CDataArray) {
+    if !array.items.is_null() {
+        unsafe {
+            let items = Vec::from_raw_parts(array.items, array.count, array.count);
+            for item in items {
+                if !item.data.is_null() {
+                    drop(Vec::from_raw_parts(item.data, item.length, item.length));
                 }
             }
         }
@@ -465,6 +623,9 @@ pub extern "C" fn model_health_session_list(
                         session_name: string_to_c_char(s.session_name),
                         user: s.user,
                         is_public: s.is_public,
+                        qrcode: option_string_to_c_char(s.qrcode),
+                        subject: s.subject.unwrap_or(-1),
+                        trials_count: s.trials_count,
                     })
                     .collect();
                 
@@ -477,6 +638,48 @@ pub extern "C" fn model_health_session_list(
                     *result = CSessionArray {
                         sessions: ptr,
                         count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Get a specific session by ID with populated trials
+#[no_mangle]
+pub extern "C" fn model_health_get_session(
+    handle: *mut ModelHealthProviderHandle,
+    session_id: *const c_char,
+    result: *mut CSession,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let session_id_str = match unsafe { CStr::from_ptr(session_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid session ID".to_string()),
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.get_session(session_id_str).await {
+            Ok(session) => {
+                unsafe {
+                    *result = CSession {
+                        id: string_to_c_char(session.id),
+                        name: string_to_c_char(session.name),
+                        session_name: string_to_c_char(session.session_name),
+                        user: session.user,
+                        is_public: session.is_public,
+                        qrcode: option_string_to_c_char(session.qrcode),
+                        subject: session.subject.unwrap_or(-1),
+                        trials_count: session.trials_count,
                     };
                 }
                 FFIResult::success()
@@ -505,12 +708,22 @@ pub extern "C" fn model_health_subject_list(
             Ok(subjects) => {
                 let c_subjects: Vec<CSubject> = subjects
                     .into_iter()
-                    .map(|s| CSubject {
-                        id: s.id,
-                        name: string_to_c_char(s.name),
-                        weight: s.weight.unwrap_or(0.0),
-                        height: s.height.unwrap_or(0.0),
-                        birth_year: s.birth_year.unwrap_or(0),
+                    .map(|s| {
+                        let tags_json = serde_json::to_string(&s.subject_tags)
+                            .unwrap_or_else(|_| String::from("[]"));
+                        
+                        CSubject {
+                            id: s.id,
+                            name: string_to_c_char(s.name),
+                            weight: s.weight.unwrap_or(0.0),
+                            height: s.height.unwrap_or(0.0),
+                            age: s.age.unwrap_or(-1),
+                            birth_year: s.birth_year.unwrap_or(0),
+                            gender: gender_to_i32(s.gender),
+                            sex_at_birth: sex_to_i32(s.sex_at_birth),
+                            characteristics: string_to_c_char(s.characteristics),
+                            subject_tags_json: string_to_c_char(tags_json),
+                        }
                     })
                     .collect();
                 
@@ -532,10 +745,11 @@ pub extern "C" fn model_health_subject_list(
     })
 }
 
-/// Get list of trials
+/// Get trials for a specific session
 #[no_mangle]
-pub extern "C" fn model_health_trial_list(
+pub extern "C" fn model_health_trial_list_for_session(
     handle: *mut ModelHealthProviderHandle,
+    session_id: *const c_char,
     result: *mut CTrialArray,
 ) -> FFIResult {
     let state = unsafe {
@@ -545,20 +759,67 @@ pub extern "C" fn model_health_trial_list(
         }
     };
     
+    let session_id_str = match unsafe { CStr::from_ptr(session_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid session ID".to_string()),
+    };
+    
     state.runtime.block_on(async {
         let provider = state.provider.lock().await;
-        match provider.trial_list().await {
+        match provider.trial_list(session_id_str).await {
             Ok(trials) => {
                 let c_trials: Vec<CTrial> = trials
                     .into_iter()
-                    .map(|t| CTrial {
-                        id: string_to_c_char(t.id),
-                        session: string_to_c_char(t.session),
-                        name: option_string_to_c_char(t.name),
-                        status: string_to_c_char(t.status),
+                    .map(|t| {
+                        // Convert videos
+                        let c_videos: Vec<CVideo> = t.videos
+                            .into_iter()
+                            .map(|v| CVideo {
+                                id: string_to_c_char(v.id),
+                                trial: string_to_c_char(v.trial),
+                                video: option_string_to_c_char(v.video),
+                                video_thumb: option_string_to_c_char(v.video_thumb),
+                            })
+                            .collect();
+                        
+                        let videos_count = c_videos.len();
+                        let mut videos_boxed = c_videos.into_boxed_slice();
+                        let videos_ptr = videos_boxed.as_mut_ptr();
+                        std::mem::forget(videos_boxed);
+                        
+                        // Convert results
+                        let c_results: Vec<CTrialResult> = t.results
+                            .into_iter()
+                            .map(|r| CTrialResult {
+                                id: r.id,
+                                trial: string_to_c_char(r.trial),
+                                tag: option_string_to_c_char(r.tag),
+                                media: option_string_to_c_char(r.media),
+                            })
+                            .collect();
+                        
+                        let results_count = c_results.len();
+                        let mut results_boxed = c_results.into_boxed_slice();
+                        let results_ptr = results_boxed.as_mut_ptr();
+                        std::mem::forget(results_boxed);
+                        
+                        CTrial {
+                            id: string_to_c_char(t.id),
+                            session: string_to_c_char(t.session),
+                            name: option_string_to_c_char(t.name),
+                            status: string_to_c_char(t.status),
+                            videos: CVideoArray {
+                                videos: videos_ptr,
+                                count: videos_count,
+                            },
+                            results: CTrialResultArray {
+                                results: results_ptr,
+                                count: results_count,
+                            },
+                        }
                     })
                     .collect();
-                
+
                 let count = c_trials.len();
                 let mut boxed = c_trials.into_boxed_slice();
                 let ptr = boxed.as_mut_ptr();
@@ -567,6 +828,326 @@ pub extern "C" fn model_health_trial_list(
                 unsafe {
                     *result = CTrialArray {
                         trials: ptr,
+                        count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Download videos for a trial
+#[no_mangle]
+pub extern "C" fn model_health_download_trial_videos(
+    handle: *mut ModelHealthProviderHandle,
+    trial_id: *const c_char,
+    session_id: *const c_char,
+    version: i32,  // 0=Raw, 1=Synced
+    result: *mut CDataArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let trial_id_str = match unsafe { CStr::from_ptr(trial_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid trial ID".to_string()),
+    };
+    
+    let session_id_str = match unsafe { CStr::from_ptr(session_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid session ID".to_string()),
+    };
+    
+    let video_version = match version {
+        0 => VideoVersion::Raw,
+        1 => VideoVersion::Synced,
+        _ => return FFIResult::error("Invalid video version".to_string()),
+    };
+    
+    // Create minimal trial object
+    let trial = Trial {
+        id: trial_id_str,
+        session: session_id_str,
+        name: None,
+        status: String::new(),
+        videos: Vec::new(),
+        results: Vec::new(),
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        
+        // First, get the full trial with videos/results
+        let full_trial = match provider.trial_list(trial.session.clone()).await {
+            Ok(trials) => trials.into_iter().find(|t| t.id == trial.id),
+            Err(e) => return FFIResult::from(e),
+        };
+        
+        let full_trial = match full_trial {
+            Some(t) => t,
+            None => return FFIResult::error("Trial not found".to_string()),
+        };
+        
+        match provider.download_trial_videos(&full_trial, video_version).await {
+            Ok(data_vec) => {
+                let c_data: Vec<CData> = data_vec
+                    .into_iter()
+                    .map(|bytes| {
+                        let len = bytes.len();
+                        let mut boxed = bytes.into_boxed_slice();
+                        let ptr = boxed.as_mut_ptr();
+                        std::mem::forget(boxed);
+                        
+                        CData {
+                            data: ptr,
+                            length: len,
+                        }
+                    })
+                    .collect();
+                
+                let count = c_data.len();
+                let mut boxed = c_data.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CDataArray {
+                        items: ptr,
+                        count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Download result data for a trial
+#[no_mangle]
+pub extern "C" fn model_health_download_trial_result_data(
+    handle: *mut ModelHealthProviderHandle,
+    trial_id: *const c_char,
+    session_id: *const c_char,
+    data_types: *const i32,  // Array of data type codes
+    data_type_count: usize,
+    result: *mut CResultDataArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let trial_id_str = match unsafe { CStr::from_ptr(trial_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid trial ID".to_string()),
+    };
+    
+    let session_id_str = match unsafe { CStr::from_ptr(session_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid session ID".to_string()),
+    };
+    
+    // Convert data type codes to enums
+    let data_type_vec: Vec<ResultDataType> = unsafe {
+        (0..data_type_count)
+            .filter_map(|i| {
+                match *data_types.add(i) {
+                    0 => Some(ResultDataType::Visualization),
+                    1 => Some(ResultDataType::Kinematic),
+                    _ => None,
+                }
+            })
+            .collect()
+    };
+    
+    // Create minimal trial object
+    let trial = Trial {
+        id: trial_id_str,
+        session: session_id_str,
+        name: None,
+        status: String::new(),
+        videos: Vec::new(),
+        results: Vec::new(),
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        
+        // First, get the full trial with videos/results
+        let full_trial = match provider.trial_list(trial.session.clone()).await {
+            Ok(trials) => trials.into_iter().find(|t| t.id == trial.id),
+            Err(e) => return FFIResult::from(e),
+        };
+        
+        let full_trial = match full_trial {
+            Some(t) => t,
+            None => return FFIResult::error("Trial not found".to_string()),
+        };
+        
+        match provider.download_trial_result_data(&full_trial, data_type_vec).await {
+            Ok(result_data_vec) => {
+                let c_result_data: Vec<CResultData> = result_data_vec
+                    .into_iter()
+                    .map(|rd| {
+                        let file_type = match rd.file_type {
+                            FileType::Json => 0,
+                            FileType::Csv => 1,
+                        };
+                        
+                        let len = rd.data.len();
+                        let mut boxed = rd.data.into_boxed_slice();
+                        let ptr = boxed.as_mut_ptr();
+                        std::mem::forget(boxed);
+                        
+                        CResultData {
+                            file_type,
+                            data: ptr,
+                            length: len,
+                        }
+                    })
+                    .collect();
+                
+                let count = c_result_data.len();
+                let mut boxed = c_result_data.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CResultDataArray {
+                        items: ptr,
+                        count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Download videos from URLs
+#[no_mangle]
+pub extern "C" fn model_health_download_videos(
+    handle: *mut ModelHealthProviderHandle,
+    urls: *const *const c_char,
+    url_count: usize,
+    result: *mut CDataArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    // Convert C string array to Vec<String>
+    let url_vec: Vec<String> = unsafe {
+        (0..url_count)
+            .map(|i| {
+                let url_ptr = *urls.add(i);
+                CStr::from_ptr(url_ptr).to_string_lossy().to_string()
+            })
+            .collect()
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.download_videos(url_vec).await {
+            Ok(data_vec) => {
+                let c_data: Vec<CData> = data_vec
+                    .into_iter()
+                    .map(|bytes| {
+                        let len = bytes.len();
+                        let mut boxed = bytes.into_boxed_slice();
+                        let ptr = boxed.as_mut_ptr();
+                        std::mem::forget(boxed);
+                        
+                        CData {
+                            data: ptr,
+                            length: len,
+                        }
+                    })
+                    .collect();
+                
+                let count = c_data.len();
+                let mut boxed = c_data.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CDataArray {
+                        items: ptr,
+                        count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Download result data from URLs
+#[no_mangle]
+pub extern "C" fn model_health_download_result_data(
+    handle: *mut ModelHealthProviderHandle,
+    urls: *const *const c_char,
+    url_count: usize,
+    result: *mut CDataArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    // Convert C string array to Vec<String>
+    let url_vec: Vec<String> = unsafe {
+        (0..url_count)
+            .map(|i| {
+                let url_ptr = *urls.add(i);
+                CStr::from_ptr(url_ptr).to_string_lossy().to_string()
+            })
+            .collect()
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.download_result_data(url_vec).await {
+            Ok(data_vec) => {
+                let c_data: Vec<CData> = data_vec
+                    .into_iter()
+                    .map(|bytes| {
+                        let len = bytes.len();
+                        let mut boxed = bytes.into_boxed_slice();
+                        let ptr = boxed.as_mut_ptr();
+                        std::mem::forget(boxed);
+                        
+                        CData {
+                            data: ptr,
+                            length: len,
+                        }
+                    })
+                    .collect();
+                
+                let count = c_data.len();
+                let mut boxed = c_data.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CDataArray {
+                        items: ptr,
                         count,
                     };
                 }
@@ -603,6 +1184,9 @@ pub extern "C" fn model_health_create_session(
                         session_name: string_to_c_char(session.session_name),
                         user: session.user,
                         is_public: session.is_public,
+                        qrcode: option_string_to_c_char(session.qrcode),
+                        subject: session.subject.unwrap_or(-1),
+                        trials_count: session.trials_count,
                     };
                 }
                 FFIResult::success()
@@ -671,13 +1255,21 @@ pub extern "C" fn model_health_create_subject(
         let mut provider = state.provider.lock().await;
         match provider.create_subject(params).await {
             Ok(subject) => {
+                let tags_json = serde_json::to_string(&subject.subject_tags)
+                    .unwrap_or_else(|_| String::from("[]"));
+
                 unsafe {
                     *result = CSubject {
                         id: subject.id,
                         name: string_to_c_char(subject.name),
                         weight: subject.weight.unwrap_or(0.0),
                         height: subject.height.unwrap_or(0.0),
+                        age: subject.age.unwrap_or(-1),
                         birth_year: subject.birth_year.unwrap_or(0),
+                        gender: gender_to_i32(subject.gender),
+                        sex_at_birth: sex_to_i32(subject.sex_at_birth),
+                        characteristics: string_to_c_char(subject.characteristics),
+                        subject_tags_json: string_to_c_char(tags_json),
                     };
                 }
                 FFIResult::success()
@@ -685,6 +1277,26 @@ pub extern "C" fn model_health_create_subject(
             Err(e) => FFIResult::from(e),
         }
     })
+}
+
+fn gender_to_i32(gender: Gender) -> i32 {
+    match gender {
+        Gender::Man => 0,
+        Gender::Woman => 1,
+        Gender::Transgender => 2,
+        Gender::NonBinary => 3,
+        Gender::NoResponse => 4,
+    }
+}
+
+fn sex_to_i32(sex: Sex) -> i32 {
+    match sex {
+        Sex::Man => 0,
+        Sex::Woman => 1,
+        Sex::Intersex => 2,
+        Sex::NotListed => 3,
+        Sex::NoResponse => 4,
+    }
 }
 
 // MARK: - Recording Operations
@@ -733,11 +1345,51 @@ pub extern "C" fn model_health_record(
         match provider.record(trial_name_str, &session).await {
             Ok(trial) => {
                 unsafe {
+                    // Convert videos
+                    let c_videos: Vec<CVideo> = trial.videos
+                        .into_iter()
+                        .map(|v| CVideo {
+                            id: string_to_c_char(v.id),
+                            trial: string_to_c_char(v.trial),
+                            video: option_string_to_c_char(v.video),
+                            video_thumb: option_string_to_c_char(v.video_thumb),
+                        })
+                        .collect();
+                    
+                    let videos_count = c_videos.len();
+                    let mut videos_boxed = c_videos.into_boxed_slice();
+                    let videos_ptr = videos_boxed.as_mut_ptr();
+                    std::mem::forget(videos_boxed);
+                    
+                    // Convert results
+                    let c_results: Vec<CTrialResult> = trial.results
+                        .into_iter()
+                        .map(|r| CTrialResult {
+                            id: r.id,
+                            trial: string_to_c_char(r.trial),
+                            tag: option_string_to_c_char(r.tag),
+                            media: option_string_to_c_char(r.media),
+                        })
+                        .collect();
+                    
+                    let results_count = c_results.len();
+                    let mut results_boxed = c_results.into_boxed_slice();
+                    let results_ptr = results_boxed.as_mut_ptr();
+                    std::mem::forget(results_boxed);
+                    
                     *result = CTrial {
                         id: string_to_c_char(trial.id),
                         session: string_to_c_char(trial.session),
                         name: option_string_to_c_char(trial.name),
                         status: string_to_c_char(trial.status),
+                        videos: CVideoArray {
+                            videos: videos_ptr,
+                            count: videos_count,
+                        },
+                        results: CTrialResultArray {
+                            results: results_ptr,
+                            count: results_count,
+                        },
                     };
                 }
                 FFIResult::success()

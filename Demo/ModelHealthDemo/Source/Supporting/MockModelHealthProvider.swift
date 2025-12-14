@@ -174,7 +174,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         // Simulate calibration workflow
         statusUpdate(.recording)
@@ -204,7 +204,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
-        statusUpdate: @Sendable (CalibrationStatus) -> Void
+        statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
         // Simulate neutral pose calibration
         statusUpdate(.recording)
