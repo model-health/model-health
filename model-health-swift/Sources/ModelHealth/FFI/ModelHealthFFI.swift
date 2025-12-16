@@ -67,6 +67,12 @@ func model_health_is_authenticated(
     _ result: UnsafeMutablePointer<Bool>
 ) -> FFIResult
 
+@_silgen_name("model_health_get_token")
+func model_health_get_token(_ handle: ModelHealthProviderHandle) -> UnsafeMutablePointer<CChar>?
+
+@_silgen_name("model_health_set_token")
+func model_health_set_token(_ handle: ModelHealthProviderHandle, _ token: UnsafePointer<CChar>) -> FFIResult
+
 // MARK: - C Data Types
 
 struct CSession {

@@ -342,6 +342,56 @@ pub extern "C" fn model_health_is_authenticated(
     })
 }
 
+/// Get the current authentication token
+/// Returns empty string if not authenticated
+#[no_mangle]
+pub extern "C" fn model_health_get_token(
+    handle: *mut ModelHealthProviderHandle,
+) -> *mut c_char {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return std::ptr::null_mut(),
+        }
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.get_token() {
+            Some(token) => {
+                let c_string = CString::new(token).unwrap_or_default();
+                c_string.into_raw()
+            }
+            None => std::ptr::null_mut(),
+        }
+    })
+}
+
+/// Set authentication token to restore session
+#[no_mangle]
+pub extern "C" fn model_health_set_token(
+    handle: *mut ModelHealthProviderHandle,
+    token: *const c_char,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let token = match unsafe { CStr::from_ptr(token).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid token string".to_string()),
+    };
+    
+    state.runtime.block_on(async {
+        let mut provider = state.provider.lock().await;
+        provider.set_token(token);
+        FFIResult::success()
+    })
+}
+
 // MARK: - Data Types for Sessions/Subjects/Trials
 
 /// C-compatible Session

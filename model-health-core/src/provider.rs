@@ -30,6 +30,12 @@ pub trait ModelHealthProvider: Send + Sync {
     /// Check if currently authenticated
     async fn is_authenticated(&self) -> bool;
 
+    /// Get the current authentication token
+    fn get_token(&self) -> Option<String>;
+    
+    /// Set authentication token (for restoring sessions)
+    fn set_token(&mut self, token: String);
+
     /// Get list of all sessions, empty trials
     async fn session_list(&self) -> Result<Vec<Session>, ModelHealthError>;
 
@@ -281,6 +287,14 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn is_authenticated(&self) -> bool {
         self.token.is_some()
     }
+
+    fn get_token(&self) -> Option<String> {
+        self.token.clone()
+    }
+    
+    fn set_token(&mut self, token: String) {
+        self.token = Some(token);
+    }    
 
     async fn session_list(&self) -> Result<Vec<Session>, ModelHealthError> {
         use crate::network::SessionResponse;

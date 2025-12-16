@@ -9,6 +9,10 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             throw ModelHealthError.internalError("Failed to create provider")
         }
         self.handle = handle
+
+        if let token = KeychainHelper.get(.authToken) {
+             try? setToken(token)
+         }
     }
     
     deinit {
@@ -41,8 +45,12 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             
             handleFFIResult(result, continuation: continuation)
         }
+
+        if let token = getToken() {
+            try? KeychainHelper.save(token, for: .authToken)
+        }
     }
-    
+
     func login(username: String, password: String) async throws -> LoginResult {
         try await withCheckedThrowingContinuation { continuation in
             var resultCode: Int32 = -1
@@ -55,6 +63,10 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             
             if result.success {
                 do {
+                    if let token = getToken() {
+                        try? KeychainHelper.save(token, for: .authToken)
+                    }
+
                     let loginResult = try LoginResult.from(resultCode: resultCode)
                     continuation.resume(returning: loginResult)
                 } catch {
@@ -79,6 +91,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     func logout() async throws {
         try await withCheckedThrowingContinuation { continuation in
             let result = model_health_logout(handle)
+            KeychainHelper.delete(.authToken)
             handleFFIResult(result, continuation: continuation)
         }
     }
@@ -95,7 +108,30 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
+    private func getToken() -> String? {
+        guard let cString = model_health_get_token(handle) else {
+            return nil
+        }
+
+        defer { model_health_free_string(cString) }
+        return String(cString: cString)
+    }
+
+    private func setToken(_ token: String) throws {
+        let result = token.withCString { model_health_set_token(handle, $0) }
+
+        guard result.success else {
+            if let errorMessage = result.errorMessage {
+                let error = String(cString: errorMessage)
+                model_health_free_error(errorMessage)
+                throw ModelHealthError.internalError(error)
+            }
+            
+            throw ModelHealthError.internalError("Failed to set token")
+        }
+    }
+
     // MARK: - List Operations
     
     func sessionList() async throws -> [Session] {

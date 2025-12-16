@@ -78,12 +78,10 @@ impl NetworkService for ReqwestNetworkService {
         
         let mut request = self.client.request(method.clone(), &url);
         
-        // Add auth header if token provided
         if let Some(token) = token {
             request = request.header("Authorization", format!("Token {token}"));
         }
         
-        // Add JSON body if provided
         if let Some(body) = body {
             let body_json = serde_json::to_string(body).unwrap_or_default();
             log::debug!("Request body: {}", body_json);
@@ -94,15 +92,10 @@ impl NetworkService for ReqwestNetworkService {
         let status = response.status();
         
         log::debug!("HTTP {method} {url} -> {status}");
-        
-        // Get response body as text first for logging
-        let response_text = response.text().await?;
-        log::debug!("Response body: {}", response_text);
-        
+                
         match status {
             StatusCode::OK | StatusCode::CREATED => {
-                // Parse from the text we already got
-                let data = serde_json::from_str::<T>(&response_text)
+                let data = response.json::<T>().await
                     .map_err(|e| {
                         log::error!("Failed to parse response: {}", e);
                         ModelHealthError::UnexpectedResponse
@@ -205,16 +198,11 @@ impl NetworkService for ReqwestNetworkService {
     async fn download_data(
         &self,
         url: &str,
-        token: Option<&str>,
+        _token: Option<&str>,
     ) -> Result<Vec<u8>, ModelHealthError> {
         log::debug!("Downloading data from {url}");
         
-        let mut request = self.client.get(url);
-        
-        if let Some(token) = token {
-            request = request.header("Authorization", format!("Token {token}"));
-        }
-        
+        let request = self.client.get(url);
         let response = request.send().await?;
         let status = response.status();
         
