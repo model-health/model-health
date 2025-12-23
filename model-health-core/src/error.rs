@@ -86,7 +86,12 @@ impl From<reqwest::Error> for ModelHealthError {
     fn from(err: reqwest::Error) -> Self {
         if err.is_timeout() {
             Self::Url(URLErrorCode::TimedOut)
-        } else if err.is_connect() {
+        } else if {
+            #[cfg(not(target_arch = "wasm32"))]
+            { err.is_connect() }
+            #[cfg(target_arch = "wasm32")]
+            { false }
+        } {
             Self::Url(URLErrorCode::CannotConnectToHost)
         } else if err.is_status() {
             err.status().map_or(Self::Url(URLErrorCode::BadServerResponse), |status| {

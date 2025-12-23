@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 802955F22EF151CE000C2B72 /* ModelHealth */; };
 		805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 805EFA822EEE9C14006B9AEE /* ModelHealth */; };
 /* End PBXBuildFile section */
 
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */,
 				805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,6 +73,7 @@
 			name = ModelHealthDemo;
 			packageProductDependencies = (
 				805EFA822EEE9C14006B9AEE /* ModelHealth */,
+				802955F22EF151CE000C2B72 /* ModelHealth */,
 			);
 			productName = ModelHealthDemo;
 			productReference = 801D65F92EBA415A00FB51D7 /* ModelHealthDemo.app */;
@@ -101,7 +104,7 @@
 			mainGroup = 801D65F02EBA415A00FB51D7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				805EFA812EEE9C14006B9AEE /* XCLocalSwiftPackageReference "../model-health-swift" */,
+				802955F12EF151CE000C2B72 /* XCLocalSwiftPackageReference "../../model-health-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 801D65FA2EBA415A00FB51D7 /* Products */;
@@ -360,13 +363,17 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		805EFA812EEE9C14006B9AEE /* XCLocalSwiftPackageReference "../model-health-swift" */ = {
+		802955F12EF151CE000C2B72 /* XCLocalSwiftPackageReference "../../model-health-swift" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../model-health-swift";
+			relativePath = "../../model-health-swift";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		802955F22EF151CE000C2B72 /* ModelHealth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ModelHealth;
+		};
 		805EFA822EEE9C14006B9AEE /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ModelHealth;

@@ -174,7 +174,8 @@ pub enum TrialProcessingStatus {
 }
 
 /// Video version type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum VideoVersion {
     /// Original raw videos from trial
     Raw,
@@ -183,7 +184,8 @@ pub enum VideoVersion {
 }
 
 /// Result data type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ResultDataType {
     /// Visualization transforms JSON
     Visualization,
@@ -192,14 +194,15 @@ pub enum ResultDataType {
 }
 
 /// File type for result data
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FileType {
     Json,
     Csv,
 }
 
 /// Downloaded result data with file type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultData {
     pub file_type: FileType,
     pub data: Vec<u8>,

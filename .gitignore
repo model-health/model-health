@@ -1,9 +1,9 @@
 Package.resolved
-Demo/ModelHealthDemo.xcodeproj/project.xcworkspace/xcuserdata
-Demo/ModelHealthDemo.xcodeproj/xcuserdata
+examples/ios/ModelHealthDemo.xcodeproj/project.xcworkspace/xcuserdata
+examples/ios/ModelHealthDemo.xcodeproj/xcuserdata
 .swiftpm
 .build
-Demo/ModelHealthDemo.xcodeproj/xcshareddata
+examples/ios/ModelHealthDemo.xcodeproj/xcshareddata
 sdk-docs
 ModelHealth-Documentation.tar.gz
 ModelHealth-Documentation.zip
@@ -27,6 +27,12 @@ Cargo.lock
 .vscode/
 .idea/
 
-# Node/TypeScript
-node_modules/
-dist/
+# TypeScript / WASM builds
+model-health-ts/wasm/
+model-health-ts/dist/
+model-health-ts/node_modules/
+
+# Example WASM app
+examples/vite-react/node_modules/
+examples/vite-react/dist/
+package-lock.json

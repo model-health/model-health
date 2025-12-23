@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
+#[allow(unused_imports)]
 use std::time::Duration;
 
 use crate::error::{ModelHealthError, HTTPError, URLErrorCode};
@@ -12,8 +13,9 @@ pub struct HttpResponse<T> {
 }
 
 /// Trait for making HTTP requests
-#[async_trait]
-pub trait NetworkService: Send + Sync {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait NetworkService {
     async fn request<T: for<'de> Deserialize<'de>>(
         &self,
         method: Method,
@@ -51,11 +53,15 @@ impl ReqwestNetworkService {
     /// Panics if the HTTP client cannot be created (extremely rare)
     #[must_use]
     pub fn new(config: Config) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(config.timeout_seconds))
-            .build()
-            .expect("Failed to create HTTP client");
-        
+        let builder = Client::builder();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            builder = builder.timeout(Duration::from_secs(config.timeout_seconds));
+        }
+
+        let client = builder.build().expect("Failed to create HTTP client");
+
         Self {
             client,
             base_url: config.base_url,
@@ -63,7 +69,8 @@ impl ReqwestNetworkService {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl NetworkService for ReqwestNetworkService {
     async fn request<T: for<'de> Deserialize<'de>>(
         &self,

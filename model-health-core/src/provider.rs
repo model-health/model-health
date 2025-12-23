@@ -13,8 +13,9 @@ use crate::models::{
 /// Defines `ModelHealth` SDK operations for dependency injection and testing.
 ///
 /// Conform to this trait to create mock implementations for testing.
-#[async_trait]
-pub trait ModelHealthProvider: Send + Sync {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait ModelHealthProvider {
     /// Register a new user account
     async fn register(&mut self, parameters: RegistrationParameters) -> Result<(), ModelHealthError>;
 
@@ -179,7 +180,8 @@ impl Default for ModelHealthProviderImpl {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn register(&mut self, parameters: RegistrationParameters) -> Result<(), ModelHealthError> {
         use crate::network::RegisterResponse;

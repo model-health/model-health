@@ -330,11 +330,11 @@ export interface CheckerboardDetails {
 ```swift
 public enum LoginResult: Sendable {
     case ok
-    case verificationRequired
+    case verification_required
 }
 ```
 
 ### TypeScript
 ```typescript
-export type LoginResult = "ok" | "verificationRequired";
+export type LoginResult = "ok" | "verification_required";
 ```
