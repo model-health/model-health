@@ -15,7 +15,7 @@ cd model-health-wasm
 # Build with wasm-pack
 if [ "$1" = "dev" ] || [ "$1" = "development" ] || [ "$1" = "--dev" ]; then
     echo -e "${YELLOW}Building in DEVELOPMENT mode${NC}"
-    wasm-pack build --target web --out-dir ../model-health-ts/wasm --dev
+    wasm-pack build --target web --out-dir ../model-health-ts/wasm --dev --features development
 else
     echo "Building in PRODUCTION mode"
     wasm-pack build --target web --out-dir ../model-health-ts/wasm
