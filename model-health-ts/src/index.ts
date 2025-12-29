@@ -289,7 +289,6 @@ export class ModelHealthService {
     this.ensureInitialized();
     const result = await this.wasmClient.login(username, password);
 
-    // Convert WASM enum to string
     return  result as LoginResult;
   }
 
