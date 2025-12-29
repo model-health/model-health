@@ -290,9 +290,7 @@ export class ModelHealthService {
     const result = await this.wasmClient.login(username, password);
 
     // Convert WASM enum to string
-    return result === wasmModule.LoginResult.Ok
-      ? "ok"
-      : "verification_required";
+    return  result as LoginResult;
   }
 
   /**
