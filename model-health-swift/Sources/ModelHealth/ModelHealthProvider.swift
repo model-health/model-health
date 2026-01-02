@@ -519,7 +519,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     
     // MARK: - Analysis Operations
     
-    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
         try await withCheckedThrowingContinuation { continuation in
             var statusCode: Int32 = -1
             var uploaded: Int32 = 0
@@ -539,7 +539,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
             
             if result.success {
-                let status = TrialProcessingStatus.from(
+                let status = ActivityProcessingStatus.from(
                     statusCode: statusCode,
                     uploaded: uploaded,
                     total: total

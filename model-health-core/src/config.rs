@@ -1,5 +1,11 @@
 use serde::Deserialize;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApiVersion {
+    V1,
+    V2,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub base_url: String,
@@ -35,6 +41,16 @@ impl Config {
             enable_debug_logging: false,
         }
     }
+    
+    /// Detect API version from base URL
+    #[must_use]
+    pub fn api_version(&self) -> ApiVersion {
+        if self.base_url.contains("/api/v2") || self.base_url.contains("/v2") {
+            ApiVersion::V2
+        } else {
+            ApiVersion::V1
+        }
+    }
 }
 
 impl Default for Config {
@@ -58,5 +74,14 @@ mod tests {
     fn test_custom_config() {
         let config = Config::with_base_url("https://dev.example.com".to_string());
         assert_eq!(config.base_url, "https://dev.example.com");
+    }
+    
+    #[test]
+    fn test_version_detection() {
+        let v1_config = Config::with_base_url("https://api.example.com".to_string());
+        assert_eq!(v1_config.api_version(), ApiVersion::V1);
+        
+        let v2_config = Config::with_base_url("https://api.example.com/api/v2/".to_string());
+        assert_eq!(v2_config.api_version(), ApiVersion::V2);
     }
 }

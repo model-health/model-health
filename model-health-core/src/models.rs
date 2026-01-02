@@ -60,9 +60,10 @@ pub struct Session {
     #[serde(rename = "session_name")]
     pub session_name: String,
     pub qrcode: Option<String>,
+    #[serde(rename = "activities")]
     pub trials: Vec<Trial>,
     pub subject: Option<i32>,
-    #[serde(rename = "trials_count")]
+    #[serde(rename = "activities_count")]
     pub trials_count: i32,
 }
 
@@ -133,6 +134,7 @@ pub struct SubjectParameters {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Video {
     pub id: String,
+    #[serde(rename = "activity")]
     pub trial: String,
     pub video: Option<String>,
     #[serde(rename = "video_thumb")]
@@ -155,6 +157,7 @@ pub struct Trial {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrialResult {
     pub id: i32,
+    #[serde(rename = "activity")]
     pub trial: String,
     pub tag: Option<String>,
     pub media: Option<String>,
@@ -162,7 +165,7 @@ pub struct TrialResult {
 
 /// Trial processing status
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TrialProcessingStatus {
+pub enum ActivityProcessingStatus {
     #[serde(rename = "uploading")]
     Uploading { uploaded: i32, total: i32 },
     #[serde(rename = "processing")]

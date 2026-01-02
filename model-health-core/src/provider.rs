@@ -7,7 +7,7 @@ use reqwest::Method;
 use crate::models::{
     AnalysisResult, AnalysisTask, AnalysisTaskStatus, AnalysisType, CalibrationStatus,
     CheckerboardDetails, CheckerboardPlacement, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
-    SubjectParameters, Trial, TrialProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
+    SubjectParameters, Trial, ActivityProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -115,7 +115,7 @@ pub trait ModelHealthProvider {
     ) -> Result<(), ModelHealthError>;
 
     /// Get processing status for a trial
-    async fn get_status(&self, trial: &Trial) -> Result<TrialProcessingStatus, ModelHealthError>;
+    async fn get_status(&self, trial: &Trial) -> Result<ActivityProcessingStatus, ModelHealthError>;
 
     /// Start analysis on a trial
     async fn start_analysis(
@@ -769,7 +769,7 @@ async fn calibrate_camera(
         }
     }
 
-    async fn get_status(&self, trial: &Trial) -> Result<TrialProcessingStatus, ModelHealthError> {
+    async fn get_status(&self, trial: &Trial) -> Result<ActivityProcessingStatus, ModelHealthError> {
         use crate::network::{TrialResponse, SessionStatusResponse};
         
         let token = self.token.as_ref()
@@ -785,8 +785,8 @@ async fn calibrate_camera(
         ).await?;
         
         match updated_trial.status.as_str() {
-            "done" => Ok(TrialProcessingStatus::Ready),
-            "error" => Ok(TrialProcessingStatus::Failed),
+            "done" => Ok(ActivityProcessingStatus::Ready),
+            "error" => Ok(ActivityProcessingStatus::Failed),
             "stopped" | "processing" => {
                 // Check if videos are still uploading
                 let is_uploading = updated_trial.videos.iter().any(|v| v.video.is_none());
@@ -801,15 +801,15 @@ async fn calibrate_camera(
                         None::<&()>,
                     ).await?;
                     
-                    Ok(TrialProcessingStatus::Uploading {
+                    Ok(ActivityProcessingStatus::Uploading {
                         uploaded: session_status.n_videos_uploaded,
                         total: session_status.n_cameras_connected,
                     })
                 } else {
-                    Ok(TrialProcessingStatus::Processing)
+                    Ok(ActivityProcessingStatus::Processing)
                 }
             }
-            _ => Ok(TrialProcessingStatus::Processing),
+            _ => Ok(ActivityProcessingStatus::Processing),
         }
     }
 
@@ -830,7 +830,14 @@ async fn calibrate_camera(
         
         // Get function ID based on analysis type
         let function_id = match analysis_type {
-            AnalysisType::CounterMovementJump => "36",
+            AnalysisType::CounterMovementJump => {
+              // Check if we're in development by looking at the base URL
+              if self.network.base_url().contains("api.modelhealth.io") {
+                  "36"
+              } else {
+                  "8"
+              }
+            }
         };
         
         let path = format!("/analysis-functions/{function_id}/invoke/");

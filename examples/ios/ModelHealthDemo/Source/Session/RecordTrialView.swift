@@ -192,7 +192,7 @@ struct RecordTrialView: View {
     }
 
     private func refreshAllTrialStatuses() async {
-        await withTaskGroup(of: (Int, TrialProcessingStatus?, AnalysisTaskStatus?).self) { group in
+        await withTaskGroup(of: (Int, ActivityProcessingStatus?, AnalysisTaskStatus?).self) { group in
             for (index, trialState) in completedTrials.enumerated() {
                 group.addTask {
                     do {
@@ -305,7 +305,7 @@ struct RecordTrialView: View {
 struct TrialState: Identifiable {
     let trial: Trial
     let name: String
-    var processingStatus: TrialProcessingStatus?
+    var processingStatus: ActivityProcessingStatus?
     var analysisTask: AnalysisTask?
     var analysisStatus: AnalysisTaskStatus?
     var isRefreshing: Bool = false
@@ -436,7 +436,7 @@ private struct TrialRow: View {
 // MARK: - Status Indicator
 
 struct StatusIndicator: View {
-    let processingStatus: TrialProcessingStatus?
+    let processingStatus: ActivityProcessingStatus?
     let analysisStatus: AnalysisTaskStatus?
 
     var body: some View {
@@ -738,7 +738,7 @@ extension TrialState {
     struct PreviewBuilder {
         public var trial: Trial = .forPreview()
         public var name: String = "Counter Movement Jump"
-        public var processingStatus: TrialProcessingStatus? = .ready
+        public var processingStatus: ActivityProcessingStatus? = .ready
         public var analysisTask: AnalysisTask? = .forPreview()
         public var analysisStatus: AnalysisTaskStatus? = .completed(resultTags: ["cmj_data", "cmj_report"])
         public var isRefreshing: Bool = false

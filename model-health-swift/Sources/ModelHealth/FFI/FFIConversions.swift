@@ -159,8 +159,8 @@ extension AnalysisTask {
     }
 }
 
-extension TrialProcessingStatus {
-    internal static func from(statusCode: Int32, uploaded: Int32, total: Int32) -> TrialProcessingStatus
+extension ActivityProcessingStatus {
+    internal static func from(statusCode: Int32, uploaded: Int32, total: Int32) -> ActivityProcessingStatus
     {
         switch statusCode {
         case 0:

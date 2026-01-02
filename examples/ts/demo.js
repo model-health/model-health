@@ -4,8 +4,10 @@ import { ModelHealthService } from '@modelhealth/sdk';
 const state = {
   currentStep: 1,
   client: null,
+  sessions: [],
   session: null,
-  subjects: [],       // Available subjects list
+  sessionIsNew: false,
+  subjects: [],
   subject: null,
   trial: null,
   analysisTask: null,
@@ -27,9 +29,16 @@ if (result === "verification_required") {
   await client.verify(code, rememberDevice);
 }`,
 
-  2: `// Step 2: Create Session
-const session = await client.createSession();
-console.log('Session created:', session.id);`,
+  2: `// Step 2: Select or Create Session
+const sessions = await client.sessionList();
+console.log('Available sessions:', sessions.length);
+
+// Select existing session
+const session = sessions[0];
+
+// OR create new session
+const newSession = await client.createSession();
+console.log('Session created:', newSession.id);`,
 
   3: `// Step 3: Select Subject
 const subjects = await client.subjectList();
@@ -129,6 +138,36 @@ function updateProgress() {
   });
 }
 
+async function loadSessions() {
+  log('Calling client.sessionList()');
+
+  try {
+    const sessions = await state.client.sessionList();
+    state.sessions = sessions;
+    log(`Loaded ${sessions.length} sessions`, 'success');
+    renderStep2();
+  } catch (error) {
+    log(`Failed to load sessions: ${error.message}`, 'error');
+    state.sessions = [];
+    renderStep2();
+  }
+}
+
+async function handleSelectSession(sessionId) {
+  log(`Selecting existing session ID: ${sessionId}`);
+
+  const session = state.sessions.find(s => s.id === sessionId);
+  if (session) {
+    state.session = session;
+    state.sessionIsNew = false;
+    log(`Session selected: ${session.name}`, 'success');
+    log('Skipping calibration steps (3-5) - using existing calibration');
+    renderStep2();
+  } else {
+    log(`Session not found: ${sessionId}`, 'error');
+  }
+}
+
 // Render functions for each step
 function renderStep1() {
   const content = document.getElementById('content');
@@ -180,25 +219,61 @@ function renderStep1() {
 
 function renderStep2() {
   const content = document.getElementById('content');
-  content.innerHTML = `
-    <div class="card">
-      <h2>Step 2: Create Session</h2>
-      <p>A session groups cameras and trials together for a recording workflow.</p>
-      
-      ${state.session ? `
+
+  if (state.session) {
+    // Session selected - show different message based on how it was obtained
+    const message = state.sessionIsNew
+      ? 'New session created. Proceed with calibration.'
+      : 'Existing session selected. Calibration already complete.';
+
+    content.innerHTML = `
+      <div class="card">
+        <h2>Step 2: Session ${state.sessionIsNew ? 'Created' : 'Selected'}</h2>
+        
         <div class="status success">
-          <strong>✓ Session Created</strong><br>
+          <strong>✓ ${message}</strong><br>
           ID: ${state.session.id}<br>
           Name: ${state.session.name}
         </div>
-        <button onclick="nextStep()" class="secondary">Continue to Next Step</button>
-      ` : `
+        <button onclick="nextStep()" class="secondary">Continue</button>
+      </div>
+    `;
+  } else if (state.sessions && state.sessions.length > 0) {
+    // Show session list
+    const sessionOptions = state.sessions.map(session => `
+      <div class="session-option" style="padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 5px; cursor: pointer;" onclick="handleSelectSession('${session.id}')">
+        <strong>${session.name}</strong><br>
+        <small>
+          ID: ${session.id} | 
+          Trials: ${session.trials ? session.trials.length : 0}
+        </small>
+      </div>
+    `).join('');
+
+    content.innerHTML = `
+      <div class="card">
+        <h2>Step 2: Select Session</h2>
+        <p>Choose an existing session (skip calibration) or create a new one.</p>
+        
+        <div style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;">
+          ${sessionOptions}
+        </div>
+        
         <button onclick="handleCreateSession()" ${state.isProcessing ? 'disabled' : ''}>
-          ${state.isProcessing ? 'Creating...' : 'Create New Session'}
+          ${state.isProcessing ? 'Creating...' : 'Create New Session (requires calibration)'}
         </button>
-      `}
-    </div>
-  `;
+      </div>
+    `;
+  } else {
+    // Loading sessions
+    content.innerHTML = `
+      <div class="card">
+        <h2>Step 2: Loading Sessions...</h2>
+        <p>Fetching available sessions...</p>
+      </div>
+    `;
+    loadSessions();
+  }
 }
 
 function renderStep3() {
@@ -340,11 +415,15 @@ function renderStep6() {
       ` : `
         <div class="form-group">
           <label for="trial-name">Trial Name:</label>
-          <input type="text" id="trial-name" value="cmj-test-1" />
+          <input type="text" id="trial-name" value="cmj-test-1" ${state.isProcessing ? 'disabled' : ''} />
         </div>
         
-        <button onclick="handleRecordTrial()" ${state.isProcessing ? 'disabled' : ''}>
-          ${state.isProcessing ? 'Recording...' : 'Start Recording'}
+        <button 
+          onclick="handleRecordTrial()" 
+          ${state.isProcessing && !state.recording ? 'disabled' : ''}
+          class="${state.recording ? 'danger' : ''}"
+        >
+          ${state.recording ? '⏹ Stop Recording' : (state.isProcessing ? 'Starting...' : 'Start Recording')}
         </button>
         
         <div id="trial-status"></div>
@@ -526,7 +605,10 @@ async function handleCreateSession() {
   try {
     const session = await state.client.createSession();
     state.session = session;
+    state.sessionIsNew = true;
+    state.sessions.push(session);
     log(`Session created: ${session.id}`, 'success');
+    log('New session requires calibration (steps 3-5)');
     renderStep2();
   } catch (error) {
     log(`Failed to create session: ${error.message}`, 'error');
@@ -646,6 +728,63 @@ async function handleNeutralPose() {
 }
 
 async function handleRecordTrial() {
+  const statusDiv = document.getElementById('trial-status');
+
+  // If already recording, stop it
+  if (state.recording) {
+    log('Calling client.stopRecording(session)');
+
+    try {
+      await state.client.stopRecording(state.session);
+      log('Recording stopped', 'success');
+
+      state.recording = false;
+      state.isProcessing = true;
+
+      // Poll for processing
+      statusDiv.innerHTML = '<div class="status">⚙ Processing trial...</div>';
+      log('Polling for trial status...');
+
+      let status = await state.client.getStatus(state.currentTrial);
+      let attempts = 0;
+
+      while (status.type !== 'ready' && attempts < 10) {
+        log(`Trial status: ${JSON.stringify(status)}`);
+
+        if (status.type === 'uploading') {
+          const percent = (status.uploaded / status.total) * 100;
+          statusDiv.innerHTML = `
+            <div class="status">
+              ⬆ Uploading: ${status.uploaded}/${status.total}
+              <div class="progress">
+                <div class="progress-fill" style="width: ${percent}%">${percent.toFixed(0)}%</div>
+              </div>
+            </div>
+          `;
+        } else if (status.type === 'processing') {
+          statusDiv.innerHTML = '<div class="status">⚙ Processing videos...</div>';
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        status = await state.client.getStatus(state.currentTrial);
+        attempts++;
+      }
+
+      state.trial = state.currentTrial;
+      state.currentTrial = null;
+      state.isProcessing = false;
+      log('Trial ready for analysis!', 'success');
+      renderStep6();
+    } catch (error) {
+      log(`Stop recording failed: ${error.message}`, 'error');
+      state.recording = false;
+      state.isProcessing = false;
+      renderStep6();
+    }
+    return;
+  }
+
+  // Otherwise, start recording
   const trialName = document.getElementById('trial-name').value;
 
   if (!trialName) {
@@ -654,58 +793,24 @@ async function handleRecordTrial() {
   }
 
   state.isProcessing = true;
-  const statusDiv = document.getElementById('trial-status');
+  renderStep6();
 
   log(`Calling client.record("${trialName}", session)`);
 
   try {
     const trial = await state.client.record(trialName, state.session);
+    state.currentTrial = trial;
+    state.recording = true;
+    state.isProcessing = false;
+
     log(`Recording started: ${trial.id}`, 'success');
+    statusDiv.innerHTML = '<div class="status">⏺ Recording in progress... Click "Stop Recording" when done.</div>';
 
-    statusDiv.innerHTML = '<div class="status">⏺ Recording in progress... (simulating 5 seconds)</div>';
-
-    // Simulate recording duration
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    log('Calling client.stopRecording(session)');
-    await state.client.stopRecording(state.session);
-    log('Recording stopped', 'success');
-
-    // Poll for processing
-    statusDiv.innerHTML = '<div class="status">⚙ Processing trial...</div>';
-    log('Polling for trial status...');
-
-    let status = await state.client.getStatus(trial);
-    let attempts = 0;
-
-    while (status.type !== 'ready' && attempts < 5) {
-      log(`Trial status: ${JSON.stringify(status)}`);
-
-      if (status.type === 'uploading') {
-        const percent = (status.uploaded / status.total) * 100;
-        statusDiv.innerHTML = `
-          <div class="status">
-            ⬆ Uploading: ${status.uploaded}/${status.total}
-            <div class="progress">
-              <div class="progress-fill" style="width: ${percent}%">${percent.toFixed(0)}%</div>
-            </div>
-          </div>
-        `;
-      } else if (status.type === 'processing') {
-        statusDiv.innerHTML = '<div class="status">⚙ Processing videos...</div>';
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      status = await state.client.getStatus(trial);
-      attempts++;
-    }
-
-    state.trial = trial;
-    log('Trial ready for analysis!', 'success');
     renderStep6();
   } catch (error) {
     log(`Recording failed: ${error.message}`, 'error');
     state.isProcessing = false;
+    renderStep6();
   }
 }
 
@@ -797,7 +902,9 @@ function exportCSV() {
 function resetDemo() {
   if (confirm('Reset the entire demo? This will clear all progress.')) {
     state.currentStep = 1;
+    state.sessions = [];
     state.session = null;
+    state.sessionIsNew = false;
     state.subjects = [];
     state.subject = null;
     state.trial = null;
@@ -813,7 +920,14 @@ function resetDemo() {
 
 // Navigation
 function nextStep() {
-  state.currentStep++;
+  // If we just selected an existing session at step 2, jump to step 6
+  if (state.currentStep === 2 && !state.sessionIsNew) {
+    log('Jumping to step 6 (recording) - skipping calibration for existing session');
+    state.currentStep = 6;
+  } else {
+    state.currentStep++;
+  }
+
   state.isProcessing = false;
   render();
 }
@@ -877,6 +991,7 @@ window.exportCSV = exportCSV;
 window.resetDemo = resetDemo;
 window.nextStep = nextStep;
 window.prevStep = prevStep;
+window.loadSessions = loadSessions;
+window.handleSelectSession = handleSelectSession;
 
-// Start the app
 init();

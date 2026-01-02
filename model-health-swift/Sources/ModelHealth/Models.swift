@@ -500,7 +500,7 @@ public enum AnalysisType: Sendable {
 /// Represents the current processing state of a trial.
 ///
 /// Trials must reach the `ready` state before analysis can be performed.
-public enum TrialProcessingStatus: Sendable {
+public enum ActivityProcessingStatus: Sendable {
     case uploading(uploaded: Int, total: Int)
     case processing
     case ready

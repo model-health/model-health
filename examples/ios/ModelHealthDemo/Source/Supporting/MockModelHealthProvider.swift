@@ -236,7 +236,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         try? await Task.sleep(nanoseconds: 500_000_000)
     }
 
-    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
         try? await Task.sleep(nanoseconds: 300_000_000)
         // Always return ready for happy path
         return .ready

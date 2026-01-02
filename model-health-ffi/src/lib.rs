@@ -1462,7 +1462,7 @@ pub type CalibrationStatusCallback = extern "C" fn(user_data: *mut libc::c_void,
 ///
 /// # Parameters
 /// - `user_data`: Opaque pointer passed through from the caller
-/// - `status`: JSON string representing `TrialProcessingStatus`
+/// - `status`: JSON string representing `ActivityProcessingStatus`
 pub type TrialStatusCallback = extern "C" fn(user_data: *mut libc::c_void, status: *const c_char);
 
 /// Wrapper to make callback + `user_data` Send + Sync
@@ -1869,7 +1869,7 @@ pub extern "C" fn model_health_get_trial_status(
     state.runtime.block_on(async {
         let provider = state.provider.lock().await;
         match provider.get_status(&trial).await {
-            Ok(TrialProcessingStatus::Uploading { uploaded: u, total: t }) => {
+            Ok(ActivityProcessingStatus::Uploading { uploaded: u, total: t }) => {
                 unsafe {
                     *status = 0;
                     *uploaded = u;
@@ -1877,7 +1877,7 @@ pub extern "C" fn model_health_get_trial_status(
                 }
                 FFIResult::success()
             }
-            Ok(TrialProcessingStatus::Processing) => {
+            Ok(ActivityProcessingStatus::Processing) => {
                 unsafe {
                     *status = 1;
                     *uploaded = 0;
@@ -1885,7 +1885,7 @@ pub extern "C" fn model_health_get_trial_status(
                 }
                 FFIResult::success()
             }
-            Ok(TrialProcessingStatus::Ready) => {
+            Ok(ActivityProcessingStatus::Ready) => {
                 unsafe {
                     *status = 2;
                     *uploaded = 0;
@@ -1893,7 +1893,7 @@ pub extern "C" fn model_health_get_trial_status(
                 }
                 FFIResult::success()
             }
-            Ok(TrialProcessingStatus::Failed) => {
+            Ok(ActivityProcessingStatus::Failed) => {
                 unsafe {
                     *status = 3;
                     *uploaded = 0;

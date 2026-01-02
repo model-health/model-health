@@ -32,14 +32,14 @@ import type {
   Session,
   Subject,
   SubjectParameters,
-  Trial,
+  Activity,
   VideoVersion,
   ResultDataType,
   ResultData,
   AnalysisType,
   AnalysisTask,
   AnalysisTaskStatus,
-  TrialProcessingStatus,
+  ActivityProcessingStatus,
   TokenStorage,
   CalibrationStatus,
   AnalysisResult,
@@ -432,16 +432,16 @@ export class ModelHealthService {
   }
 
   /**
-   * Retrieve a specific session by ID with all trials populated.
+   * Retrieve a specific session by ID with all activities populated.
    * 
    * @param sessionId Unique session identifier
-   * @returns The requested session with complete trial data
+   * @returns The requested session with complete activity data
    * @throws If the session doesn't exist, user lacks access, or request fails
    * 
    * @example
    * ```typescript
    * const session = await client.getSession("session-abc123");
-   * console.log(`Session has ${session.trials.length} trials`);
+   * console.log(`Session has ${session.activities.length} activities`);
    * ```
    */
   async getSession(sessionId: string): Promise<Session> {
@@ -541,7 +541,7 @@ export class ModelHealthService {
   /**
    * Captures the subject's neutral standing pose for model scaling.
    * 
-   * This step is required after camera calibration and before recording movement trials.
+   * This step is required after camera calibration and before recording movement activities.
    * It takes a quick video of the subject standing in a neutral position, which is
    * used to scale the biomechanical model to match the subject's dimensions.
    * 
@@ -561,7 +561,7 @@ export class ModelHealthService {
    * await client.calibrateNeutralPose(subject, session, (status) => {
    *   console.log("Neutral pose status:", status);
    * });
-   * // Model now scaled, ready to record movement trials
+   * // Model now scaled, ready to record movement activities
    * ```
    */
   async calibrateNeutralPose(
@@ -620,7 +620,7 @@ export class ModelHealthService {
    * 
    * Subjects represent individuals being monitored or assessed. After creating
    * a subject, they can be associated with sessions for neutral pose calibration
-   * and movement trials.
+   * and movement activities.
    * 
    * @param parameters Subject details including name, measurements, and tags
    * @returns The newly created `Subject` with its assigned ID
@@ -653,55 +653,55 @@ export class ModelHealthService {
     return this.parseResponse<Subject>(result);
   }
 
-  // MARK: - Trials
+  // MARK: - Activities
 
   /**
-   * Retrieves all movement trials associated with the authenticated account.
+   * Retrieves all movement activities associated with the authenticated account.
    * 
-   * Trials represent individual recording sessions and contain references to
+   * Activities represent individual recording sessions and contain references to
    * captured videos and analysis results. Use this to review past data or
-   * fetch analysis for completed trials.
+   * fetch analysis for completed activities.
    * 
    * @param sessionId Session identifier
-   * @returns An array of `Trial` objects
+   * @returns An array of `Activity` objects
    * @throws If the request fails or authentication has expired
    * 
    * @example
    * ```typescript
-   * const trials = await client.trialList(session.id);
+   * const activities = await client.activityList(session.id);
    * 
-   * // Find completed trials ready for analysis
-   * const completed = trials.filter(t => t.status === "completed");
+   * // Find completed activities ready for analysis
+   * const completed = activities.filter(t => t.status === "completed");
    * 
    * // Access videos and results
-   * for (const trial of completed) {
-   *   console.log(`Trial: ${trial.name ?? trial.id}`);
-   *   console.log(`Videos: ${trial.videos.length}`);
-   *   console.log(`Results: ${trial.results.length}`);
+   * for (const activity of completed) {
+   *   console.log(`Activity: ${activity.name ?? activity.id}`);
+   *   console.log(`Videos: ${activity.videos.length}`);
+   *   console.log(`Results: ${activity.results.length}`);
    * }
    * ```
    */
-  async trialList(sessionId: string): Promise<Trial[]> {
+  async activityList(sessionId: string): Promise<Activity[]> {
     this.ensureInitialized();
     const result = await this.wasmClient.trialList(sessionId);
-    return this.parseResponse<Trial[]>(result);
+    return this.parseResponse<Activity[]>(result);
   }
 
   /**
-   * Download video data for a specific trial.
+   * Download video data for a specific activity.
    * 
-   * Asynchronously fetches all videos associated with a given trial that match the specified type.
+   * Asynchronously fetches all videos associated with a given activity that match the specified type.
    * Videos with invalid URLs or failed downloads are silently excluded from the result.
    * 
-   * @param trial The trial whose videos should be downloaded
+   * @param activity The activity whose videos should be downloaded
    * @param version The version type of videos to download (default: "synced")
    * @returns An array of video data as Uint8Array. The array may be empty if no valid
    *          videos are available or all downloads fail.
    * 
    * @example
    * ```typescript
-   * const trial = // ... obtained trial
-   * const videoData = await client.downloadTrialVideos(trial, "raw");
+   * const activity = // ... obtained activity
+   * const videoData = await client.downloadActivityVideos(activity, "raw");
    * 
    * for (const data of videoData) {
    *   // Process video data
@@ -711,14 +711,14 @@ export class ModelHealthService {
    * @note This method performs concurrent downloads for optimal performance. Individual download
    *       failures do not affect other requests.
    */
-  async downloadTrialVideos(
-    trial: Trial,
+  async downloadActivityVideos(
+    activity: Activity,
     version: VideoVersion = "synced"
   ): Promise<Uint8Array[]> {
     this.ensureInitialized();
 
-    const result = await this.wasmClient.downloadTrialVideos(
-      trial,
+    const result = await this.wasmClient.downloadActivityVideos(
+      activity,
       version
     );
 
@@ -730,16 +730,16 @@ export class ModelHealthService {
   }
 
   /**
-   * Downloads result data files from a processed trial.
+   * Downloads result data files from a processed activity.
    * 
-   * After a trial completes processing, various result files become available for download.
+   * After an activity completes processing, various result files become available for download.
    * Use this method to retrieve specific types of data (kinematic measurements, visualizations)
    * in their native file formats (JSON, CSV).
    * 
    * This method is useful when you need access to raw analysis data rather than the
    * structured metrics provided by analysis result methods.
    * 
-   * @param trial The completed trial to download data from
+   * @param activity The completed activity to download data from
    * @param dataTypes The types of result data to download (kinematic, visualization, or both)
    * @returns An array of result files with their formats. Returns an empty array if no
    *          results are available or all downloads fail.
@@ -747,7 +747,7 @@ export class ModelHealthService {
    * @example
    * ```typescript
    * // Download kinematic data only
-   * const kinematicData = await client.downloadTrialResultData(trial, ["kinematic"]);
+   * const kinematicData = await client.downloadActivityResultData(activity, ["kinematic"]);
    * 
    * for (const result of kinematicData) {
    *   switch (result.file_type) {
@@ -764,8 +764,8 @@ export class ModelHealthService {
    * }
    * 
    * // Download all available data types
-   * const allData = await client.downloadTrialResultData(
-   *   trial,
+   * const allData = await client.downloadActivityResultData(
+   *   activity,
    *   ["kinematic", "visualization"]
    * );
    * console.log(`Downloaded ${allData.length} result files`);
@@ -775,14 +775,14 @@ export class ModelHealthService {
    *       Individual download failures do not affect other requests and failed downloads
    *       are silently excluded from results.
    */
-  async downloadTrialResultData(
-    trial: Trial,
+  async downloadActivityResultData(
+    activity: Activity,
     dataTypes: ResultDataType[]
   ): Promise<ResultData[]> {
     this.ensureInitialized();
 
-    const result = await this.wasmClient.downloadTrialResultData(
-      trial,
+    const result = await this.wasmClient.downloadActivityResultData(
+      activity,
       dataTypes
     );
 
@@ -792,39 +792,39 @@ export class ModelHealthService {
   // MARK: - Recording & Analysis
 
   /**
-   * Starts recording a dynamic movement trial.
+   * Starts recording a dynamic movement activity.
    * 
    * After completing calibration steps (camera calibration and neutral pose),
    * use this method to begin recording an activity.
    * 
-   * @param trialName A descriptive name for this trial (e.g., "cmj-test")
-   * @param session The session this trial is associated with
-   * @returns The newly created trial
+   * @param activityName A descriptive name for this activity (e.g., "cmj-test")
+   * @param session The session this activity is associated with
+   * @returns The newly created activity
    * @throws If recording cannot start (session not calibrated, camera issues, etc.)
    * 
    * @example
    * ```typescript
    * // Record a CMJ session
-   * const trial = await client.record("cmj-2024", session);
+   * const activity = await client.record("cmj-2024", session);
    * // Subject performs CMJ while cameras record
    * 
    * // When complete, stop recording
    * await client.stopRecording(session);
    * ```
    */
-  async record(trialName: string, session: Session): Promise<Trial> {
+  async record(activityName: string, session: Session): Promise<Activity> {
     this.ensureInitialized();
-    const result = await this.wasmClient.record(trialName, session);
-    return this.parseResponse<Trial>(result);
+    const result = await this.wasmClient.record(activityName, session);
+    return this.parseResponse<Activity>(result);
   }
 
   /**
-   * Stops recording of a dynamic movement trial in a session.
+   * Stops recording of a dynamic movement activity in a session.
    * 
    * Call this method when the subject has completed the movement activity.
    * 
    * @param session The session to stop recording in
-   * @throws If the trial cannot be stopped (invalid session ID, already stopped, etc.)
+   * @throws If the activity cannot be stopped (invalid session ID, already stopped, etc.)
    * 
    * @example
    * ```typescript
@@ -838,22 +838,22 @@ export class ModelHealthService {
   }
 
   /**
-   * Retrieves the current processing status of a trial.
+   * Retrieves the current processing status of an activity.
    * 
-   * Poll this method to determine when a trial is ready for analysis.
-   * Trials must complete video upload and processing before analysis can begin.
+   * Poll this method to determine when an activity is ready for analysis.
+   * Activities must complete video upload and processing before analysis can begin.
    * 
-   * @param trial A completed trial
+   * @param activity A completed activity
    * @returns The current processing status
    * @throws Network or authentication errors
    * 
    * @example
    * ```typescript
-   * const status = await client.getStatus(trial);
+   * const status = await client.getStatus(activity);
    * 
    * switch (status.type) {
    *   case "ready":
-   *     console.log("Trial ready for analysis");
+   *     console.log("Activity ready for analysis");
    *     break;
    *   case "processing":
    *     console.log("Still processing...");
@@ -867,21 +867,21 @@ export class ModelHealthService {
    * }
    * ```
    */
-  async getStatus(trial: Trial): Promise<TrialProcessingStatus> {
+  async getStatus(activity: Activity): Promise<ActivityProcessingStatus> {
     this.ensureInitialized();
-    const result = await this.wasmClient.getStatus(trial);
-    return this.parseResponse<TrialProcessingStatus>(result);
+    const result = await this.wasmClient.getStatus(activity);
+    return this.parseResponse<ActivityProcessingStatus>(result);
   }
 
   /**
-   * Starts an analysis task for a completed trial.
+   * Starts an analysis task for a completed activity.
    * 
-   * The trial must have completed processing (status `.ready`) before analysis can begin.
+   * The activity must have completed processing (status `.ready`) before analysis can begin.
    * Use the returned `AnalysisTask` to poll for completion.
    * 
    * @param analysisType The type of analysis to perform
-   * @param trial The trial to analyze
-   * @param session The session containing the trial
+   * @param activity The activity to analyze
+   * @param session The session containing the activity
    * @returns An analysis task for tracking completion
    * @throws Network or authentication errors
    * 
@@ -889,7 +889,7 @@ export class ModelHealthService {
    * ```typescript
    * const task = await client.startAnalysis(
    *   "counter_movement_jump",
-   *   trial,
+   *   activity,
    *   session
    * );
    * 
@@ -899,14 +899,14 @@ export class ModelHealthService {
    */
   async startAnalysis(
     analysisType: AnalysisType,
-    trial: Trial,
+    activity: Activity,
     session: Session
   ): Promise<AnalysisTask> {
     this.ensureInitialized();
 
     const result = await this.wasmClient.startAnalysis(
       analysisType,
-      trial,
+      activity,
       session
     );
 
@@ -933,7 +933,7 @@ export class ModelHealthService {
    *     break;
    *   case "completed":
    *     for (const tag of status.result_tags) {
-   *       const data = await client.downloadAnalysisResult(trial, tag);
+   *       const data = await client.downloadAnalysisResult(activity, tag);
    *     }
    *     break;
    *   case "failed":
@@ -954,7 +954,7 @@ export class ModelHealthService {
    * Result tags are provided in the `.completed` status from `getAnalysisStatus`.
    * Each tag represents a specific analysis output with structured biomechanical metrics.
    * 
-   * @param trial The completed and analyzed trial
+   * @param activity The completed and analyzed activity
    * @param resultTag The specific result identifier
    * @returns An `AnalysisResult` containing structured metrics
    * @throws Network or authentication errors
@@ -962,7 +962,7 @@ export class ModelHealthService {
    * @example
    * ```typescript
    * const result = await client.downloadAnalysisResult(
-   *   trial,
+   *   activity,
    *   "countermovement_jump"
    * );
    * 
@@ -981,11 +981,11 @@ export class ModelHealthService {
    * ```
    */
   async downloadAnalysisResult(
-    trial: Trial,
+    activity: Activity,
     resultTag: string
   ): Promise<AnalysisResult> {
     this.ensureInitialized();
-    const result = await this.wasmClient.downloadAnalysisResult(trial, resultTag);
+    const result = await this.wasmClient.downloadAnalysisResult(activity, resultTag);
     return this.parseResponse<AnalysisResult>(result);
   }
 

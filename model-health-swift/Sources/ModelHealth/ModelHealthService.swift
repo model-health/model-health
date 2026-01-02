@@ -580,7 +580,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     ///     print("Processing failed")
     /// }
     /// ```
-    public func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus {
+    public func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
         try await serviceProvider.getStatus(forTrial: trial)
     }
 
@@ -761,7 +761,7 @@ public protocol ModelHealthProvider {
     ) async throws
 
     /// See ``ModelHealthService/getStatus(forTrial:)``
-    func getStatus(forTrial trial: Trial) async throws -> TrialProcessingStatus
+    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus
 
     /// See ``ModelHealthService/startAnalysis(_:for:in:)``
     func startAnalysis(

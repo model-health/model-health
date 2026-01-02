@@ -43,9 +43,9 @@ export interface RegistrationParameters {
 // MARK: - Session
 
 /**
- * A session represents a collection of trials recorded together.
+ * A session represents a collection of activities recorded together.
  * 
- * Sessions contain multiple trials, each with their own videos and analysis results.
+ * Sessions contain multiple activities, each with their own videos and analysis results.
  * Sessions can be shared publicly or kept private.
  */
 export interface Session {
@@ -55,9 +55,9 @@ export interface Session {
   name: string;
   session_name: string;
   qrcode?: string;
-  trials: Trial[];
+  activities: Activity[];
   subject?: number;
-  trials_count: number;
+  activities_count: number;
 }
 
 // MARK: - Subject
@@ -120,50 +120,50 @@ export interface SubjectParameters {
 // MARK: - Video
 
 /**
- * Video file associated with a trial.
+ * Video file associated with an activity.
  */
 export interface Video {
   id: string;
-  trial: string;
+  activity: string;
   video?: string;
   video_thumb?: string;
 }
 
-// MARK: - Trial
+// MARK: - Activity
 
 /**
- * A trial represents a single recording within a session.
+ * An activity represents a single recording within a session.
  * 
- * Trials contain the captured videos, processing status, and analysis results.
+ * Activities contain the captured videos, processing status, and analysis results.
  */
-export interface Trial {
+export interface Activity {
   id: string;
   session: string;
   name?: string;
   status: string;
   videos: Video[];
-  results: TrialResult[];
+  results: ActivityResult[];
 }
 
 /**
- * Result file associated with a trial.
+ * Result file associated with an activity.
  * 
  * Results can include analysis outputs, synchronized videos,
  * kinematic data, and visualization data.
  */
-export interface TrialResult {
+export interface ActivityResult {
   id: number;
-  trial: string;
+  activity: string;
   tag?: string;
   media?: string;
 }
 
 /**
- * Processing status of a trial.
+ * Processing status of an activity.
  * 
  * Indicates the current state of video upload and processing.
  */
-export type TrialProcessingStatus =
+export type ActivityProcessingStatus =
   | { type: "uploading"; uploaded: number; total: number }
   | { type: "processing" }
   | { type: "ready" }
@@ -177,7 +177,7 @@ export type TrialProcessingStatus =
 export type VideoVersion = "raw" | "synced";
 
 /**
- * Result data types available for download from trials.
+ * Result data types available for download from activities.
  */
 export type ResultDataType = "visualization" | "kinematic";
 
@@ -187,7 +187,7 @@ export type ResultDataType = "visualization" | "kinematic";
 export type FileType = "json" | "csv";
 
 /**
- * Downloaded result data from a trial.
+ * Downloaded result data from an activity.
  */
 export interface ResultData {
   file_type: FileType;

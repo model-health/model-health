@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use std::time::Duration;
 
 use crate::error::{ModelHealthError, HTTPError, URLErrorCode};
-use crate::config::Config;
+use crate::config::{Config, ApiVersion};
 
 pub struct HttpResponse<T> {
     pub status_code: u16,
@@ -49,6 +49,7 @@ static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
 /// HTTP client implementation using reqwest
 pub struct ReqwestNetworkService {
     base_url: String,
+    api_version: ApiVersion,
 }
 
 impl ReqwestNetworkService {
@@ -59,8 +60,19 @@ impl ReqwestNetworkService {
     /// Panics if the HTTP client cannot be created (extremely rare)
     #[must_use]
     pub fn new(config: Config) -> Self {
+        let api_version = config.api_version();
         Self {
             base_url: config.base_url,
+            api_version: api_version,
+        }
+    }
+    
+    // Translate path based on API version in the case where endpoint
+    // names have changed
+    fn translate_path(&self, path: &str) -> String {
+        match self.api_version {
+            ApiVersion::V1 => path.to_string(),
+            ApiVersion::V2 => path.replace("/trials", "/activities"),
         }
     }
 }
@@ -77,8 +89,9 @@ impl NetworkService for ReqwestNetworkService {
     ) -> Result<T, ModelHealthError> {
         #[cfg(not(target_arch = "wasm32"))]
         log::debug!("Preparing HTTP request");
-        let url = format!("{}{}", self.base_url, path);
-        
+        let translated_path = self.translate_path(path);
+        let url = format!("{}{}", self.base_url, translated_path); 
+
         #[cfg(not(target_arch = "wasm32"))]
         log::debug!("HTTP {method} {url}");
         
@@ -145,7 +158,8 @@ impl NetworkService for ReqwestNetworkService {
         token: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<HttpResponse<Option<T>>, ModelHealthError> {
-        let url = format!("{}{}", self.base_url, path);
+        let translated_path = self.translate_path(path);
+        let url = format!("{}{}", self.base_url, translated_path); 
         
         log::debug!("HTTP {method} {url}");
         
@@ -298,7 +312,13 @@ impl SessionResponse {
 #[derive(Debug, Deserialize)]
 pub struct SubjectResponse {
     pub id: i32,
-    pub name: String,
+
+    // V1
+    pub name: Option<String>,
+    // V2
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+
     pub weight: Option<f64>,
     pub height: Option<f64>,
     pub age: Option<i32>,
@@ -313,6 +333,14 @@ impl SubjectResponse {
     #[must_use]
     pub fn to_model(self) -> crate::models::Subject {
         use crate::models::{Gender, Sex};
+        
+        let name = if let Some(name) = self.name {
+            name
+        } else {
+            let first = self.first_name.unwrap_or_default();
+            let last = self.last_name.unwrap_or_default();
+            format!("{} {}", first, last).trim().to_string()
+        };
         
         let gender = self.gender
             .and_then(|s| match s.as_str() {
@@ -338,7 +366,7 @@ impl SubjectResponse {
         
         crate::models::Subject {
             id: self.id,
-            name: self.name,
+            name,
             weight: self.weight,
             height: self.height,
             age: self.age,
