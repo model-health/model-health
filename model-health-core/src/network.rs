@@ -75,6 +75,10 @@ impl ReqwestNetworkService {
             ApiVersion::V2 => path.replace("/trials", "/activities"),
         }
     }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
