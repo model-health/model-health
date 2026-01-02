@@ -1,6 +1,5 @@
 Package.resolved
-examples/ios/ModelHealthDemo.xcodeproj/project.xcworkspace/xcuserdata
-examples/ios/ModelHealthDemo.xcodeproj/xcuserdata
+**/xcuserdata
 .swiftpm
 .build
 examples/ios/ModelHealthDemo.xcodeproj/xcshareddata
@@ -36,3 +35,5 @@ model-health-ts/node_modules/
 examples/vite-react/node_modules/
 examples/vite-react/dist/
 package-lock.json
+examples/ts/node_modules
+package.json

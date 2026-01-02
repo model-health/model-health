@@ -1,6 +1,7 @@
 use async_trait::async_trait;
-use reqwest::{Client, Method, StatusCode};
+use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
+use once_cell::sync::Lazy;
 #[allow(unused_imports)]
 use std::time::Duration;
 
@@ -39,9 +40,14 @@ pub trait NetworkService {
     ) -> Result<Vec<u8>, ModelHealthError>;
 }
 
+static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
+    reqwest::ClientBuilder::new()
+        .build()
+        .expect("Failed to create HTTP client")
+});
+
 /// HTTP client implementation using reqwest
 pub struct ReqwestNetworkService {
-    client: Client,
     base_url: String,
 }
 
@@ -53,17 +59,7 @@ impl ReqwestNetworkService {
     /// Panics if the HTTP client cannot be created (extremely rare)
     #[must_use]
     pub fn new(config: Config) -> Self {
-        let builder = Client::builder();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            builder = builder.timeout(Duration::from_secs(config.timeout_seconds));
-        }
-
-        let client = builder.build().expect("Failed to create HTTP client");
-
         Self {
-            client,
             base_url: config.base_url,
         }
     }
@@ -79,32 +75,39 @@ impl NetworkService for ReqwestNetworkService {
         token: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<T, ModelHealthError> {
+        #[cfg(not(target_arch = "wasm32"))]
+        log::debug!("Preparing HTTP request");
         let url = format!("{}{}", self.base_url, path);
         
+        #[cfg(not(target_arch = "wasm32"))]
         log::debug!("HTTP {method} {url}");
         
-        let mut request = self.client.request(method.clone(), &url);
+        let mut request = HTTP_CLIENT.request(method.clone(), &url);
         
         if let Some(token) = token {
             request = request.header("Authorization", format!("Token {token}"));
         }
         
         if let Some(body) = body {
-            let body_json = serde_json::to_string(body).unwrap_or_default();
-            log::debug!("Request body: {}", body_json);
+            #[cfg(not(target_arch = "wasm32"))]
+            log::debug!("Attaching request body");
+            //let body_json = serde_json::to_string(body).unwrap_or_default();
+//            log::debug!("Request body: {}", body_json);
             request = request.json(body);
         }
         
         let response = request.send().await?;
         let status = response.status();
         
+        #[cfg(not(target_arch = "wasm32"))]
         log::debug!("HTTP {method} {url} -> {status}");
                 
         match status {
             StatusCode::OK | StatusCode::CREATED => {
                 let data = response.json::<T>().await
-                    .map_err(|e| {
-                        log::error!("Failed to parse response: {}", e);
+                    .map_err(|_e| {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        log::error!("Failed to parse response: {}", _e);
                         ModelHealthError::UnexpectedResponse
                     })?;
                 Ok(data)
@@ -146,7 +149,7 @@ impl NetworkService for ReqwestNetworkService {
         
         log::debug!("HTTP {method} {url}");
         
-        let mut request = self.client.request(method.clone(), &url);
+        let mut request = HTTP_CLIENT.request(method.clone(), &url);
         
         if let Some(token) = token {
             request = request.header("Authorization", format!("Token {token}"));
@@ -209,7 +212,7 @@ impl NetworkService for ReqwestNetworkService {
     ) -> Result<Vec<u8>, ModelHealthError> {
         log::debug!("Downloading data from {url}");
         
-        let request = self.client.get(url);
+        let request = HTTP_CLIENT.get(url);
         let response = request.send().await?;
         let status = response.status();
         

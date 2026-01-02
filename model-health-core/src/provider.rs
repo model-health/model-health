@@ -10,6 +10,26 @@ use crate::models::{
     SubjectParameters, Trial, TrialProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
 };
 
+#[cfg(target_arch = "wasm32")]
+async fn sleep_one_second() {
+    use wasm_bindgen_futures::JsFuture;
+    use js_sys::Promise;
+    
+    let promise = Promise::new(&mut |resolve, _reject| {
+        web_sys::window()
+            .unwrap()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 1000)
+            .unwrap();
+    });
+    
+    let _ = JsFuture::from(promise).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn sleep_one_second() {
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+}
+
 /// Defines `ModelHealth` SDK operations for dependency injection and testing.
 ///
 /// Conform to this trait to create mock implementations for testing.
@@ -449,8 +469,17 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
             Sex::NoResponse => "prefer-not-respond",
         };
         
+        let name_parts: Vec<&str> = parameters.name.split_whitespace().collect();
+        let first_name = name_parts.first().unwrap_or(&"").to_string();
+        let last_name = if name_parts.len() > 1 {
+            name_parts[1..].join(" ")
+        } else {
+            String::new()
+        };
+
         let mut body = json!({
-            "name": parameters.name,
+            "first_name": first_name,
+            "last_name": last_name,
             "weight": parameters.weight,
             "height": parameters.height / 100.0,  // Convert cm to meters
             "birth_year": parameters.birth_year,
@@ -621,7 +650,7 @@ async fn calibrate_camera(
             }
             
             // Sleep for 1 second before next poll
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            sleep_one_second().await;
         }
     }
 
@@ -736,7 +765,7 @@ async fn calibrate_camera(
             }
             
             // Sleep for 1 second before next poll
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            sleep_one_second().await;
         }
     }
 
@@ -823,7 +852,7 @@ async fn calibrate_camera(
         })
     }
 
-async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskStatus, ModelHealthError> {
+    async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskStatus, ModelHealthError> {
         use crate::network::{AnalysisStatusResponse, AnalysisState, HttpResponse};
         
         let token = self.token.as_ref()

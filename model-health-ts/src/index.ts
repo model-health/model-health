@@ -41,6 +41,8 @@ import type {
   AnalysisTaskStatus,
   TrialProcessingStatus,
   TokenStorage,
+  CalibrationStatus,
+  AnalysisResult,
 } from "./types.js";
 
 import {
@@ -48,9 +50,9 @@ import {
   LocalStorageTokenStorage,
 } from "./types.js";
 
-// WASM will be loaded dynamically
 let wasmModule: any = null;
 let wasmInitialized = false;
+let wasmInitPromise: Promise<void> | null = null;
 
 /**
  * Initialize the WASM module.
@@ -61,18 +63,25 @@ let wasmInitialized = false;
  * @internal
  */
 async function initWasm(): Promise<void> {
-  if (wasmInitialized) return;
+  if (wasmInitialized)
+    return;
 
-  try {
-    // Dynamic import of the WASM module
-    // The exact path will depend on your bundler configuration
-    wasmModule = await import("../wasm/model_health_wasm.js");
-    await wasmModule.default(); // Initialize WASM
-    await wasmModule.init(); // Call our init function
-    wasmInitialized = true;
-  } catch (error) {
-    throw new Error(`Failed to initialize WASM module: ${error}`);
-  }
+  if (wasmInitPromise)
+    return wasmInitPromise;
+
+  wasmInitPromise = (async () => {
+    try {
+      wasmModule = await import("../wasm/model_health_wasm.js");
+      await wasmModule.default();
+      await wasmModule.init();
+      wasmInitialized = true;
+    } catch (error) {
+      wasmInitPromise = null;
+      throw new Error(`Failed to initialize WASM module: ${error}`);
+    }
+  })();
+
+  return wasmInitPromise;
 }
 
 /**
@@ -473,6 +482,111 @@ export class ModelHealthService {
     return this.parseResponse<Session>(result);
   }
 
+/**
+ * Calibrates a camera using a checkerboard pattern.
+ * 
+ * **Requirements:**
+ * - A printed checkerboard pattern
+ * - Accurate measurement of square size in millimeters
+ * - Multiple views of the checkerboard from different angles
+ * 
+ * The calibration is automated and typically completes in a few seconds
+ * 
+ * @param session The session created with `createSession()`
+ * @param checkerboardDetails Configuration of the calibration checkerboard
+ * @param statusCallback Callback function called with calibration progress updates
+ * @throws If calibration fails (insufficient views, pattern not detected, etc.)
+ * 
+ * @example
+ * ```typescript
+ * const session = await client.createSession();
+ * 
+ * const details = {
+ *   rows: 4,           // Internal corners, not squares (for 5×6 board)
+ *   columns: 5,        // Internal corners, not squares (for 5×6 board)
+ *   square_size: 35,   // Measured in millimeters
+ *   placement: "perpendicular"
+ * };
+ * 
+ * await client.calibrateCamera(session, details, (status) => {
+ *   console.log("Calibration status:", status);
+ * });
+ * // Calibration complete, proceed to neutral pose
+ * ```
+ */
+  async calibrateCamera(
+    session: Session,
+    checkerboardDetails: CheckerboardDetails,
+    statusCallback: (status: CalibrationStatus) => void
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    const token = this.wasmClient.getToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+
+    const jsCallback = (statusJson: any) => {
+      statusCallback(statusJson);
+    };
+
+    await wasmModule.calibrateCamera(
+      token,
+      session,
+      checkerboardDetails,
+      jsCallback
+    );
+  }
+
+  /**
+   * Captures the subject's neutral standing pose for model scaling.
+   * 
+   * This step is required after camera calibration and before recording movement trials.
+   * It takes a quick video of the subject standing in a neutral position, which is
+   * used to scale the biomechanical model to match the subject's dimensions.
+   * 
+   * **Instructions for subject:**
+   * - Stand upright in a relaxed, natural position
+   * - Face forward with arms spread slightly at sides
+   * - Remain still for a few seconds
+   * 
+   * @param subject The subject to calibrate the neutral pose for
+   * @param session The session to perform calibration in
+   * @param statusCallback Callback function called with calibration progress updates
+   * @throws If pose capture fails (subject not detected, poor lighting, etc.)
+   * 
+   * @example
+   * ```typescript
+   * // After successful camera calibration
+   * await client.calibrateNeutralPose(subject, session, (status) => {
+   *   console.log("Neutral pose status:", status);
+   * });
+   * // Model now scaled, ready to record movement trials
+   * ```
+   */
+  async calibrateNeutralPose(
+    subject: Subject,
+    session: Session,
+    statusCallback: (status: CalibrationStatus) => void
+  ): Promise<void> {
+    this.ensureInitialized();
+
+    const token = this.wasmClient.getToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+
+    const jsCallback = (statusJson: any) => {
+      statusCallback(statusJson);
+    };
+
+    await wasmModule.calibrateNeutralPose(
+      token,
+      subject,
+      session,
+      jsCallback
+    );
+  }
   // MARK: - Subjects
 
   /**
@@ -603,16 +717,11 @@ export class ModelHealthService {
   ): Promise<Uint8Array[]> {
     this.ensureInitialized();
 
-    const wasmVersion = version === "raw"
-      ? wasmModule.VideoVersion.Raw
-      : wasmModule.VideoVersion.Synced;
-
     const result = await this.wasmClient.downloadTrialVideos(
       trial,
-      wasmVersion
+      version
     );
 
-    // Convert JS Array to Uint8Array[]
     const videos: Uint8Array[] = [];
     for (let i = 0; i < result.length; i++) {
       videos.push(new Uint8Array(result[i]));
@@ -672,19 +781,212 @@ export class ModelHealthService {
   ): Promise<ResultData[]> {
     this.ensureInitialized();
 
-    const wasmDataTypes = dataTypes.map(dt => {
-      switch (dt) {
-        case "visualization": return wasmModule.ResultDataType.Visualization;
-        case "kinematic": return wasmModule.ResultDataType.Kinematic;
-      }
-    });
-
     const result = await this.wasmClient.downloadTrialResultData(
       trial,
-      wasmDataTypes
+      dataTypes
     );
 
     return this.parseResponse<ResultData[]>(result);
+  }
+
+  // MARK: - Recording & Analysis
+
+  /**
+   * Starts recording a dynamic movement trial.
+   * 
+   * After completing calibration steps (camera calibration and neutral pose),
+   * use this method to begin recording an activity.
+   * 
+   * @param trialName A descriptive name for this trial (e.g., "cmj-test")
+   * @param session The session this trial is associated with
+   * @returns The newly created trial
+   * @throws If recording cannot start (session not calibrated, camera issues, etc.)
+   * 
+   * @example
+   * ```typescript
+   * // Record a CMJ session
+   * const trial = await client.record("cmj-2024", session);
+   * // Subject performs CMJ while cameras record
+   * 
+   * // When complete, stop recording
+   * await client.stopRecording(session);
+   * ```
+   */
+  async record(trialName: string, session: Session): Promise<Trial> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.record(trialName, session);
+    return this.parseResponse<Trial>(result);
+  }
+
+  /**
+   * Stops recording of a dynamic movement trial in a session.
+   * 
+   * Call this method when the subject has completed the movement activity.
+   * 
+   * @param session The session to stop recording in
+   * @throws If the trial cannot be stopped (invalid session ID, already stopped, etc.)
+   * 
+   * @example
+   * ```typescript
+   * // After recording is complete
+   * await client.stopRecording(session);
+   * ```
+   */
+  async stopRecording(session: Session): Promise<void> {
+    this.ensureInitialized();
+    await this.wasmClient.stopRecording(session);
+  }
+
+  /**
+   * Retrieves the current processing status of a trial.
+   * 
+   * Poll this method to determine when a trial is ready for analysis.
+   * Trials must complete video upload and processing before analysis can begin.
+   * 
+   * @param trial A completed trial
+   * @returns The current processing status
+   * @throws Network or authentication errors
+   * 
+   * @example
+   * ```typescript
+   * const status = await client.getStatus(trial);
+   * 
+   * switch (status.type) {
+   *   case "ready":
+   *     console.log("Trial ready for analysis");
+   *     break;
+   *   case "processing":
+   *     console.log("Still processing...");
+   *     break;
+   *   case "uploading":
+   *     console.log(`Uploaded ${status.uploaded}/${status.total} videos`);
+   *     break;
+   *   case "failed":
+   *     console.log("Processing failed");
+   *     break;
+   * }
+   * ```
+   */
+  async getStatus(trial: Trial): Promise<TrialProcessingStatus> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getStatus(trial);
+    return this.parseResponse<TrialProcessingStatus>(result);
+  }
+
+  /**
+   * Starts an analysis task for a completed trial.
+   * 
+   * The trial must have completed processing (status `.ready`) before analysis can begin.
+   * Use the returned `AnalysisTask` to poll for completion.
+   * 
+   * @param analysisType The type of analysis to perform
+   * @param trial The trial to analyze
+   * @param session The session containing the trial
+   * @returns An analysis task for tracking completion
+   * @throws Network or authentication errors
+   * 
+   * @example
+   * ```typescript
+   * const task = await client.startAnalysis(
+   *   "counter_movement_jump",
+   *   trial,
+   *   session
+   * );
+   * 
+   * // Poll for completion
+   * const status = await client.getAnalysisStatus(task);
+   * ```
+   */
+  async startAnalysis(
+    analysisType: AnalysisType,
+    trial: Trial,
+    session: Session
+  ): Promise<AnalysisTask> {
+    this.ensureInitialized();
+
+    const result = await this.wasmClient.startAnalysis(
+      analysisType,
+      trial,
+      session
+    );
+
+    return this.parseResponse<AnalysisTask>(result);
+  }
+
+  /**
+   * Retrieves the current status of an analysis task.
+   * 
+   * Poll this method to monitor analysis progress. When status is `.completed`,
+   * use the returned result tags to download analysis files.
+   * 
+   * @param task The task returned from `startAnalysis`
+   * @returns The current analysis status
+   * @throws Network or authentication errors
+   * 
+   * @example
+   * ```typescript
+   * const status = await client.getAnalysisStatus(task);
+   * 
+   * switch (status.type) {
+   *   case "processing":
+   *     console.log("Analysis running...");
+   *     break;
+   *   case "completed":
+   *     for (const tag of status.result_tags) {
+   *       const data = await client.downloadAnalysisResult(trial, tag);
+   *     }
+   *     break;
+   *   case "failed":
+   *     console.log("Analysis failed");
+   *     break;
+   * }
+   * ```
+   */
+  async getAnalysisStatus(task: AnalysisTask): Promise<AnalysisTaskStatus> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getAnalysisStatus(task);
+    return this.parseResponse<AnalysisTaskStatus>(result);
+  }
+
+  /**
+   * Downloads an analysis result.
+   * 
+   * Result tags are provided in the `.completed` status from `getAnalysisStatus`.
+   * Each tag represents a specific analysis output with structured biomechanical metrics.
+   * 
+   * @param trial The completed and analyzed trial
+   * @param resultTag The specific result identifier
+   * @returns An `AnalysisResult` containing structured metrics
+   * @throws Network or authentication errors
+   * 
+   * @example
+   * ```typescript
+   * const result = await client.downloadAnalysisResult(
+   *   trial,
+   *   "countermovement_jump"
+   * );
+   * 
+   * console.log(`Analysis: ${result.analysis_title}`);
+   * console.log(`Description: ${result.analysis_description}`);
+   * 
+   * // Access specific metrics
+   * if (result.jump_height) {
+   *   console.log(`Jump Height: ${result.jump_height} cm`);
+   * }
+   * 
+   * // Iterate all metrics
+   * for (const [key, metric] of Object.entries(result.metrics)) {
+   *   console.log(`${metric.label}:`, metric.value);
+   * }
+   * ```
+   */
+  async downloadAnalysisResult(
+    trial: Trial,
+    resultTag: string
+  ): Promise<AnalysisResult> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.downloadAnalysisResult(trial, resultTag);
+    return this.parseResponse<AnalysisResult>(result);
   }
 
   // MARK: - Utilities
@@ -697,7 +999,6 @@ export class ModelHealthService {
    * @returns Parsed TypeScript object
    */
   private parseResponse<T>(value: any): T {
-    // WASM returns serialized JSON, we need to parse it
     if (typeof value === "string") {
       return JSON.parse(value) as T;
     }

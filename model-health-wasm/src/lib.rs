@@ -15,6 +15,12 @@ use model_health_core::{
     Trial,
     VideoVersion,
     ResultDataType,
+    Session,
+    Subject,
+    CheckerboardDetails,
+    CalibrationStatus,
+    AnalysisType,
+    AnalysisTask,
 };
 use model_health_core::provider::ModelHealthProviderImpl;
 
@@ -228,6 +234,117 @@ impl ModelHealthService {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    // MARK: - Recording & Analysis
+
+    #[wasm_bindgen(js_name = record)]
+    pub async fn record(
+        &mut self,
+        trial_name: String,
+        session_json: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let session: Session = serde_wasm_bindgen::from_value(session_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let trial = self.provider
+            .record(trial_name, &session)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&trial)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = stopRecording)]
+    pub async fn stop_recording(
+        &mut self,
+        session_json: JsValue,
+    ) -> Result<(), JsValue> {
+        let session: Session = serde_wasm_bindgen::from_value(session_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        self.provider
+            .stop_recording(&session)
+            .await
+            .map_err(to_js_error)
+    }
+
+    #[wasm_bindgen(js_name = getStatus)]
+    pub async fn get_status(
+        &self,
+        trial_json: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let trial: Trial = serde_wasm_bindgen::from_value(trial_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let status = self.provider
+            .get_status(&trial)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&status)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = startAnalysis)]
+    pub async fn start_analysis(
+        &mut self,
+        analysis_type_json: JsValue,
+        trial_json: JsValue,
+        session_json: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let analysis_type: AnalysisType = serde_wasm_bindgen::from_value(analysis_type_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let trial: Trial = serde_wasm_bindgen::from_value(trial_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let session: Session = serde_wasm_bindgen::from_value(session_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let task = self.provider
+            .start_analysis(analysis_type, &trial, &session)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&task)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = getAnalysisStatus)]
+    pub async fn get_analysis_status(
+        &self,
+        task_json: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let task: AnalysisTask = serde_wasm_bindgen::from_value(task_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let status = self.provider
+            .get_analysis_status(&task)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&status)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = downloadAnalysisResult)]
+    pub async fn download_analysis_result(
+        &self,
+        trial_json: JsValue,
+        result_tag: String,
+    ) -> Result<JsValue, JsValue> {
+        let trial: Trial = serde_wasm_bindgen::from_value(trial_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let result = self.provider
+            .download_analysis_result(&trial, result_tag)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     // MARK: - Trials
 
     #[wasm_bindgen(js_name = trialList)]
@@ -307,4 +424,70 @@ impl Default for ModelHealthService {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[wasm_bindgen(js_name = calibrateCamera)]
+pub fn calibrate_camera_standalone(
+    token: String,
+    session_json: JsValue,
+    checkerboard_json: JsValue,
+    _status_callback: js_sys::Function,
+) -> js_sys::Promise {
+    let session: Session = match serde_wasm_bindgen::from_value(session_json) {
+        Ok(s) => s,
+        Err(e) => return js_sys::Promise::reject(&JsValue::from_str(&e.to_string())),
+    };
+    
+    let details: CheckerboardDetails = match serde_wasm_bindgen::from_value(checkerboard_json) {
+        Ok(d) => d,
+        Err(e) => return js_sys::Promise::reject(&JsValue::from_str(&e.to_string())),
+    };
+    
+    let future = async move {
+        let callback = |_status: CalibrationStatus| {};
+        
+        let mut provider = ModelHealthProviderImpl::new();
+        provider.set_token(token);
+        
+        provider
+            .calibrate_camera(&session, details, Box::new(callback))
+            .await
+            .map_err(to_js_error)
+            .map(|_| JsValue::UNDEFINED)
+    };
+    
+    wasm_bindgen_futures::future_to_promise(future)
+}
+
+#[wasm_bindgen(js_name = calibrateNeutralPose)]
+pub fn calibrate_neutral_pose_standalone(
+    token: String,
+    subject_json: JsValue,
+    session_json: JsValue,
+    _status_callback: js_sys::Function,
+) -> js_sys::Promise {
+    let subject: Subject = match serde_wasm_bindgen::from_value(subject_json) {
+        Ok(s) => s,
+        Err(e) => return js_sys::Promise::reject(&JsValue::from_str(&e.to_string())),
+    };
+    
+    let session: Session = match serde_wasm_bindgen::from_value(session_json) {
+        Ok(s) => s,
+        Err(e) => return js_sys::Promise::reject(&JsValue::from_str(&e.to_string())),
+    };
+    
+    let future = async move {
+        let callback = |_status: CalibrationStatus| {};
+        
+        let mut provider = ModelHealthProviderImpl::new();
+        provider.set_token(token);
+        
+        provider
+            .calibrate_neutral_pose(&subject, &session, Box::new(callback))
+            .await
+            .map_err(to_js_error)
+            .map(|_| JsValue::UNDEFINED)
+    };
+    
+    wasm_bindgen_futures::future_to_promise(future)
 }
