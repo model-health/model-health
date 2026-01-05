@@ -1,10 +1,10 @@
 import SwiftUI
 import ModelHealth
 
-struct TrialDataView: View {
+struct ActivityDataView: View {
     @EnvironmentObject private var modelHealth: ModelHealthService
 
-    let trial: Trial
+    let activity: Activity
 
     @State private var selectedIndex = 0
     @State private var dataItems: [ResultData] = []
@@ -42,7 +42,7 @@ struct TrialDataView: View {
                 dataPreviewView(for: selectedData)
             }
         }
-        .navigationTitle("Trial Data")
+        .navigationTitle("Activity Data")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadData()
@@ -53,7 +53,7 @@ struct TrialDataView: View {
     }
 }
 
-private extension TrialDataView {
+private extension ActivityDataView {
     var selectedDataItem: ResultData? {
         guard dataItems.indices.contains(selectedIndex) else {
             return nil
@@ -107,7 +107,7 @@ private extension TrialDataView {
             Text("No data available")
                 .font(.headline)
 
-            Text("No data files found for this trial")
+            Text("No data files found for this activity")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -147,7 +147,7 @@ private extension TrialDataView {
         errorMessage = nil
 
         let types: Set<ResultDataType> = [.visualization, .kinematic]
-        dataItems = await modelHealth.data(ofType: types, for: trial)
+        dataItems = await modelHealth.data(ofType: types, for: activity)
 
         isLoading = false
     }
@@ -200,7 +200,7 @@ private extension ResultData {
 
 #Preview {
     NavigationStack {
-        TrialDataView(trial: .forPreview())
+        ActivityDataView(activity: .forPreview())
             .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

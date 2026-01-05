@@ -104,9 +104,9 @@ public struct Session: Identifiable, Sendable {
     public let name: String
     public let sessionName: String
     public let qrcode: String?
-    public let trials: [Trial]
+    public let activities: [Activity]
     public let subject: Int?
-    public let trialsCount: Int
+    public let activitiesCount: Int
 }
 
 extension Session: Equatable {
@@ -249,20 +249,20 @@ public struct SubjectParameters: Sendable {
 
 // MARK: - Video
 
-/// A recorded video file from a trial.
+/// A recorded video file from an activity.
 ///
 /// Videos are automatically uploaded to the cloud during recording.
 /// Use `video` to download the full video or `videoThumb` for preview thumbnails.
 public struct Video: Sendable {
     public let id: String
-    public let trial: String
+    public let activity: String
     public let video: String?
     public let videoThumb: String?
 }
 
-/// Specifies the type of video to retrieve from a trial.
+/// Specifies the type of video to retrieve from an activity.
 ///
-/// Videos in a trial can exist in different processing states. Use this enumeration to specify
+/// Videos in an activity can exist in different processing states. Use this enumeration to specify
 /// which version of the videos you want to download.
 public enum VideoVersion: Sendable {
     /// The original, unprocessed video as captured or uploaded.
@@ -285,13 +285,13 @@ public enum VideoVersion: Sendable {
 /// processing to final analysis.
 ///
 /// ```swift
-/// let trials = try await service.trialList()
-/// let completed = trials.filter { $0.status == "completed" && !$0.trashed }
+/// let activities = try await service.activityList()
+/// let completed = activities.filter { $0.status == "completed" && !$0.trashed }
 /// ```
-public struct Trial: Sendable {
+public struct Activity: Sendable {
     public struct Result: Sendable {
         public let id: Int
-        public let trial: String
+        public let activity: String
         public let tag: String?
         public let media: String?
     }
@@ -311,17 +311,17 @@ public struct Trial: Sendable {
     public let results: [Result]
 }
 
-/// Specifies the type of result data to retrieve from a trial.
+/// Specifies the type of result data to retrieve from an activity.
 ///
 /// Trials can generate different types of output data during processing and analysis.
 /// Use this enumeration to specify which types of data you want to download.
 ///
 /// ```swift
 /// // Download all visualization data
-/// let vizData = await service.data(ofType: [.visualization], for: trial)
+/// let vizData = await service.data(ofType: [.visualization], for: activity)
 ///
 /// // Download both kinematic and visualization data
-/// let allData = await service.data(ofType: [.kinematic, .visualization], for: trial)
+/// let allData = await service.data(ofType: [.kinematic, .visualization], for: activity)
 /// ```
 public enum ResultDataType: Sendable {
     /// Visualization data for interpreting movement analysis results.
@@ -331,13 +331,13 @@ public enum ResultDataType: Sendable {
     case kinematic
 }
 
-/// Result data downloaded from a trial with its associated file format.
+/// Result data downloaded from an activity with its associated file format.
 ///
 /// Trial analysis generates output files in different formats. This structure
 /// wraps the raw data along with its file type, allowing you to process it appropriately.
 ///
 /// ```swift
-/// let resultData = await service.data(ofType: [.kinematic], for: trial)
+/// let resultData = await service.data(ofType: [.kinematic], for: activity)
 ///
 /// for result in resultData {
 ///     switch result.fileType {
@@ -491,13 +491,13 @@ public enum CalibrationStatus: Sendable {
 
 /// Represents available analysis functions for motion capture data.
 ///
-/// Each analysis type processes trial data to extract specific biomechanical metrics
-/// and insights. Analysis can only be performed on trials that have completed processing.
+/// Each analysis type processes activity data to extract specific biomechanical metrics
+/// and insights. Analysis can only be performed on activities that have completed processing.
 public enum AnalysisType: Sendable {
     case counterMovementJump
 }
 
-/// Represents the current processing state of a trial.
+/// Represents the current processing state of an activity.
 ///
 /// Trials must reach the `ready` state before analysis can be performed.
 public enum ActivityProcessingStatus: Sendable {
@@ -739,9 +739,9 @@ extension Session {
         public var name = "Preview Session"
         public var sessionName = "Session Name"
         public var qrcode: String? = "https://example.com/qr.png"
-        public var trials: [Trial] = []
+        public var activities: [Activity] = []
         public var subject: Int? = nil
-        public var trialsCount = 0
+        public var activitiesCount = 0
 
         func build() -> Session {
             Session(
@@ -751,9 +751,9 @@ extension Session {
                 name: name,
                 sessionName: sessionName,
                 qrcode: qrcode,
-                trials: trials,
+                activities: activities,
                 subject: subject,
-                trialsCount: trialsCount
+                activitiesCount: activitiesCount
             )
         }
     }
@@ -808,7 +808,7 @@ extension Video {
 
     public struct PreviewBuilder {
         public var id = "preview-video"
-        public var trial = "preview-trial"
+        public var activity = "preview-activity"
         public var video: String? = "video-id"
         public var videoUrl: String? = "https://example.com/video.mp4"
         public var videoThumb: String? = "https://example.com/thumb.jpg"
@@ -816,7 +816,7 @@ extension Video {
         func build() -> Video {
             Video(
                 id: id,
-                trial: trial,
+                activity: activity,
                 video: video,
                 videoThumb: videoThumb
             )
@@ -824,7 +824,7 @@ extension Video {
     }
 }
 
-extension Trial {
+extension Activity {
     public static func forPreview(
         customizing: (inout PreviewBuilder) -> Void = { _ in }
     ) -> Self {
@@ -834,15 +834,15 @@ extension Trial {
     }
 
     public struct PreviewBuilder {
-        public var id = "preview-trial"
+        public var id = "preview-activity"
         public var session = "preview-session"
         public var name: String? = "Preview Trial"
         public var status: String = "done"
         public var videos: [Video] = []
-        public var results: [Trial.Result] = []
+        public var results: [Activity.Result] = []
 
-        func build() -> Trial {
-            Trial(
+        func build() -> Activity {
+            Activity(
                 id: id,
                 session: session,
                 name: name,
@@ -854,17 +854,17 @@ extension Trial {
     }
 }
 
-extension Trial: Hashable {
+extension Activity: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 
-    public static func == (lhs: Trial, rhs: Trial) -> Bool {
+    public static func == (lhs: Activity, rhs: Activity) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-extension Trial.Result {
+extension Activity.Result {
     public static func forPreview(
         customizing: (inout PreviewBuilder) -> Void = { _ in }
     ) -> Self {
@@ -875,14 +875,14 @@ extension Trial.Result {
 
     public struct PreviewBuilder {
         public var id = 1
-        public var trial = "preview-trial"
+        public var activity = "preview-activity"
         public var tag: String? = "analysis-result"
         public var media = "https://example.com/result.csv"
 
-        func build() -> Trial.Result {
-            Trial.Result(
+        func build() -> Activity.Result {
+            Activity.Result(
                 id: id,
-                trial: trial,
+                activity: activity,
                 tag: tag,
                 media: media
             )

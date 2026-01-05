@@ -85,7 +85,7 @@ private extension SessionListView {
                 fatalError("Subject not found for session")
             }
 
-            return RecordTrialView(subject: subject, session: session)
+            return RecordActivityView(subject: subject, session: session)
         }
     }
 
@@ -175,7 +175,7 @@ struct SessionRow: View {
             }
 
             HStack {
-                Label("\(session.trialsCount)", systemImage: "doc.on.doc")
+                Label("\(session.activitiesCount)", systemImage: "doc.on.doc")
                     .font(.caption)
                     .foregroundColor(.secondary)
 

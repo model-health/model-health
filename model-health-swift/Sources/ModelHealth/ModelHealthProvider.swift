@@ -47,7 +47,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
         }
 
         if let token = getToken() {
-            try? KeychainHelper.save(token, for: .authToken)
+            KeychainHelper.save(token, for: .authToken)
         }
     }
 
@@ -64,7 +64,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             if result.success {
                 do {
                     if let token = getToken() {
-                        try? KeychainHelper.save(token, for: .authToken)
+                        KeychainHelper.save(token, for: .authToken)
                     }
 
                     let loginResult = try LoginResult.from(resultCode: resultCode)
@@ -190,7 +190,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
         }
     }
     
-    func trialList(for session: Session) async throws -> [Trial] {
+    func activityList(for session: Session) async throws -> [Activity] {
         try await withCheckedThrowingContinuation { continuation in
             var cArray = CTrialArray(trials: nil, count: 0)
             let result = session.id.withCString { sessionId in
@@ -203,10 +203,10 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             
             if result.success {
                 do {
-                    var trials: [Trial] = []
+                    var trials: [Activity] = []
                     if cArray.count > 0, let trialsPtr = cArray.trials {
                         trials = try (0..<cArray.count).map { i in
-                            try Trial.from(cTrial: trialsPtr[i])
+                            try Activity.from(cTrial: trialsPtr[i])
                         }
                     }
                     continuation.resume(returning: trials)
@@ -220,7 +220,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
         }
     }
     
-    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+    func videos(for trial: Activity, version: VideoVersion) async -> [Data] {
         await withCheckedContinuation { continuation in
             var cArray = CDataArray(items: nil, count: 0)
             
@@ -255,7 +255,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
         }
     }
     
-    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
+    func data(ofType types: Set<ResultDataType>, for trial: Activity) async -> [ResultData] {
         await withCheckedContinuation { continuation in
             // Convert Set to array of Int32 codes
             let typeCodes: [Int32] = types.map { type in
@@ -383,7 +383,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     
     // MARK: - Recording Operations
     
-    func record(trialNamed name: String, in session: Session) async throws -> Trial {
+    func record(activityNamed name: String, in session: Session) async throws -> Activity {
         try await withCheckedThrowingContinuation { continuation in
             var cTrial = CTrial(
                 id: nil, session: nil, name: nil, status: nil,
@@ -399,7 +399,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             
             if result.success {
                 do {
-                    let trial = try Trial.from(cTrial: cTrial)
+                    let trial = try Activity.from(cTrial: cTrial)
                     // Free trial fields (including nested arrays)
                     freeTrialFields(cTrial)
                     continuation.resume(returning: trial)
@@ -519,14 +519,14 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     
     // MARK: - Analysis Operations
     
-    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
+    func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus {
         try await withCheckedThrowingContinuation { continuation in
             var statusCode: Int32 = -1
             var uploaded: Int32 = 0
             var total: Int32 = 0
             
-            let result = trial.id.withCString { trialId in
-                trial.session.withCString { sessionId in
+            let result = activity.id.withCString { trialId in
+                activity.session.withCString { sessionId in
                     model_health_get_trial_status(
                         handle,
                         trialId,
@@ -553,7 +553,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     
     func startAnalysis(
         _ analysisType: AnalysisType,
-        for trial: Trial,
+        for trial: Activity,
         in session: Session
     ) async throws -> AnalysisTask {
         try await withCheckedThrowingContinuation { continuation in
@@ -630,13 +630,13 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     }
     
     func downloadAnalysisResult(
-        forTrial trial: Trial,
+        forActivity activity: Activity,
         resultTag: String
     ) async throws -> AnalysisResult {
         try await withCheckedThrowingContinuation { continuation in
             var resultJsonPtr: UnsafeMutablePointer<CChar>? = nil
             
-            let result = trial.id.withCString { trialId in
+            let result = activity.id.withCString { trialId in
                 resultTag.withCString { tag in
                     model_health_download_analysis_result(
                         handle,

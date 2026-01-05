@@ -8,9 +8,9 @@ enum KeychainHelper {
         case authToken = "auth-token"
     }
 
-    static func save(_ value: String, for key: Key) -> Bool {
+    static func save(_ value: String, for key: Key) {
         guard let data = value.data(using: .utf8) else {
-            return false
+            return
         }
 
         let query: [String: Any] = [
@@ -21,10 +21,8 @@ enum KeychainHelper {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
         ]
 
-        // Delete any existing item
         SecItemDelete(query as CFDictionary)
-
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        SecItemAdd(query as CFDictionary, nil)
     }
 
     static func get(_ key: Key) -> String? {

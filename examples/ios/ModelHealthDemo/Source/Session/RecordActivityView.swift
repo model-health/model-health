@@ -1,7 +1,7 @@
 import SwiftUI
 import ModelHealth
 
-struct RecordTrialView: View {
+struct RecordActivityView: View {
     let subject: Subject
     let session: Session
 
@@ -29,11 +29,11 @@ struct RecordTrialView: View {
     }
 
     @State private var activityName: String = ""
-    @State private var currentTrial: Trial?
-    @State private var completedTrials: [TrialState] = []
-    @State private var selectedTrialForResults: TrialState?
-    @State private var selectedTrialForVideos: Trial?
-    @State private var selectedTrialForData: Trial?
+    @State private var currentActivity: Activity?
+    @State private var completedActivities: [ActivityState] = []
+    @State private var selectedActivityForResults: ActivityState?
+    @State private var selectedActivityForVideos: Activity?
+    @State private var selectedActivityForData: Activity?
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
@@ -45,7 +45,7 @@ struct RecordTrialView: View {
     }
 
     private var isRecording: Bool {
-        currentTrial != nil
+        currentActivity != nil
     }
 
     var body: some View {
@@ -68,7 +68,7 @@ struct RecordTrialView: View {
                             .foregroundStyle(.red)
                             .symbolEffect(.pulse)
                         
-                        Text("Recording trial: \"\(activityName)\"")
+                        Text("Recording activity: \"\(activityName)\"")
                             .font(.headline)
                         
                         Text("Have the subject perform the activity")
@@ -97,7 +97,7 @@ struct RecordTrialView: View {
                     isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
                 ) {
                     Task {
-                        await isRecording ? stopRecordingTrial() : startRecordingTrial()
+                        await isRecording ? stopRecordingActivity() : startRecordingActivity()
                     }
                 }
                 
@@ -109,13 +109,13 @@ struct RecordTrialView: View {
                     HStack {
                         ProgressView()
                             .scaleEffect(0.8)
-                        Text("Loading existing trials...")
+                        Text("Loading existing activities...")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .padding()
                     
-                case .loaded where completedTrials.isEmpty:
+                case .loaded where completedActivities.isEmpty:
                     EmptyView()
                     
                 case .loaded:
@@ -123,17 +123,17 @@ struct RecordTrialView: View {
                         .padding(.vertical)
                     
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Completed Trials")
+                        Text("Completed Activities")
                             .font(.headline)
                         
-                        ForEach($completedTrials) { $trialState in
-                            TrialRow(
-                                trialState: $trialState,
-                                onRefreshStatus: { await refreshTrialStatus($trialState) },
-                                onStartAnalysis: { await startAnalysis($trialState) },
-                                onViewResults: { selectedTrialForResults = trialState },
-                                onViewVideos: { selectedTrialForVideos = trialState.trial },
-                                onViewData: { selectedTrialForData = trialState.trial }
+                        ForEach($completedActivities) { $activityState in
+                            ActivityRow(
+                                activityState: $activityState,
+                                onRefreshStatus: { await refreshActivityStatus($activityState) },
+                                onStartAnalysis: { await startAnalysis($activityState) },
+                                onViewResults: { selectedActivityForResults = activityState },
+                                onViewVideos: { selectedActivityForVideos = activityState.activity },
+                                onViewData: { selectedActivityForData = activityState.activity }
                             )
                         }
                     }
@@ -148,110 +148,112 @@ struct RecordTrialView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Record Trial")
-            .sheet(item: $selectedTrialForResults) { trialState in
-                TrialResultsView(trialState: trialState)
+            .navigationTitle("Record Activity")
+            .sheet(item: $selectedActivityForResults) { activityState in
+                ActivityResultsView(activityState: activityState)
             }
-            .navigationDestination(item: $selectedTrialForVideos) { trial in
-                TrialVideoView(trial: trial)
+            .navigationDestination(item: $selectedActivityForVideos) { activity in
+                ActivityVideoView(activity: activity)
             }
-            .navigationDestination(item: $selectedTrialForData) { trial in
-                TrialDataView(trial: trial)
+            .navigationDestination(item: $selectedActivityForData) { activity in
+                ActivityDataView(activity: activity)
             }
             .task {
                 guard case .notStarted = loadingState else {
                     return
                 }
                 
-                await loadExistingTrials()
+                await loadExistingActivities()
             }
         }
     }
 
-    private func loadExistingTrials() async {
+    private func loadExistingActivities() async {
         loadingState = .loading
 
         do {
-            let trials = try await modelHealth.trialList(for: session)
-            completedTrials = trials.map { trial in
-                TrialState(
-                    trial: trial,
-                    name: trial.name ?? "Trial \(trial.id)",
+            let activities = try await modelHealth.activityList(for: session)
+            completedActivities = activities.map { activity in
+                ActivityState(
+                    activity: activity,
+                    name: activity.name ?? "Activity \(activity.id)",
                     processingStatus: nil,
                     analysisTask: nil,
                     analysisStatus: nil
                 )
             }
         } catch {
-            print("Could not load existing trials: \(error)")
+            print("Could not load existing activities: \(error)")
         }
 
-        await refreshAllTrialStatuses()
+        await refreshAllActivityStatuses()
 
         loadingState = .loaded
     }
 
-    private func refreshAllTrialStatuses() async {
+    private func refreshAllActivityStatuses() async {
         await withTaskGroup(of: (Int, ActivityProcessingStatus?, AnalysisTaskStatus?).self) { group in
-            for (index, trialState) in completedTrials.enumerated() {
+            for (index, activityState) in completedActivities.enumerated() {
                 group.addTask {
                     do {
-                        let status = try await self.modelHealth.getStatus(forTrial: trialState.trial)
+                        print("Getting status for activity \(activityState.activity.id)")
+                        let status = try await self.modelHealth.getStatus(forActivity: activityState.activity)
+                        print("Got status \(String(describing: status)) for activity \(activityState.activity.id)")
 
-                        var analysisStatus = trialState.analysisStatus
-                        if let task = trialState.analysisTask {
+                        var analysisStatus = activityState.analysisStatus
+                        if let task = activityState.analysisTask {
                             analysisStatus = try await self.modelHealth.getAnalysisStatus(for: task)
                         }
 
                         return (index, status, analysisStatus)
                     } catch {
-                        return (index, trialState.processingStatus, trialState.analysisStatus)
+                        return (index, activityState.processingStatus, activityState.analysisStatus)
                     }
                 }
             }
 
             for await (index, processingStatus, analysisStatus) in group {
-                completedTrials[index].processingStatus = processingStatus
-                completedTrials[index].analysisStatus = analysisStatus
+                completedActivities[index].processingStatus = processingStatus
+                completedActivities[index].analysisStatus = analysisStatus
             }
         }
     }
 
-    private func startRecordingTrial() async {
+    private func startRecordingActivity() async {
         errorMessage = nil
 
         do {
-            currentTrial = try await modelHealth.record(
-                trialNamed: activityName,
+            currentActivity = try await modelHealth.record(
+                activityNamed: activityName,
                 in: session
             )
         } catch let error as ModelHealthError {
             errorMessage = error.message
-            currentTrial = nil
+            currentActivity = nil
         } catch {
             errorMessage = "Failed to start recording: \(error.localizedDescription)"
-            currentTrial = nil
+            currentActivity = nil
         }
     }
 
-    private func stopRecordingTrial() async {
-        guard let trial = currentTrial else {
+    private func stopRecordingActivity() async {
+        guard let activity = currentActivity else {
             return
         }
 
         do {
             try await modelHealth.stopRecording(session)
 
-            completedTrials.insert(
-                TrialState(trial: trial, name: activityName),
+            completedActivities.insert(
+                ActivityState(activity: activity, name: activityName),
                 at: 0
             )
 
             activityName = ""
-            currentTrial = nil
+            currentActivity = nil
 
-            if let index = completedTrials.firstIndex(where: { $0.trial.id == trial.id }) {
-                await refreshTrialStatus($completedTrials[index])
+            if let index = completedActivities.firstIndex(where: { $0.activity.id == activity.id }) {
+                await refreshActivityStatus($completedActivities[index])
             }
         } catch let error as ModelHealthError {
             errorMessage = error.message
@@ -260,17 +262,17 @@ struct RecordTrialView: View {
         }
     }
 
-    private func refreshTrialStatus(_ trialState: Binding<TrialState>) async {
-        trialState.wrappedValue.isRefreshing = true
-        defer { trialState.wrappedValue.isRefreshing = false }
+    private func refreshActivityStatus(_ activityState: Binding<ActivityState>) async {
+        activityState.wrappedValue.isRefreshing = true
+        defer { activityState.wrappedValue.isRefreshing = false }
 
         do {
-            let status = try await modelHealth.getStatus(forTrial: trialState.wrappedValue.trial)
-            trialState.wrappedValue.processingStatus = status
+            let status = try await modelHealth.getStatus(forActivity: activityState.wrappedValue.activity)
+            activityState.wrappedValue.processingStatus = status
 
-            if let task = trialState.wrappedValue.analysisTask {
+            if let task = activityState.wrappedValue.analysisTask {
                 let analysisStatus = try await modelHealth.getAnalysisStatus(for: task)
-                trialState.wrappedValue.analysisStatus = analysisStatus
+                activityState.wrappedValue.analysisStatus = analysisStatus
             }
         } catch let error as ModelHealthError {
             errorMessage = error.message
@@ -279,21 +281,21 @@ struct RecordTrialView: View {
         }
     }
 
-    private func startAnalysis(_ trialState: Binding<TrialState>) async {
-        trialState.wrappedValue.isAnalyzing = true
-        defer { trialState.wrappedValue.isAnalyzing = false }
+    private func startAnalysis(_ activityState: Binding<ActivityState>) async {
+        activityState.wrappedValue.isAnalyzing = true
+        defer { activityState.wrappedValue.isAnalyzing = false }
 
         do {
             let task = try await modelHealth.startAnalysis(
                 .counterMovementJump,
-                for: trialState.wrappedValue.trial,
+                for: activityState.wrappedValue.activity,
                 in: session
             )
 
-            trialState.wrappedValue.analysisTask = task
-            trialState.wrappedValue.analysisStatus = .processing
+            activityState.wrappedValue.analysisTask = task
+            activityState.wrappedValue.analysisStatus = .processing
 
-            await refreshTrialStatus(trialState)
+            await refreshActivityStatus(activityState)
         } catch let error as ModelHealthError {
             errorMessage = error.message
         } catch {
@@ -302,8 +304,8 @@ struct RecordTrialView: View {
     }
 }
 
-struct TrialState: Identifiable {
-    let trial: Trial
+struct ActivityState: Identifiable {
+    let activity: Activity
     let name: String
     var processingStatus: ActivityProcessingStatus?
     var analysisTask: AnalysisTask?
@@ -312,7 +314,7 @@ struct TrialState: Identifiable {
     var isAnalyzing: Bool = false
 
     var id: String {
-        trial.id
+        activity.id
     }
 
     var canAnalyze: Bool {
@@ -332,10 +334,10 @@ struct TrialState: Identifiable {
     }
 }
 
-// MARK: - Trial Row
+// MARK: - Activity Row
 
-private struct TrialRow: View {
-    @Binding var trialState: TrialState
+private struct ActivityRow: View {
+    @Binding var activityState: ActivityState
     let onRefreshStatus: () async -> Void
     let onStartAnalysis: () async -> Void
     let onViewResults: () -> Void
@@ -346,11 +348,11 @@ private struct TrialRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(trialState.name)
+                    Text(activityState.name)
                         .font(.headline)
                     StatusIndicator(
-                        processingStatus: trialState.processingStatus,
-                        analysisStatus: trialState.analysisStatus
+                        processingStatus: activityState.processingStatus,
+                        analysisStatus: activityState.analysisStatus
                     )
                 }
 
@@ -359,7 +361,7 @@ private struct TrialRow: View {
                         await onRefreshStatus()
                     }
                 } label: {
-                    if trialState.isRefreshing {
+                    if activityState.isRefreshing {
                         ProgressView()
                             .scaleEffect(0.8)
                     } else {
@@ -368,7 +370,7 @@ private struct TrialRow: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(trialState.isRefreshing)
+                .disabled(activityState.isRefreshing)
             }
 
             Spacer()
@@ -390,7 +392,7 @@ private struct TrialRow: View {
                     Image(systemName: "film.stack")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(trialState.processingStatus == nil)
+                .disabled(activityState.processingStatus == nil)
                 .frame(width: 44, height: 44)
 
                 Button {
@@ -399,7 +401,7 @@ private struct TrialRow: View {
                     Image(systemName: "curlybraces")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(trialState.processingStatus == nil)
+                .disabled(activityState.processingStatus == nil)
                 .frame(width: 44, height: 44)
             }
 
@@ -409,7 +411,7 @@ private struct TrialRow: View {
                         await onStartAnalysis()
                     }
                 } label: {
-                    if trialState.isAnalyzing {
+                    if activityState.isAnalyzing {
                         ProgressView()
                             .scaleEffect(0.8)
                     } else {
@@ -417,7 +419,7 @@ private struct TrialRow: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!trialState.canAnalyze || trialState.isAnalyzing)
+                .disabled(!activityState.canAnalyze || activityState.isAnalyzing)
                 .frame(width: 44, height: 44)
 
                 Button {
@@ -426,7 +428,7 @@ private struct TrialRow: View {
                     Image(systemName: "doc.text.magnifyingglass")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!trialState.canViewResults)
+                .disabled(!activityState.canViewResults)
                 .frame(width: 44, height: 44)
             }
         }
@@ -518,8 +520,8 @@ struct StatusIndicator: View {
     }
 }
 
-struct TrialResultsView: View {
-    let trialState: TrialState
+struct ActivityResultsView: View {
+    let activityState: ActivityState
     @State private var analysisResult: AnalysisResult?
     @State private var isLoading = false
     @EnvironmentObject var service: ModelHealthService
@@ -530,7 +532,7 @@ struct TrialResultsView: View {
                 ProgressView("Loading results...")
             } else if let result = analysisResult, let jumpHeight = result.jumpHeight {
                 VStack(spacing: 16) {
-                    Text(trialState.name)
+                    Text(activityState.name)
                         .font(.title)
 
                     Text("Jump Height")
@@ -556,7 +558,7 @@ struct TrialResultsView: View {
         defer { isLoading = false }
 
         do {
-            guard let task = trialState.analysisTask else {
+            guard let task = activityState.analysisTask else {
                 print("No analysis task found")
                 return
             }
@@ -565,7 +567,7 @@ struct TrialResultsView: View {
 
             if case .completed(let tags) = status, let firstTag = tags.first {
                 let result = try await service.downloadAnalysisResult(
-                    forTrial: trialState.trial,
+                    forActivity: activityState.activity,
                     resultTag: firstTag
                 )
                 analysisResult = result
@@ -590,7 +592,7 @@ private extension Error {
 
 #Preview("Empty State") {
     NavigationStack {
-        RecordTrialView(
+        RecordActivityView(
             subject: .forPreview(),
             session: .forPreview()
         )
@@ -598,19 +600,19 @@ private extension Error {
     }
 }
 
-#Preview("With Trials") {
+#Preview("With Activities") {
     NavigationStack {
-        RecordTrialView_Preview()
+        RecordActivityView_Preview()
     }
 }
 
 // Preview helper with populated data
-private struct RecordTrialView_Preview: View {
-    @State private var completedTrials: [TrialState] = [
-        // Trial with completed analysis
-        TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-1"
+private struct RecordActivityView_Preview: View {
+    @State private var completedActivities: [ActivityState] = [
+        // Activity with completed analysis
+        ActivityState(
+            activity: .forPreview { builder in
+                builder.id = "activity-1"
                 builder.name = "Gait Analysis"
                 builder.status = "done"
                 builder.results = [
@@ -635,10 +637,10 @@ private struct RecordTrialView_Preview: View {
             )
         ),
 
-        // Trial ready for analysis
-        TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-2"
+        // Activity ready for analysis
+        ActivityState(
+            activity: .forPreview { builder in
+                builder.id = "activity-2"
                 builder.name = "Squat Test"
                 builder.status = "done"
             },
@@ -646,10 +648,10 @@ private struct RecordTrialView_Preview: View {
             processingStatus: .ready
         ),
 
-        // Trial currently analyzing
-        TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-3"
+        // Activity currently analyzing
+        ActivityState(
+            activity: .forPreview { builder in
+                builder.id = "activity-3"
                 builder.name = "Jump Test"
                 builder.status = "done"
             },
@@ -659,10 +661,10 @@ private struct RecordTrialView_Preview: View {
             analysisStatus: .processing
         ),
 
-        // Trial still processing
-        TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-4"
+        // Activity still processing
+        ActivityState(
+            activity: .forPreview { builder in
+                builder.id = "activity-4"
                 builder.name = "Walking Test"
                 builder.status = "processing"
             },
@@ -670,10 +672,10 @@ private struct RecordTrialView_Preview: View {
             processingStatus: .processing
         ),
 
-        // Trial uploading
-        TrialState(
-            trial: .forPreview { builder in
-                builder.id = "trial-5"
+        // Activity uploading
+        ActivityState(
+            activity: .forPreview { builder in
+                builder.id = "activity-5"
                 builder.name = "Balance Test"
                 builder.status = "stopped"
             },
@@ -703,12 +705,12 @@ private struct RecordTrialView_Preview: View {
                 .padding(.vertical)
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Completed Trials")
+                Text("Completed Activities")
                     .font(.headline)
 
-                ForEach($completedTrials) { $trialState in
-                    TrialRow(
-                        trialState: $trialState,
+                ForEach($completedActivities) { $activityState in
+                    ActivityRow(
+                        activityState: $activityState,
                         onRefreshStatus: {},
                         onStartAnalysis: {},
                         onViewResults: {},
@@ -721,12 +723,12 @@ private struct RecordTrialView_Preview: View {
             Spacer()
         }
         .padding()
-        .navigationTitle("Record Trial")
+        .navigationTitle("Record Activity")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
-extension TrialState {
+extension ActivityState {
     static func forPreview(
         customizing: (inout PreviewBuilder) -> Void = { _ in }
     ) -> Self {
@@ -736,7 +738,7 @@ extension TrialState {
     }
 
     struct PreviewBuilder {
-        public var trial: Trial = .forPreview()
+        public var activity: Activity = .forPreview()
         public var name: String = "Counter Movement Jump"
         public var processingStatus: ActivityProcessingStatus? = .ready
         public var analysisTask: AnalysisTask? = .forPreview()
@@ -744,9 +746,9 @@ extension TrialState {
         public var isRefreshing: Bool = false
         public var isAnalyzing: Bool = false
 
-        func build() -> TrialState {
-            TrialState(
-                trial: trial,
+        func build() -> ActivityState {
+            ActivityState(
+                activity: activity,
                 name: name,
                 processingStatus: processingStatus,
                 analysisTask: analysisTask,
@@ -760,8 +762,8 @@ extension TrialState {
 
 #Preview("Results") {
     NavigationStack {
-        TrialResultsView(
-            trialState: .forPreview()
+        ActivityResultsView(
+            activityState: .forPreview()
         )
         .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
@@ -769,8 +771,8 @@ extension TrialState {
 
 #Preview("Results - No Analysis Task") {
     NavigationStack {
-        TrialResultsView(
-            trialState: .forPreview { builder in
+        ActivityResultsView(
+            activityState: .forPreview { builder in
                 builder.analysisTask = nil
                 builder.analysisStatus = nil
             }

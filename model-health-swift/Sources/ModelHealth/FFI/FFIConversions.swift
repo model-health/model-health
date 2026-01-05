@@ -28,9 +28,9 @@ extension Session {
             name: String(cString: name),
             sessionName: String(cString: sessionName),
             qrcode: cSession.qrcode.map { String(cString: $0) },
-            trials: [],
+            activities: [],
             subject: cSession.subject == -1 ? nil : Int(cSession.subject),
-            trialsCount: Int(cSession.trialsCount)
+            activitiesCount: Int(cSession.trialsCount)
         )
     }
 }
@@ -88,30 +88,30 @@ extension Video {
 
         return Video(
             id: String(cString: id),
-            trial: String(cString: trial),
+            activity: String(cString: trial),
             video: cVideo.video.map { String(cString: $0) },
             videoThumb: cVideo.videoThumb.map { String(cString: $0) }
         )
     }
 }
 
-extension Trial.Result {
-    internal static func from(cResult: CTrialResult) throws -> Trial.Result {
+extension Activity.Result {
+    internal static func from(cResult: CTrialResult) throws -> Activity.Result {
         guard let trial = cResult.trial else {
             throw FFIConversionError.nullPointer("Trial result trial is null")
         }
 
-        return Trial.Result(
+        return Activity.Result(
             id: Int(cResult.id),
-            trial: String(cString: trial),
+            activity: String(cString: trial),
             tag: cResult.tag.map { String(cString: $0) },
             media: cResult.media.map { String(cString: $0) }
         )
     }
 }
 
-extension Trial {
-    internal static func from(cTrial: CTrial) throws -> Trial {
+extension Activity {
+    internal static func from(cTrial: CTrial) throws -> Activity {
         guard let id = cTrial.id else {
             throw FFIConversionError.nullPointer("Trial ID is null")
         }
@@ -131,14 +131,14 @@ extension Trial {
             }
         }
 
-        var results: [Trial.Result] = []
+        var results: [Activity.Result] = []
         if cTrial.results.count > 0, let resultsPtr = cTrial.results.results {
             results = try (0..<cTrial.results.count).map { i in
-                try Trial.Result.from(cResult: resultsPtr[i])
+                try Activity.Result.from(cResult: resultsPtr[i])
             }
         }
 
-        return Trial(
+        return Activity(
             id: String(cString: id),
             session: String(cString: session),
             name: cTrial.name.map { String(cString: $0) },

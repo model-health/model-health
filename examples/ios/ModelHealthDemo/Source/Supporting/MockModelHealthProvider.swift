@@ -82,7 +82,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.public = false
                 builder.qrcode = nil
                 builder.subject = nil
-                builder.trialsCount = 0
+                builder.activitiesCount = 0
             }
         ]
     }
@@ -109,18 +109,18 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return newSubject
     }
 
-    func trialList(for session: Session) async throws -> [Trial] {
+    func activityList(for session: Session) async throws -> [Activity] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return [
             .forPreview { builder in
-                builder.id = "trial-001"
+                builder.id = "activity-001"
                 builder.session = "session-001"
                 builder.name = "CMJ Test 1"
                 builder.status = "done"
                 builder.videos = [
                     .forPreview { videoBuilder in
                         videoBuilder.id = "vid-001"
-                        videoBuilder.trial = "trial-001"
+                        videoBuilder.activity = "activity-001"
                         videoBuilder.video = "video-001"
                         videoBuilder.videoThumb = "thumb-001"
                     }
@@ -128,7 +128,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.results = [
                     .forPreview { resultBuilder in
                         resultBuilder.id = 1
-                        resultBuilder.trial = "trial-001"
+                        resultBuilder.activity = "activity-001"
                         resultBuilder.tag = "jump-height"
                         resultBuilder.media = "result-001.csv"
                     }
@@ -137,12 +137,12 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
-    func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
+    func videos(for activity: Activity, version: VideoVersion) async -> [Data] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return []
     }
 
-    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
+    func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return types.map { type in
             ModelHealth.ResultData.forPreview()
@@ -159,7 +159,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.public = false
             builder.qrcode = nil
             builder.subject = nil
-            builder.trialsCount = 0
+            builder.activitiesCount = 0
         }
     }
 
@@ -220,10 +220,10 @@ final class MockModelHealthProvider: ModelHealthProvider {
         statusUpdate(.done)
     }
 
-    func record(trialNamed name: String, in session: Session) async throws -> Trial {
+    func record(activityNamed name: String, in session: Session) async throws -> Activity {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview { builder in
-            builder.id = "trial-\(UUID().uuidString.prefix(8))"
+            builder.id = "activity-\(UUID().uuidString.prefix(8))"
             builder.session = session.id
             builder.name = name
             builder.status = "recording"
@@ -236,7 +236,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         try? await Task.sleep(nanoseconds: 500_000_000)
     }
 
-    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
+    func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus {
         try? await Task.sleep(nanoseconds: 300_000_000)
         // Always return ready for happy path
         return .ready
@@ -244,7 +244,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func startAnalysis(
         _ analysisType: AnalysisType,
-        for trial: Trial,
+        for activity: Activity,
         in session: Session
     ) async throws -> AnalysisTask {
         try? await Task.sleep(nanoseconds: 500_000_000)
@@ -260,7 +260,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     }
 
     public func downloadAnalysisResult(
-        forTrial trial: Trial,
+        forActivity activity: Activity,
         resultTag: String
     ) async throws -> AnalysisResult {
         try? await Task.sleep(nanoseconds: 500_000_000)

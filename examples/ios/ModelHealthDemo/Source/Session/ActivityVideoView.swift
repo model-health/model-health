@@ -2,10 +2,10 @@ import SwiftUI
 import AVKit
 import ModelHealth
 
-struct TrialVideoView: View {
+struct ActivityVideoView: View {
     @EnvironmentObject private var modelHealth: ModelHealthService
 
-    let trial: Trial
+    let activity: Activity
 
     @State private var videoVersion: VideoVersion = .synced
     @State private var videosData: [VideoVersion: [Data]] = [:]
@@ -46,7 +46,7 @@ struct TrialVideoView: View {
                 videoList
             }
         }
-        .navigationTitle("Trial Videos")
+        .navigationTitle("Activity Videos")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadVideos()
@@ -57,7 +57,7 @@ struct TrialVideoView: View {
     }
 }
 
-private extension TrialVideoView {
+private extension ActivityVideoView {
     var selectedVideos: [Data] {
         videosData[videoVersion] ?? []
     }
@@ -88,7 +88,7 @@ private extension TrialVideoView {
             Text("No videos available")
                 .font(.headline)
 
-            Text("No \(videoVersion == .raw ? "raw" : "synced") videos found for this trial")
+            Text("No \(videoVersion == .raw ? "raw" : "synced") videos found for this activity")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -127,7 +127,7 @@ private extension TrialVideoView {
         isLoading = true
         errorMessage = nil
 
-        videosData[videoVersion] = await modelHealth.videos(for: trial, version: videoVersion)
+        videosData[videoVersion] = await modelHealth.videos(for: activity, version: videoVersion)
 
         isLoading = false
     }
@@ -194,7 +194,7 @@ struct VideoPlayerCard: View {
 
 #Preview {
     NavigationStack {
-        TrialVideoView(trial: .forPreview())
+        ActivityVideoView(activity: .forPreview())
             .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

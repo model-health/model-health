@@ -17,7 +17,7 @@ import Foundation
 /// 2. **Session Creation**: Create a calibration session
 /// 3. **Camera Calibration**: Calibrate cameras using a checkerboard pattern
 /// 4. **Neutral Pose**: Capture subject's neutral standing pose for scaling
-/// 5. **Recording**: Record movement trials (squats, jumps, etc.)
+/// 5. **Recording**: Record movement activities (squats, jumps, etc.)
 /// 6. **Analysis**: Fetch processed biomechanical data
 ///
 /// ## Usage Example
@@ -39,15 +39,15 @@ import Foundation
 /// // Capture neutral pose
 /// try await service.calibrateNeutralPose(for: subject, in: session) { status in }
 ///
-/// // Record a movement trial
-/// let trial = try await service.record(trialNamed: "cmj-1", in: session)
+/// // Record a movement activity
+/// let activity = try await service.record(activityNamed: "cmj-1", in: session)
 /// // Subject performs movement...
 /// try await service.stopRecording(session)
 ///
 /// // Poll for processing completion, then analyze
-/// let status = try await service.getStatus(forTrial: trial)
+/// let status = try await service.getStatus(forActivity: activity)
 /// if case .ready = status {
-///     let task = try await service.startAnalysis(.counterMovementJump, for: trial, in: session)
+///     let task = try await service.startAnalysis(.counterMovementJump, for: activity, in: session)
 ///     // Poll for analysis completion...
 /// }
 /// ```
@@ -60,7 +60,7 @@ import Foundation
 ///
 /// ### Data Retrieval
 /// - ``subjectList()``
-/// - ``trialList(for:)``
+/// - ``activityList(for:)``
 ///
 /// ### Session & Calibration
 /// - ``createSession()``
@@ -68,12 +68,12 @@ import Foundation
 /// - ``calibrateNeutralPose(for:in:statusUpdate:)``
 ///
 /// ### Recording & Analysis
-/// - ``record(trialNamed:in:)``
+/// - ``record(activityNamed:in:)``
 /// - ``stopRecording(_:)``
-/// - ``getStatus(forTrial:)``
+/// - ``getStatus(forActivity:)``
 /// - ``startAnalysis(_:for:in:)``
 /// - ``getAnalysisStatus(for:)``
-/// - ``downloadAnalysisResult(forTrial:resultTag:)``
+/// - ``downloadAnalysisResult(forActivity:resultTag:)``
 public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     private let serviceProvider: ModelHealthProvider
 
@@ -247,40 +247,40 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
         try await serviceProvider.sessionList()
     }
 
-    /// Retrieves all movement trials associated with the authenticated account.
+    /// Retrieves all movement activities associated with the authenticated account.
     ///
-    /// Trials represent individual recording sessions and contain references to
+    /// Activities represent individual recording sessions and contain references to
     /// captured videos and analysis results. Use this to review past data or
-    /// fetch analysis for completed trials.
+    /// fetch analysis for completed activities.
     ///
     /// ```swift
-    /// let trials = try await service.trialList(for: session)
+    /// let activities = try await service.activityList(for: session)
     ///
-    /// // Find completed trials ready for analysis
-    /// let completed = trials.filter { $0.status == "completed" }
+    /// // Find completed activities ready for analysis
+    /// let completed = activities.filter { $0.status == "completed" }
     ///
     /// // Access videos and results
-    /// for trial in completed {
-    ///     print("Trial: \(trial.name ?? trial.id)")
-    ///     print("Videos: \(trial.videos.count)")
-    ///     print("Results: \(trial.results.count)")
+    /// for activity in completed {
+    ///     print("Activity: \(activity.name ?? activity.id)")
+    ///     print("Videos: \(activity.videos.count)")
+    ///     print("Results: \(activity.results.count)")
     /// }
     /// ```
     ///
-    /// - Returns: An array of ``Trial`` objects
-    /// - Parameters: session The session to retrieve trials for
+    /// - Returns: An array of ``Activity`` objects
+    /// - Parameters: session The session to retrieve activities for
     /// - Throws: An error if the request fails or authentication has expired
-    public func trialList(for session: Session) async throws -> [Trial] {
-        try await serviceProvider.trialList(for: session)
+    public func activityList(for session: Session) async throws -> [Activity] {
+        try await serviceProvider.activityList(for: session)
     }
 
-    /// Download video data for a specific trial.
+    /// Download video data for a specific activity.
     ///
-    /// Asynchronously fetches all videos associated with a given trial that match the specified type.
+    /// Asynchronously fetches all videos associated with a given activity that match the specified type.
     /// Videos with invalid URLs or failed downloads are silently excluded from the result.
     ///
     /// - Parameters:
-    ///   - trial: The trial whose videos should be downloaded.
+    ///   - activity: The activity whose videos should be downloaded.
     ///   - version: The version type of videos to download (e.g., raw, processed).
     ///
     /// - Returns: An array of `Data` objects containing the downloaded video data. The array may be
@@ -291,36 +291,36 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     ///
     /// ## Example
     /// ```swift
-    /// let trial = // ... obtained trial
-    /// let videoData = await service.videos(for: trial, version: .raw)
+    /// let activity = // ... obtained activity
+    /// let videoData = await service.videos(for: activity, version: .raw)
     ///
     /// for data in videoData {
     ///     // Process video data
     /// }
     /// ```
-    public func videos(for trial: Trial, version: VideoVersion) async -> [Data] {
-        await serviceProvider.videos(for: trial, version: version)
+    public func videos(for activity: Activity, version: VideoVersion) async -> [Data] {
+        await serviceProvider.videos(for: activity, version: version)
     }
 
-    /// Downloads result data files from a processed trial.
+    /// Downloads result data files from a processed activity.
     ///
-    /// After a trial completes processing, various result files become available for download.
+    /// After an activity completes processing, various result files become available for download.
     /// Use this method to retrieve specific types of data (kinematic measurements, visualizations)
     /// in their native file formats (JSON, CSV).
     ///
     /// This method is useful when you need access to raw analysis data rather than the
-    /// structured metrics provided by ``downloadAnalysisResult(forTrial:resultTag:)``.
+    /// structured metrics provided by ``downloadAnalysisResult(forActivity:resultTag:)``.
     ///
     /// - Parameters:
     ///   - types: The types of result data to download (kinematic, visualization, or both)
-    ///   - trial: The completed trial to download data from
+    ///   - activity: The completed activity to download data from
     /// - Returns: An array of result files with their formats. Returns an empty array if no
     ///   results are available or all downloads fail.
     ///
     /// ## Example
     /// ```swift
     /// // Download kinematic data only
-    /// let kinematicData = await service.data(ofType: [.kinematic], for: trial)
+    /// let kinematicData = await service.data(ofType: [.kinematic], for: activity)
     ///
     /// for result in kinematicData {
     ///     switch result.fileType {
@@ -340,7 +340,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// // Download all available data types
     /// let allData = await service.data(
     ///     ofType: [.kinematic, .visualization],
-    ///     for: trial
+    ///     for: activity
     /// )
     /// print("Downloaded \(allData.count) result files")
     /// ```
@@ -348,8 +348,8 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// - Note: This method performs concurrent downloads for optimal performance.
     ///   Individual download failures do not affect other requests and failed downloads
     ///   are silently excluded from results.
-    public func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData] {
-        await serviceProvider.data(ofType: types, for: trial)
+    public func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
+        await serviceProvider.data(ofType: types, for: activity)
     }
 
     // MARK: - Subject Management
@@ -379,7 +379,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     ///
     /// Subjects represent individuals being monitored or assessed. After creating
     /// a subject, they can be associated with sessions for neutral pose calibration
-    /// and movement trials.
+    /// and movement activities.
     ///
     /// ```swift
     /// let params = SubjectParameters(
@@ -485,7 +485,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
 
     /// Captures the subject's neutral standing pose for model scaling.
     ///
-    /// This step is required after camera calibration and before recording movement trials.
+    /// This step is required after camera calibration and before recording movement activities.
     /// It takes a quick video of the subject standing in a neutral position, which is
     /// used to scale the biomechanical model to match the subject's dimensions.
     ///
@@ -497,7 +497,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```swift
     /// // After successful camera calibration
     /// try await service.calibrateNeutralPose(for: subject, in: session) { _ in }
-    /// // Model now scaled, ready to record movement trials
+    /// // Model now scaled, ready to record movement activities
     /// ```
     ///
     /// - Parameters:
@@ -519,14 +519,14 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
 
     // MARK: - Recording & Analysis
 
-    /// Starts recording a dynamic movement trial.
+    /// Starts recording a dynamic movement activity.
     ///
     /// After completing calibration steps (camera calibration and neutral pose),
     /// use this method to begin recording an activity.
     ///
     /// ```swift
     /// // Record a CMJ session
-    /// let trial = try await service.record(trialNamed: "cmj-2024", in: session)
+    /// let activity = try await service.record(activityNamed: "cmj-2024", in: session)
     /// // Subject performs CMJ while cameras record
     ///
     /// // When complete, stop recording
@@ -534,14 +534,14 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```
     ///
     /// - Parameters:
-    ///   - name: A descriptive name for this trial (e.g., "cmj-test")
-    ///   - session: The session this trial is  associated with
+    ///   - name: A descriptive name for this activity (e.g., "cmj-test")
+    ///   - session: The session this activity is  associated with
     /// - Throws: An error if recording cannot start (session not calibrated, camera issues, etc.)
-    public func record(trialNamed name: String, in session: Session) async throws -> Trial {
-        try await serviceProvider.record(trialNamed: name, in: session)
+    public func record(activityNamed name: String, in session: Session) async throws -> Activity {
+        try await serviceProvider.record(activityNamed: name, in: session)
     }
 
-    /// Stops recording of a dynamic movement trial in a session.
+    /// Stops recording of a dynamic movement activity in a session.
     ///
     /// Call this method when the subject has completed the movement activity.
     ///
@@ -551,27 +551,27 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```
     ///
     /// - Parameter session: The session to stop recording in
-    /// - Throws: An error if the trial cannot be stopped (invalid sesison ID, already stopped, etc.)
+    /// - Throws: An error if the activity cannot be stopped (invalid sesison ID, already stopped, etc.)
     public func stopRecording(_ session: Session) async throws {
         try await serviceProvider.stopRecording(session)
     }
 
-    /// Retrieves the current processing status of a trial.
+    /// Retrieves the current processing status of an activity.
     ///
-    /// Poll this method to determine when a trial is ready for analysis.
-    /// Trials must complete video upload and processing before analysis can begin.
+    /// Poll this method to determine when an activity is ready for analysis.
+    /// Activities must complete video upload and processing before analysis can begin.
     ///
-    /// - Parameter trial: A completed trial
+    /// - Parameter activity: A completed activity
     /// - Returns: The current processing status
     /// - Throws: Network or authentication errors
     ///
     /// ## Usage
     /// ```swift
-    /// let status = try await service.getStatus(forTrial: trial)
+    /// let status = try await service.getStatus(forActivity: activity)
     ///
     /// switch status {
     /// case .ready:
-    ///     print("Trial ready for analysis")
+    ///     print("Activity ready for analysis")
     /// case .processing:
     ///     print("Still processing...")
     /// case .uploading(let uploaded, let total):
@@ -580,19 +580,19 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     ///     print("Processing failed")
     /// }
     /// ```
-    public func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus {
-        try await serviceProvider.getStatus(forTrial: trial)
+    public func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus {
+        try await serviceProvider.getStatus(forActivity: activity)
     }
 
-    /// Starts an analysis task for a completed trial.
+    /// Starts an analysis task for a completed activity.
     ///
-    /// The trial must have completed processing (status `.ready`) before analysis can begin.
+    /// The activity must have completed processing (status `.ready`) before analysis can begin.
     /// Use the returned `AnalysisTask` to poll for completion.
     ///
     /// - Parameters:
     ///   - analysisType: The type of analysis to perform
-    ///   - trial: The trial to analyze
-    ///   - session: The session containing the trial
+    ///   - activity: The activity to analyze
+    ///   - session: The session containing the activity
     /// - Returns: An analysis task for tracking completion
     /// - Throws: Network or authentication errors
     ///
@@ -600,7 +600,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```swift
     /// let task = try await service.startAnalysis(
     ///     .counterMovementJump,
-    ///     for: trial,
+    ///     for: activity,
     ///     in: session
     /// )
     ///
@@ -609,12 +609,12 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```
     public func startAnalysis(
         _ analysisType: AnalysisType,
-        for trial: Trial,
+        for activity: Activity,
         in session: Session
     ) async throws -> AnalysisTask {
         try await serviceProvider.startAnalysis(
             analysisType,
-            for: trial,
+            for: activity,
             in: session
         )
     }
@@ -638,7 +638,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// case .completed(let tags):
     ///     for tag in tags {
     ///         let data = try await service.downloadAnalysisResult(
-    ///             forTrial: trial,
+    ///             forActivity: activity,
     ///             resultTag: tag
     ///         )
     ///     }
@@ -656,7 +656,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// Each tag represents a specific analysis output with structured biomechanical metrics.
     ///
     /// - Parameters:
-    ///   - trial: The completed and analyzed trial
+    ///   - activity: The completed and analyzed activity
     ///   - resultTag: The specific result identifier
     /// - Returns: An ``AnalysisResult`` containing structured metrics
     /// - Throws: Network or authentication errors
@@ -664,7 +664,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ## Usage
     /// ```swift
     /// let result = try await service.downloadAnalysisResult(
-    ///     forTrial: trial,
+    ///     forActivity: activity,
     ///     resultTag: "countermovement_jump"
     /// )
     ///
@@ -688,11 +688,11 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// }
     /// ```
     public func downloadAnalysisResult(
-        forTrial trial: Trial,
+        forActivity activity: Activity,
         resultTag: String
     ) async throws -> AnalysisResult {
         try await serviceProvider.downloadAnalysisResult(
-            forTrial: trial,
+            forActivity: activity,
             resultTag: resultTag
         )
     }
@@ -725,14 +725,14 @@ public protocol ModelHealthProvider {
     /// See ``ModelHealthService/subjectList()``
     func subjectList() async throws -> [Subject]
 
-    /// See ``ModelHealthService/trialList(for:)``
-    func trialList(for session: Session) async throws -> [Trial]
+    /// See ``ModelHealthService/activityList(for:)``
+    func activityList(for session: Session) async throws -> [Activity]
 
     /// See ``ModelHealthService/download(videos:)``
-    func videos(for trial: Trial, version: VideoVersion) async -> [Data]
+    func videos(for activity: Activity, version: VideoVersion) async -> [Data]
 
     /// See ``ModelHealthService/data(ofType:for:)``
-    func data(ofType types: Set<ResultDataType>, for trial: Trial) async -> [ResultData]
+    func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData]
 
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
@@ -741,7 +741,7 @@ public protocol ModelHealthProvider {
     func createSubject(parameters: SubjectParameters) async throws -> Subject
 
     /// See ``ModelHealthService/calibrateCamera(_:checkerboardDetails:statusUpdate:)``
-    func record(trialNamed name: String, in session: Session) async throws -> Trial
+    func record(activityNamed name: String, in session: Session) async throws -> Activity
 
     /// See ``ModelHealthService/stopRecording(_:)``
     func stopRecording(_ session: Session) async throws
@@ -760,22 +760,22 @@ public protocol ModelHealthProvider {
         statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws
 
-    /// See ``ModelHealthService/getStatus(forTrial:)``
-    func getStatus(forTrial trial: Trial) async throws -> ActivityProcessingStatus
+    /// See ``ModelHealthService/getStatus(forActivity:)``
+    func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus
 
     /// See ``ModelHealthService/startAnalysis(_:for:in:)``
     func startAnalysis(
         _ analysisType: AnalysisType,
-        for trial: Trial,
+        for activity: Activity,
         in session: Session
     ) async throws -> AnalysisTask
 
     /// See ``ModelHealthService/getAnalysisStatus(for:)``
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
 
-    /// See ``ModelHealthService/downloadAnalysisResult(forTrial:resultTag:)``
+    /// See ``ModelHealthService/downloadAnalysisResult(forActivity:resultTag:)``
     func downloadAnalysisResult(
-        forTrial trial: Trial,
+        forActivity activity: Activity,
         resultTag: String
     ) async throws -> AnalysisResult
 }
