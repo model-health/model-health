@@ -21,6 +21,7 @@ use model_health_core::{
     CalibrationStatus,
     AnalysisType,
     AnalysisTask,
+    ActivitySort,
 };
 use model_health_core::provider::ModelHealthProviderImpl;
 
@@ -231,6 +232,75 @@ impl ModelHealthService {
             .map_err(to_js_error)?;
         
         serde_wasm_bindgen::to_value(&subject)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    // MARK: - Activity Management
+
+    #[wasm_bindgen(js_name = getActivitiesForSubject)]
+    pub async fn get_activities_for_subject(
+        &self,
+        subject_id: String,
+        start_index: i32,
+        count: i32,
+        sort: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let sort_order: ActivitySort = serde_wasm_bindgen::from_value(sort)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let activities = self.provider
+            .activities_for_subject(subject_id, start_index, count, sort_order)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&activities)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = getActivity)]
+    pub async fn get_activity(&self, activity_id: String) -> Result<JsValue, JsValue> {
+        let activity = self.provider
+            .get_activity(activity_id)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&activity)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = updateActivity)]
+    pub async fn update_activity(&mut self, activity_json: JsValue) -> Result<JsValue, JsValue> {
+        let activity: Trial = serde_wasm_bindgen::from_value(activity_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let updated = self.provider
+            .update_activity(&activity)
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&updated)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = deleteActivity)]
+    pub async fn delete_activity(&mut self, activity_json: JsValue) -> Result<(), JsValue> {
+        let activity: Trial = serde_wasm_bindgen::from_value(activity_json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        self.provider
+            .delete_activity(&activity)
+            .await
+            .map_err(to_js_error)
+    }
+
+    #[wasm_bindgen(js_name = getActivityTags)]
+    pub async fn get_activity_tags(&self) -> Result<JsValue, JsValue> {
+        let tags = self.provider
+            .activity_tags()
+            .await
+            .map_err(to_js_error)?;
+        
+        serde_wasm_bindgen::to_value(&tags)
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 

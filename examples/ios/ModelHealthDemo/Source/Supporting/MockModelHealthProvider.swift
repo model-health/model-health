@@ -137,6 +137,31 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
+    func getActivities(
+        forSubject subjectId: String,
+        startIndex: Int,
+        count: Int,
+        sortedBy sort: ActivitySort
+    ) async throws -> [Activity] {
+        try await activityList(for: Session.forPreview())
+    }
+
+    func get(activity activityId: String) async throws -> Activity {
+        Activity.forPreview()
+    }
+
+    func update(activity: Activity) async throws -> Activity {
+        activity
+    }
+
+    func delete(activity: ModelHealth.Activity) async throws {
+    }
+
+    func getActivityTags() async throws -> [ActivityTag] {
+        [ActivityTag.forPreview()]
+    }
+
+
     func videos(for activity: Activity, version: VideoVersion) async -> [Data] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return []

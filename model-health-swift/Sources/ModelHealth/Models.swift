@@ -277,7 +277,7 @@ public enum VideoVersion: Sendable {
     case synced
 }
 
-// MARK: - Trial
+// MARK: - Activity Management
 
 /// A movement recording session with associated videos and analysis results.
 ///
@@ -309,6 +309,38 @@ public struct Activity: Sendable {
     public let status: String
     public let videos: [Video]
     public let results: [Result]
+}
+
+/// Sort order for activity lists.
+///
+/// Specifies how activities should be ordered when retrieved from the API.
+///
+/// ```swift
+/// let activities = try await service.getActivities(
+///     forSubject: subjectId,
+///     startIndex: 0,
+///     count: 20,
+///     sortedBy: .updatedAt
+/// )
+/// ```
+public enum ActivitySort: Sendable {
+    case updatedAt
+}
+
+/// A tag that can be applied to activities for categorization.
+///
+/// Activity tags provide a way to organize and filter activities.
+/// Common tags might include activity types (e.g., "CMJ", "Squat"),
+/// conditions (e.g., "Baseline", "Post-Training"), or any custom categorization.
+///
+/// ```swift
+/// let tags = try await service.getActivityTags()
+/// let cmjTag = tags.first { $0.value == "cmj" }
+/// print("CMJ activities: \(cmjTag?.label ?? "")")
+/// ```
+public struct ActivityTag: Sendable {
+    public let value: String
+    public let label: String
 }
 
 /// Specifies the type of result data to retrieve from an activity.
@@ -885,6 +917,28 @@ extension Activity.Result {
                 activity: activity,
                 tag: tag,
                 media: media
+            )
+        }
+    }
+}
+
+extension ActivityTag {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public var value = "cmj"
+        public var label = "Countermovement Jump"
+
+        func build() -> ActivityTag {
+            ActivityTag(
+                value: value,
+                label: label
             )
         }
     }

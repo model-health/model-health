@@ -8,6 +8,7 @@ use crate::models::{
     AnalysisResult, AnalysisTask, AnalysisTaskStatus, AnalysisType, CalibrationStatus,
     CheckerboardDetails, CheckerboardPlacement, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
     SubjectParameters, Trial, ActivityProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
+    ActivitySort, ActivityTag,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -68,6 +69,33 @@ pub trait ModelHealthProvider {
 
     /// Get list of all trials for a session
     async fn trial_list(&self, session_id: String) -> Result<Vec<Trial>, ModelHealthError>;
+    
+    /// Get activities for a specific subject with pagination and sorting
+    ///
+    /// # Arguments
+    /// * `subject_id` - The ID of the subject
+    /// * `start_index` - Zero-based index to start from (for pagination)
+    /// * `count` - Number of activities to retrieve
+    /// * `sort` - Sort order for the results
+    async fn activities_for_subject(
+        &self,
+        subject_id: String,
+        start_index: i32,
+        count: i32,
+        sort: ActivitySort,
+    ) -> Result<Vec<Trial>, ModelHealthError>;
+    
+    /// Get a specific activity by ID
+    async fn get_activity(&self, activity_id: String) -> Result<Trial, ModelHealthError>;
+    
+    /// Update an activity
+    async fn update_activity(&mut self, activity: &Trial) -> Result<Trial, ModelHealthError>;
+    
+    /// Delete an activity
+    async fn delete_activity(&mut self, activity: &Trial) -> Result<(), ModelHealthError>;
+    
+    /// Get all available activity tags
+    async fn activity_tags(&self) -> Result<Vec<ActivityTag>, ModelHealthError>;
     
     /// Download videos for a trial
     async fn download_trial_videos(
@@ -347,6 +375,81 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         
         let response: SubjectListResponse = self.get("/subjects/").await?;
         Ok(response.subjects.into_iter().map(crate::network::SubjectResponse::to_model).collect())
+    }
+    
+    async fn activities_for_subject(
+        &self,
+        subject_id: String,
+        start_index: i32,
+        count: i32,
+        sort: ActivitySort,
+    ) -> Result<Vec<Trial>, ModelHealthError> {
+        use crate::network::TrialResponse;
+        
+        let ordering = match sort {
+            ActivitySort::UpdatedAt => "-updated_at",
+        };
+        
+        let path = format!(
+            "/trials/?subject={}&offset={}&limit={}&ordering={}",
+            subject_id, start_index, count, ordering
+        );
+        
+        let trials: Vec<TrialResponse> = self.get(&path).await?;
+        
+        Ok(trials.into_iter().map(|t| t.to_model()).collect())
+    }
+    
+    async fn get_activity(&self, activity_id: String) -> Result<Trial, ModelHealthError> {
+        use crate::network::TrialResponse;
+        
+        let path = format!("/trials/{}/", activity_id);
+        let trial: TrialResponse = self.get(&path).await?;
+        
+        Ok(trial.to_model())
+    }
+    
+    async fn update_activity(&mut self, activity: &Trial) -> Result<Trial, ModelHealthError> {
+        use crate::network::TrialResponse;
+        use serde_json::json;
+        
+        let path = format!("/trials/{}/", activity.id);
+        
+        let mut body = json!({});        
+        if let Some(ref name) = activity.name {
+            body["name"] = json!(name);
+        }
+        
+        let trial: TrialResponse = self.post(&path, &body).await?;
+        
+        Ok(trial.to_model())
+    }
+    
+    async fn delete_activity(&mut self, activity: &Trial) -> Result<(), ModelHealthError> {
+        use reqwest::Method;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+        
+        let path = format!("/trials/{}/", activity.id);
+        
+        self.network.request::<()>(
+            Method::DELETE,
+            &path,
+            Some(token),
+            None::<&()>,
+        ).await?;
+        
+        Ok(())
+    }
+    
+    async fn activity_tags(&self) -> Result<Vec<ActivityTag>, ModelHealthError> {
+        use crate::network::ActivityTagResponse;
+        
+        let path = "/activity-types/";
+        let tags: Vec<ActivityTagResponse> = self.get(path).await?;
+        
+        Ok(tags.into_iter().map(|t| t.to_model()).collect())
     }
 
     async fn trial_list(&self, session_id: String) -> Result<Vec<Trial>, ModelHealthError> {

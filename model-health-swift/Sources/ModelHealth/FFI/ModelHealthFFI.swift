@@ -109,6 +109,16 @@ struct CSubjectArray {
     let count: Int
 }
 
+struct CActivityTag {
+    let value: UnsafeMutablePointer<CChar>?
+    let label: UnsafeMutablePointer<CChar>?
+}
+
+struct CActivityTagArray {
+    let tags: UnsafeMutablePointer<CActivityTag>?
+    let count: Int
+}
+
 struct CTrial {
     let id: UnsafeMutablePointer<CChar>?
     let session: UnsafeMutablePointer<CChar>?
@@ -180,6 +190,9 @@ func model_health_free_session_array(_ array: CSessionArray)
 @_silgen_name("model_health_free_subject_array")
 func model_health_free_subject_array(_ array: CSubjectArray)
 
+@_silgen_name("model_health_free_activity_tag_array")
+func model_health_free_activity_tag_array(_ array: CActivityTagArray)
+
 @_silgen_name("model_health_free_trial_array")
 func model_health_free_trial_array(_ array: CTrialArray)
 
@@ -224,6 +237,43 @@ func model_health_trial_list_for_session(
     _ handle: ModelHealthProviderHandle,
     _ sessionId: UnsafePointer<CChar>,
     _ result: UnsafeMutablePointer<CTrialArray>
+) -> FFIResult
+
+@_silgen_name("model_health_activities_for_subject")
+func model_health_activities_for_subject(
+    _ handle: ModelHealthProviderHandle,
+    _ subjectId: UnsafePointer<CChar>,
+    _ startIndex: Int32,
+    _ count: Int32,
+    _ sort: Int32,
+    _ result: UnsafeMutablePointer<CTrialArray>
+) -> FFIResult
+
+@_silgen_name("model_health_get_activity")
+func model_health_get_activity(
+    _ handle: ModelHealthProviderHandle,
+    _ activityId: UnsafePointer<CChar>,
+    _ result: UnsafeMutablePointer<CTrial>
+) -> FFIResult
+
+@_silgen_name("model_health_update_activity")
+func model_health_update_activity(
+    _ handle: ModelHealthProviderHandle,
+    _ activityId: UnsafePointer<CChar>,
+    _ name: UnsafePointer<CChar>?,
+    _ result: UnsafeMutablePointer<CTrial>
+) -> FFIResult
+
+@_silgen_name("model_health_delete_activity")
+func model_health_delete_activity(
+    _ handle: ModelHealthProviderHandle,
+    _ activityId: UnsafePointer<CChar>
+) -> FFIResult
+
+@_silgen_name("model_health_activity_tags")
+func model_health_activity_tags(
+    _ handle: ModelHealthProviderHandle,
+    _ result: UnsafeMutablePointer<CActivityTagArray>
 ) -> FFIResult
 
 @_silgen_name("model_health_download_videos")

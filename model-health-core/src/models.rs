@@ -282,6 +282,22 @@ pub enum CalibrationStatus {
     Done,
 }
 
+// MARK: - Activity Management
+
+/// Sort order for activity lists
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivitySort {
+    UpdatedAt,
+}
+
+/// A tag that can be applied to activities for categorization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityTag {
+    pub value: String,
+    pub label: String,
+}
+
 // MARK: - Analysis
 
 /// Available analysis types

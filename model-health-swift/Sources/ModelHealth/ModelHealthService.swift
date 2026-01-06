@@ -375,6 +375,140 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
         try await serviceProvider.subjectList()
     }
 
+    /// Retrieves activities for a specific subject with pagination and sorting.
+    ///
+    /// This method allows you to fetch activities associated with a particular subject,
+    /// with control over pagination and sort order. This is useful for displaying
+    /// activity history or implementing infinite scroll interfaces.
+    ///
+    /// - Parameters:
+    ///   - subjectId: The ID of the subject whose activities to retrieve
+    ///   - startIndex: Zero-based index to start from (for pagination). Use 0 for first page.
+    ///   - count: Number of activities to retrieve per request
+    ///   - sort: Sort order for the results (e.g., `.updatedAt` for most recent first)
+    /// - Returns: An array of activities for the specified subject
+    /// - Throws: An error if the request fails or authentication has expired
+    ///
+    /// ## Example
+    /// ```swift
+    /// // Get the 20 most recent activities for a subject
+    /// let recentActivities = try await service.getActivities(
+    ///     forSubject: subject.id,
+    ///     startIndex: 0,
+    ///     count: 20,
+    ///     sortedBy: .updatedAt
+    /// )
+    ///
+    /// // Pagination - get the next 20 activities
+    /// let nextPage = try await service.getActivities(
+    ///     forSubject: subject.id,
+    ///     startIndex: 20,
+    ///     count: 20,
+    ///     sortedBy: .updatedAt
+    /// )
+    /// ```
+    public func getActivities(
+        forSubject subjectId: String,
+        startIndex: Int,
+        count: Int,
+        sortedBy sort: ActivitySort
+    ) async throws -> [Activity] {
+        try await serviceProvider.getActivities(
+            forSubject: subjectId,
+            startIndex: startIndex,
+            count: count,
+            sortedBy: sort
+        )
+    }
+
+    /// Retrieves a specific activity by its ID.
+    ///
+    /// Use this method to fetch the complete details of an activity, including
+    /// its videos, results, and current processing status.
+    ///
+    /// - Parameter activityId: The unique identifier of the activity
+    /// - Returns: The requested activity with all its details
+    /// - Throws: An error if the activity doesn't exist, or if authentication has expired
+    ///
+    /// ## Example
+    /// ```swift
+    /// let activity = try await service.get(activity: "abc123")
+    /// print("Activity: \(activity.name ?? "Unnamed")")
+    /// print("Status: \(activity.status)")
+    /// print("Videos: \(activity.videos.count)")
+    /// ```
+    public func get(activity activityId: String) async throws -> Activity {
+        try await serviceProvider.get(activity: activityId)
+    }
+
+    /// Updates an existing activity.
+    ///
+    /// Use this method to modify activity properties such as the name.
+    /// The activity is updated on the server and the updated version is returned.
+    ///
+    /// - Parameter activity: The activity to update (with modified properties)
+    /// - Returns: The updated activity as stored on the server
+    /// - Throws: An error if the update fails or authentication has expired
+    ///
+    /// ## Example
+    /// ```swift
+    /// var activity = try await service.get(activity: "abc123")
+    /// // Modify the activity name
+    /// activity.name = "CMJ Baseline Test"
+    /// let updated = try await service.update(activity: activity)
+    /// print("Updated: \(updated.name ?? "")")
+    /// ```
+    ///
+    /// - Note: Not all activity properties can be modified. Only mutable fields
+    ///   (such as `name`) will be updated on the server.
+    public func update(activity: Activity) async throws -> Activity {
+        try await serviceProvider.update(activity: activity)
+    }
+
+    /// Deletes an activity from the system.
+    ///
+    /// This permanently removes the activity and all its associated data,
+    /// including videos and analysis results. This action cannot be undone.
+    ///
+    /// - Parameter activity: The activity to delete
+    /// - Throws: An error if the deletion fails or authentication has expired
+    ///
+    /// ## Example
+    /// ```swift
+    /// let activity = try await service.get(activity: "abc123")
+    /// try await service.delete(activity: activity)
+    /// // Activity and all associated data are now permanently deleted
+    /// ```
+    ///
+    /// - Warning: This operation is irreversible. All videos, analysis results,
+    ///   and metadata associated with this activity will be permanently lost.
+    public func delete(activity: Activity) async throws {
+        try await serviceProvider.delete(activity: activity)
+    }
+
+    /// Retrieves all available activity tags.
+    ///
+    /// Activity tags provide a way to categorize and filter activities.
+    /// This method returns all tags configured in the system, which can be
+    /// used for filtering or organizing activities in your application.
+    ///
+    /// - Returns: An array of available activity tags
+    /// - Throws: An error if the request fails or authentication has expired
+    ///
+    /// ## Example
+    /// ```swift
+    /// let tags = try await service.getActivityTags()
+    /// for tag in tags {
+    ///     print("\(tag.label): \(tag.value)")
+    /// }
+    ///
+    /// // Use tags for filtering or categorization
+    /// let cmjTag = tags.first { $0.value == "cmj" }
+    /// ```
+    public func getActivityTags() async throws -> [ActivityTag] {
+        try await serviceProvider.getActivityTags()
+    }
+
     /// Creates a new subject in the system.
     ///
     /// Subjects represent individuals being monitored or assessed. After creating
@@ -724,6 +858,26 @@ public protocol ModelHealthProvider {
 
     /// See ``ModelHealthService/subjectList()``
     func subjectList() async throws -> [Subject]
+
+    /// See ``ModelHealthService/getActivities(forSubject:startIndex:count:sortedBy:)``
+    func getActivities(
+        forSubject subjectId: String,
+        startIndex: Int,
+        count: Int,
+        sortedBy sort: ActivitySort
+    ) async throws -> [Activity]
+
+    /// See ``ModelHealthService/get(activity:)``
+    func get(activity activityId: String) async throws -> Activity
+
+    /// See ``ModelHealthService/update(activity:)``
+    func update(activity: Activity) async throws -> Activity
+
+    /// See ``ModelHealthService/delete(activity:)``
+    func delete(activity: Activity) async throws
+
+    /// See ``ModelHealthService/getActivityTags()``
+    func getActivityTags() async throws -> [ActivityTag]
 
     /// See ``ModelHealthService/activityList(for:)``
     func activityList(for session: Session) async throws -> [Activity]

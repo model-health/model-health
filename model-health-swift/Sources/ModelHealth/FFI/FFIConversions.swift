@@ -149,6 +149,23 @@ extension Activity {
     }
 }
 
+extension ActivityTag {
+    internal static func from(cTag: CActivityTag) throws -> ActivityTag {
+        guard let value = cTag.value else {
+            throw FFIConversionError.nullPointer("ActivityTag value is null")
+        }
+
+        guard let label = cTag.label else {
+            throw FFIConversionError.nullPointer("ActivityTag label is null")
+        }
+
+        return ActivityTag(
+            value: String(cString: value),
+            label: String(cString: label)
+        )
+    }
+}
+
 extension AnalysisTask {
     internal static func from(cTask: CAnalysisTask) throws -> AnalysisTask {
         guard let taskId = cTask.taskId else {
@@ -253,6 +270,13 @@ extension LoginResult {
 }
 
 // MARK: - Helper Functions
+
+func activitySortToI32(_ sort: ActivitySort) -> Int32 {
+    switch sort {
+    case .updatedAt:
+        return 0
+    }
+}
 
 private func genderFromI32(_ value: Int32) -> Subject.Gender {
     switch value {

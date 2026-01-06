@@ -146,6 +146,42 @@ export interface Activity {
 }
 
 /**
+ * Sort order for activity lists.
+ * 
+ * Specifies how activities should be ordered when retrieved from the API.
+ * 
+ * @example
+ * ```typescript
+ * const activities = await client.getActivitiesForSubject(
+ *   subjectId,
+ *   0,
+ *   20,
+ *   "updated_at"
+ * );
+ * ```
+ */
+export type ActivitySort = "updated_at";
+
+/**
+ * A tag that can be applied to activities for categorization.
+ * 
+ * Activity tags provide a way to organize and filter activities.
+ * Common tags might include activity types (e.g., "CMJ", "Squat"),
+ * conditions (e.g., "Baseline", "Post-Training"), or any custom categorization.
+ * 
+ * @example
+ * ```typescript
+ * const tags = await client.getActivityTags();
+ * const cmjTag = tags.find(t => t.value === "cmj");
+ * console.log(`CMJ activities: ${cmjTag?.label ?? ""}`);
+ * ```
+ */
+export interface ActivityTag {
+  value: string;
+  label: string;
+}
+
+/**
  * Result file associated with an activity.
  * 
  * Results can include analysis outputs, synchronized videos,

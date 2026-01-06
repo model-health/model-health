@@ -603,6 +603,40 @@ pub extern "C" fn model_health_free_trial_result_array(array: CTrialResultArray)
     }
 }
 
+// MARK: - Activity Tag Types
+
+/// C-compatible ActivityTag
+#[repr(C)]
+pub struct CActivityTag {
+    pub value: *mut c_char,
+    pub label: *mut c_char,
+}
+
+/// C-compatible array of activity tags
+#[repr(C)]
+pub struct CActivityTagArray {
+    pub tags: *mut CActivityTag,
+    pub count: usize,
+}
+
+/// Free an activity tag array
+#[no_mangle]
+pub extern "C" fn model_health_free_activity_tag_array(array: CActivityTagArray) {
+    if !array.tags.is_null() {
+        unsafe {
+            let tags = Vec::from_raw_parts(array.tags, array.count, array.count);
+            for tag in tags {
+                if !tag.value.is_null() {
+                    drop(CString::from_raw(tag.value));
+                }
+                if !tag.label.is_null() {
+                    drop(CString::from_raw(tag.label));
+                }
+            }
+        }
+    }
+}
+
 /// C-compatible result data with file type
 #[repr(C)]
 pub struct CResultData {
@@ -669,6 +703,13 @@ fn string_to_c_char(s: String) -> *mut c_char {
 
 fn option_string_to_c_char(s: Option<String>) -> *mut c_char {
     s.map_or_else(ptr::null_mut, string_to_c_char)
+}
+
+fn activity_sort_from_i32(value: i32) -> ActivitySort {
+    match value {
+        0 => ActivitySort::UpdatedAt,
+        _ => ActivitySort::UpdatedAt,
+    }
 }
 
 // MARK: - List Operations
@@ -1898,6 +1939,362 @@ pub extern "C" fn model_health_get_trial_status(
                     *status = 3;
                     *uploaded = 0;
                     *total = 0;
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+// MARK: - Activity Management Operations
+
+/// Get activities for a specific subject with pagination and sorting
+#[no_mangle]
+pub extern "C" fn model_health_activities_for_subject(
+    handle: *mut ModelHealthProviderHandle,
+    subject_id: *const c_char,
+    start_index: i32,
+    count: i32,
+    sort: i32,
+    result: *mut CTrialArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let subject_id_str = match unsafe { CStr::from_ptr(subject_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid subject ID".to_string()),
+    };
+    
+    let sort_order = activity_sort_from_i32(sort);
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.activities_for_subject(
+            subject_id_str,
+            start_index,
+            count,
+            sort_order,
+        ).await {
+            Ok(trials) => {
+                let c_trials: Vec<CTrial> = trials
+                    .into_iter()
+                    .map(|t| {
+                        // Convert videos
+                        let c_videos: Vec<CVideo> = t.videos
+                            .into_iter()
+                            .map(|v| CVideo {
+                                id: string_to_c_char(v.id),
+                                trial: string_to_c_char(v.trial),
+                                video: option_string_to_c_char(v.video),
+                                video_thumb: option_string_to_c_char(v.video_thumb),
+                            })
+                            .collect();
+                        
+                        let videos_count = c_videos.len();
+                        let mut videos_boxed = c_videos.into_boxed_slice();
+                        let videos_ptr = videos_boxed.as_mut_ptr();
+                        std::mem::forget(videos_boxed);
+                        
+                        // Convert results
+                        let c_results: Vec<CTrialResult> = t.results
+                            .into_iter()
+                            .map(|r| CTrialResult {
+                                id: r.id,
+                                trial: string_to_c_char(r.trial),
+                                tag: option_string_to_c_char(r.tag),
+                                media: option_string_to_c_char(r.media),
+                            })
+                            .collect();
+                        
+                        let results_count = c_results.len();
+                        let mut results_boxed = c_results.into_boxed_slice();
+                        let results_ptr = results_boxed.as_mut_ptr();
+                        std::mem::forget(results_boxed);
+                        
+                        CTrial {
+                            id: string_to_c_char(t.id),
+                            session: string_to_c_char(t.session),
+                            name: option_string_to_c_char(t.name),
+                            status: string_to_c_char(t.status),
+                            videos: CVideoArray {
+                                videos: videos_ptr,
+                                count: videos_count,
+                            },
+                            results: CTrialResultArray {
+                                results: results_ptr,
+                                count: results_count,
+                            },
+                        }
+                    })
+                    .collect();
+
+                let count = c_trials.len();
+                let mut boxed = c_trials.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CTrialArray {
+                        trials: ptr,
+                        count,
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Get a specific activity by ID
+#[no_mangle]
+pub extern "C" fn model_health_get_activity(
+    handle: *mut ModelHealthProviderHandle,
+    activity_id: *const c_char,
+    result: *mut CTrial,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let activity_id_str = match unsafe { CStr::from_ptr(activity_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid activity ID".to_string()),
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.get_activity(activity_id_str).await {
+            Ok(trial) => {
+                unsafe {
+                    // Convert videos
+                    let c_videos: Vec<CVideo> = trial.videos
+                        .into_iter()
+                        .map(|v| CVideo {
+                            id: string_to_c_char(v.id),
+                            trial: string_to_c_char(v.trial),
+                            video: option_string_to_c_char(v.video),
+                            video_thumb: option_string_to_c_char(v.video_thumb),
+                        })
+                        .collect();
+                    
+                    let videos_count = c_videos.len();
+                    let mut videos_boxed = c_videos.into_boxed_slice();
+                    let videos_ptr = videos_boxed.as_mut_ptr();
+                    std::mem::forget(videos_boxed);
+                    
+                    // Convert results
+                    let c_results: Vec<CTrialResult> = trial.results
+                        .into_iter()
+                        .map(|r| CTrialResult {
+                            id: r.id,
+                            trial: string_to_c_char(r.trial),
+                            tag: option_string_to_c_char(r.tag),
+                            media: option_string_to_c_char(r.media),
+                        })
+                        .collect();
+                    
+                    let results_count = c_results.len();
+                    let mut results_boxed = c_results.into_boxed_slice();
+                    let results_ptr = results_boxed.as_mut_ptr();
+                    std::mem::forget(results_boxed);
+                    
+                    *result = CTrial {
+                        id: string_to_c_char(trial.id),
+                        session: string_to_c_char(trial.session),
+                        name: option_string_to_c_char(trial.name),
+                        status: string_to_c_char(trial.status),
+                        videos: CVideoArray {
+                            videos: videos_ptr,
+                            count: videos_count,
+                        },
+                        results: CTrialResultArray {
+                            results: results_ptr,
+                            count: results_count,
+                        },
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Update an activity
+#[no_mangle]
+pub extern "C" fn model_health_update_activity(
+    handle: *mut ModelHealthProviderHandle,
+    activity_id: *const c_char,
+    name: *const c_char,
+    result: *mut CTrial,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let activity_id_str = match unsafe { CStr::from_ptr(activity_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid activity ID".to_string()),
+    };
+    
+    state.runtime.block_on(async {
+        let mut provider = state.provider.lock().await;
+        
+        // First, get the current activity
+        let mut activity = match provider.get_activity(activity_id_str.clone()).await {
+            Ok(a) => a,
+            Err(e) => return FFIResult::from(e),
+        };
+        
+        // Update the name if provided
+        if !name.is_null() {
+            match unsafe { CStr::from_ptr(name).to_str() } {
+                Ok(n) => activity.name = Some(n.to_string()),
+                Err(_) => return FFIResult::error("Invalid name string".to_string()),
+            }
+        }
+        
+        // Perform the update
+        match provider.update_activity(&activity).await {
+            Ok(updated_trial) => {
+                unsafe {
+                    // Convert videos
+                    let c_videos: Vec<CVideo> = updated_trial.videos
+                        .into_iter()
+                        .map(|v| CVideo {
+                            id: string_to_c_char(v.id),
+                            trial: string_to_c_char(v.trial),
+                            video: option_string_to_c_char(v.video),
+                            video_thumb: option_string_to_c_char(v.video_thumb),
+                        })
+                        .collect();
+                    
+                    let videos_count = c_videos.len();
+                    let mut videos_boxed = c_videos.into_boxed_slice();
+                    let videos_ptr = videos_boxed.as_mut_ptr();
+                    std::mem::forget(videos_boxed);
+                    
+                    // Convert results
+                    let c_results: Vec<CTrialResult> = updated_trial.results
+                        .into_iter()
+                        .map(|r| CTrialResult {
+                            id: r.id,
+                            trial: string_to_c_char(r.trial),
+                            tag: option_string_to_c_char(r.tag),
+                            media: option_string_to_c_char(r.media),
+                        })
+                        .collect();
+                    
+                    let results_count = c_results.len();
+                    let mut results_boxed = c_results.into_boxed_slice();
+                    let results_ptr = results_boxed.as_mut_ptr();
+                    std::mem::forget(results_boxed);
+                    
+                    *result = CTrial {
+                        id: string_to_c_char(updated_trial.id),
+                        session: string_to_c_char(updated_trial.session),
+                        name: option_string_to_c_char(updated_trial.name),
+                        status: string_to_c_char(updated_trial.status),
+                        videos: CVideoArray {
+                            videos: videos_ptr,
+                            count: videos_count,
+                        },
+                        results: CTrialResultArray {
+                            results: results_ptr,
+                            count: results_count,
+                        },
+                    };
+                }
+                FFIResult::success()
+            }
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Delete an activity
+#[no_mangle]
+pub extern "C" fn model_health_delete_activity(
+    handle: *mut ModelHealthProviderHandle,
+    activity_id: *const c_char,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    let activity_id_str = match unsafe { CStr::from_ptr(activity_id).to_str() } {
+        Ok(s) => s.to_string(),
+        Err(_) => return FFIResult::error("Invalid activity ID".to_string()),
+    };
+    
+    state.runtime.block_on(async {
+        let mut provider = state.provider.lock().await;
+        
+        // First, get the activity to delete
+        let activity = match provider.get_activity(activity_id_str).await {
+            Ok(a) => a,
+            Err(e) => return FFIResult::from(e),
+        };
+        
+        // Perform the deletion
+        match provider.delete_activity(&activity).await {
+            Ok(()) => FFIResult::success(),
+            Err(e) => FFIResult::from(e),
+        }
+    })
+}
+
+/// Get all available activity tags
+#[no_mangle]
+pub extern "C" fn model_health_activity_tags(
+    handle: *mut ModelHealthProviderHandle,
+    result: *mut CActivityTagArray,
+) -> FFIResult {
+    let state = unsafe {
+        match get_state(handle) {
+            Some(s) => s,
+            None => return FFIResult::error("Invalid handle".to_string()),
+        }
+    };
+    
+    state.runtime.block_on(async {
+        let provider = state.provider.lock().await;
+        match provider.activity_tags().await {
+            Ok(tags) => {
+                let c_tags: Vec<CActivityTag> = tags
+                    .into_iter()
+                    .map(|tag| CActivityTag {
+                        value: string_to_c_char(tag.value),
+                        label: string_to_c_char(tag.label),
+                    })
+                    .collect();
+                
+                let count = c_tags.len();
+                let mut boxed = c_tags.into_boxed_slice();
+                let ptr = boxed.as_mut_ptr();
+                std::mem::forget(boxed);
+                
+                unsafe {
+                    *result = CActivityTagArray {
+                        tags: ptr,
+                        count,
+                    };
                 }
                 FFIResult::success()
             }

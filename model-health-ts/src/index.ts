@@ -33,6 +33,8 @@ import type {
   Subject,
   SubjectParameters,
   Activity,
+  ActivitySort,
+  ActivityTag,
   VideoVersion,
   ResultDataType,
   ResultData,
@@ -298,7 +300,7 @@ export class ModelHealthService {
     this.ensureInitialized();
     const result = await this.wasmClient.login(username, password);
 
-    return  result as LoginResult;
+    return result as LoginResult;
   }
 
   /**
@@ -482,38 +484,38 @@ export class ModelHealthService {
     return this.parseResponse<Session>(result);
   }
 
-/**
- * Calibrates a camera using a checkerboard pattern.
- * 
- * **Requirements:**
- * - A printed checkerboard pattern
- * - Accurate measurement of square size in millimeters
- * - Multiple views of the checkerboard from different angles
- * 
- * The calibration is automated and typically completes in a few seconds
- * 
- * @param session The session created with `createSession()`
- * @param checkerboardDetails Configuration of the calibration checkerboard
- * @param statusCallback Callback function called with calibration progress updates
- * @throws If calibration fails (insufficient views, pattern not detected, etc.)
- * 
- * @example
- * ```typescript
- * const session = await client.createSession();
- * 
- * const details = {
- *   rows: 4,           // Internal corners, not squares (for 5×6 board)
- *   columns: 5,        // Internal corners, not squares (for 5×6 board)
- *   square_size: 35,   // Measured in millimeters
- *   placement: "perpendicular"
- * };
- * 
- * await client.calibrateCamera(session, details, (status) => {
- *   console.log("Calibration status:", status);
- * });
- * // Calibration complete, proceed to neutral pose
- * ```
- */
+  /**
+   * Calibrates a camera using a checkerboard pattern.
+   * 
+   * **Requirements:**
+   * - A printed checkerboard pattern
+   * - Accurate measurement of square size in millimeters
+   * - Multiple views of the checkerboard from different angles
+   * 
+   * The calibration is automated and typically completes in a few seconds
+   * 
+   * @param session The session created with `createSession()`
+   * @param checkerboardDetails Configuration of the calibration checkerboard
+   * @param statusCallback Callback function called with calibration progress updates
+   * @throws If calibration fails (insufficient views, pattern not detected, etc.)
+   * 
+   * @example
+   * ```typescript
+   * const session = await client.createSession();
+   * 
+   * const details = {
+   *   rows: 4,           // Internal corners, not squares (for 5×6 board)
+   *   columns: 5,        // Internal corners, not squares (for 5×6 board)
+   *   square_size: 35,   // Measured in millimeters
+   *   placement: "perpendicular"
+   * };
+   * 
+   * await client.calibrateCamera(session, details, (status) => {
+   *   console.log("Calibration status:", status);
+   * });
+   * // Calibration complete, proceed to neutral pose
+   * ```
+   */
   async calibrateCamera(
     session: Session,
     checkerboardDetails: CheckerboardDetails,
@@ -651,6 +653,160 @@ export class ModelHealthService {
     this.ensureInitialized();
     const result = await this.wasmClient.createSubject(parameters);
     return this.parseResponse<Subject>(result);
+  }
+
+  // MARK: - Activity Management
+
+  /**
+   * Retrieves activities for a specific subject with pagination and sorting.
+   * 
+   * This method allows you to fetch activities associated with a particular subject,
+   * with control over pagination and sort order. This is useful for displaying
+   * activity history or implementing infinite scroll interfaces.
+   * 
+   * @param subjectId The ID of the subject whose activities to retrieve
+   * @param startIndex Zero-based index to start from (for pagination). Use 0 for first page.
+   * @param count Number of activities to retrieve per request
+   * @param sort Sort order for the results (e.g., "updated_at" for most recent first)
+   * @returns An array of activities for the specified subject
+   * @throws If the request fails or authentication has expired
+   * 
+   * @example
+   * ```typescript
+   * // Get the 20 most recent activities for a subject
+   * const recentActivities = await client.getActivitiesForSubject(
+   *   "subject-123",
+   *   0,
+   *   20,
+   *   "updated_at"
+   * );
+   * 
+   * // Pagination - get the next 20 activities
+   * const nextPage = await client.getActivitiesForSubject(
+   *   "subject-123",
+   *   20,
+   *   20,
+   *   "updated_at"
+   * );
+   * ```
+   */
+  async getActivitiesForSubject(
+    subjectId: string,
+    startIndex: number,
+    count: number,
+    sort: ActivitySort
+  ): Promise<Activity[]> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getActivitiesForSubject(
+      subjectId,
+      startIndex,
+      count,
+      sort
+    );
+    return this.parseResponse<Activity[]>(result);
+  }
+
+  /**
+   * Retrieves a specific activity by its ID.
+   * 
+   * Use this method to fetch the complete details of an activity, including
+   * its videos, results, and current processing status.
+   * 
+   * @param activityId The unique identifier of the activity
+   * @returns The requested activity with all its details
+   * @throws If the activity doesn't exist, or if authentication has expired
+   * 
+   * @example
+   * ```typescript
+   * const activity = await client.getActivity("abc123");
+   * console.log(`Activity: ${activity.name ?? "Unnamed"}`);
+   * console.log(`Status: ${activity.status}`);
+   * console.log(`Videos: ${activity.videos.length}`);
+   * ```
+   */
+  async getActivity(activityId: string): Promise<Activity> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getActivity(activityId);
+    return this.parseResponse<Activity>(result);
+  }
+
+  /**
+   * Updates an existing activity.
+   * 
+   * Use this method to modify activity properties such as the name.
+   * The activity is updated on the server and the updated version is returned.
+   * 
+   * @param activity The activity to update (with modified properties)
+   * @returns The updated activity as stored on the server
+   * @throws If the update fails or authentication has expired
+   * 
+   * @example
+   * ```typescript
+   * let activity = await client.getActivity("abc123");
+   * // Modify the activity name
+   * activity.name = "CMJ Baseline Test";
+   * const updated = await client.updateActivity(activity);
+   * console.log(`Updated: ${updated.name ?? ""}`);
+   * ```
+   * 
+   * @note Not all activity properties can be modified. Only mutable fields
+   *   (such as `name`) will be updated on the server.
+   */
+  async updateActivity(activity: Activity): Promise<Activity> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.updateActivity(activity);
+    return this.parseResponse<Activity>(result);
+  }
+
+  /**
+   * Deletes an activity from the system.
+   * 
+   * This permanently removes the activity and all its associated data,
+   * including videos and analysis results. This action cannot be undone.
+   * 
+   * @param activity The activity to delete
+   * @throws If the deletion fails or authentication has expired
+   * 
+   * @example
+   * ```typescript
+   * const activity = await client.getActivity("abc123");
+   * await client.deleteActivity(activity);
+   * // Activity and all associated data are now permanently deleted
+   * ```
+   * 
+   * @warning This operation is irreversible. All videos, analysis results,
+   *   and metadata associated with this activity will be permanently lost.
+   */
+  async deleteActivity(activity: Activity): Promise<void> {
+    this.ensureInitialized();
+    await this.wasmClient.deleteActivity(activity);
+  }
+
+  /**
+   * Retrieves all available activity tags.
+   * 
+   * Activity tags provide a way to categorize and filter activities.
+   * This method returns all tags configured in the system, which can be
+   * used for filtering or organizing activities in your application.
+   * 
+   * @returns An array of available activity tags
+   * @throws If the request fails or authentication has expired
+   * 
+   * @example
+   * ```typescript
+   * const tags = await client.getActivityTags();
+   * for (const tag of tags) {
+   *   console.log(`${tag.label}: ${tag.value}`);
+   * }
+   * 
+   * // Use tags for filtering or categorization
+   * const cmjTag = tags.find(t => t.value === "cmj");
+   * ```
+   */
+  async getActivityTags(): Promise<ActivityTag[]> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getActivityTags();
+    return this.parseResponse<ActivityTag[]>(result);
   }
 
   // MARK: - Activities

@@ -389,6 +389,23 @@ pub struct SubjectListResponse {
     pub subjects: Vec<SubjectResponse>,
 }
 
+/// Response containing activity tag data
+#[derive(Debug, Deserialize)]
+pub struct ActivityTagResponse {
+    pub value: String,
+    pub label: String,
+}
+
+impl ActivityTagResponse {
+    #[must_use]
+    pub fn to_model(self) -> crate::models::ActivityTag {
+        crate::models::ActivityTag {
+            value: self.value,
+            label: self.label,
+        }
+    }
+}
+
 /// Response containing trial data
 #[derive(Debug, Deserialize)]
 pub struct TrialResponse {
