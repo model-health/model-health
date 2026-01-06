@@ -306,7 +306,7 @@ try await service.stopRecording(session: Session)
 
 ### getStatus
 
-`getStatus(forTrial trial: Trial)` `async` `throws` → `TrialProcessingStatus`
+`getStatus(forTrial trial: Trial)` `async` `throws` → `ActivityProcessingStatus`
 
 Retrieves the current processing status of a trial.
 
@@ -502,7 +502,7 @@ Represents available analysis functions for motion capture data.
 Each analysis type processes trial data to extract specific biomechanical metrics
 and insights. Analysis can only be performed on trials that have completed processing.
 
-## TrialProcessingStatus
+## ActivityProcessingStatus
 *Enum*
 
 Represents the current processing state of a trial.

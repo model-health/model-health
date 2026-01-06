@@ -1,0 +1,38 @@
+{
+  "name": "@modelhealth/sdk",
+  "version": "0.1.0",
+  "description": "ModelHealth SDK for TypeScript/JavaScript with WASM bindings",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "wasm"
+  ],
+  "scripts": {
+    "build:wasm": "wasm-pack build ../model-health-wasm --target web --out-dir ../../model-health-ts/wasm --scope modelhealth",
+    "build:ts": "tsc",
+    "build": "npm run build:wasm && npm run build:ts",
+    "dev": "npm run build:wasm -- --dev && tsc --watch",
+    "clean": "rm -rf dist wasm node_modules",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "modelhealth",
+    "biomechanics",
+    "motion-analysis",
+    "wasm",
+    "sdk"
+  ],
+  "author": "Warren Gavin <warren@modelhealth.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/model-health/model-health"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typedoc": "^0.28.15",
+    "typescript": "^5.3.0"
+  }
+}
