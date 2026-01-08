@@ -95,16 +95,18 @@ docs-swift-preview:
 
 docs-swift-build:
 	@echo "Building Swift documentation archive..."
-	swift package generate-documentation --target ModelHealth
+	cd model-health-swift && swift package generate-documentation --target ModelHealth
 	@echo "Swift documentation built at: .build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
 
 docs-swift-export: docs-swift-build
 	@echo "Exporting Swift documentation..."
-	swift package --disable-sandbox \
-		generate-documentation \
-		--target ModelHealth \
-		--output-path ./sdk-docs/swift \
-		--transform-for-static-hosting
+	cd model-health-swift && \
+		swift package --disable-sandbox \
+			generate-documentation \
+			--target ModelHealth \
+			--output-path ./sdk-docs/swift \
+			--transform-for-static-hosting \
+			cd ..
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
