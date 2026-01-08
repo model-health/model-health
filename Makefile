@@ -86,29 +86,37 @@ docs: docs-swift docs-typescript docs-package
 docs-swift: docs-swift-build
 
 docs-swift-preview:
-	@echo "Starting Swift documentation preview on http://localhost:3000"
+	@echo "Generating and serving Swift documentation..."
+	@which jazzy > /dev/null || gem install jazzy --no-document
+	@mkdir -p sdk-docs/swift
+	jazzy \
+		--clean \
+		--author "ModelHealth" \
+		--author_url "https://docs.modelhealth.io" \
+		--module ModelHealth \
+		--output sdk-docs/swift \
+		--source-directory model-health-swift/Sources/ModelHealth \
+		--readme README.md
+	@echo "Starting documentation server on http://localhost:8000"
 	@echo "Press Ctrl+C to stop"
-	@(sleep 2 && open http://localhost:3000/documentation/modelhealth) & \
-	swift package --disable-sandbox preview-documentation \
-		--target ModelHealth \
-		--port 3000
+	@(sleep 2 && open http://localhost:8000) & \
+	cd sdk-docs/swift && python3 -m http.server 8000
 
 docs-swift-build:
-	@echo "Building XCFramework (required for documentation)..."
-	@./build-xcframework.sh
-	@echo "Building Swift documentation archive..."
-	cd model-health-swift && swift package generate-documentation --target ModelHealth
-	@echo "Swift documentation built at: .build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
+	@echo "Generating Swift documentation with Jazzy..."
+	@which jazzy > /dev/null || gem install jazzy --no-document
+	@mkdir -p sdk-docs/swift
+	jazzy \
+		--clean \
+		--author "ModelHealth" \
+		--author_url "https://modelhealth.io" \
+		--module ModelHealth \
+		--output sdk-docs/swift \
+		--source-directory model-health-swift/Sources/ModelHealth \
+		--readme README.md
+	@echo "Swift documentation built at: sdk-docs/swift"
 
 docs-swift-export: docs-swift-build
-	@echo "Exporting Swift documentation..."
-	cd model-health-swift && \
-		swift package --disable-sandbox \
-			generate-documentation \
-			--target ModelHealth \
-			--output-path ./sdk-docs/swift \
-			--transform-for-static-hosting \
-			cd ..
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
