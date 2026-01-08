@@ -27,6 +27,7 @@
 
 import type {
   LoginResult,
+  User,
   RegistrationParameters,
   CheckerboardDetails,
   Session,
@@ -301,6 +302,36 @@ export class ModelHealthService {
     const result = await this.wasmClient.login(username, password);
 
     return result as LoginResult;
+  }
+
+  /**
+   * Retrieves user account information.
+   * 
+   * Gets detailed profile information for a specified user, including
+   * account details, license status, and preferences.
+   * 
+   * Requires authentication.
+   * 
+   * @param username The username to retrieve information for
+   * @returns User account information
+   * @throws If not authenticated or user not found
+   * 
+   * @example
+   * ```typescript
+   * const user = await client.getUserInfo("john_doe");
+   * console.log(`Name: ${user.first_name} ${user.last_name}`);
+   * console.log(`Email: ${user.email}`);
+   * console.log(`License: ${user.paid_license ? "Active" : "Free"}`);
+   * 
+   * if (user.license_end_date) {
+   *   console.log(`License expires: ${user.license_end_date}`);
+   * }
+   * ```
+   */
+  async getUserInfo(username: string): Promise<User> {
+    this.ensureInitialized();
+    const result = await this.wasmClient.getUserInfo(username);
+    return this.parseResponse<User>(result);
   }
 
   /**

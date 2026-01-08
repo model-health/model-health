@@ -1,0 +1,47 @@
+{
+  "credentials": {
+    "username": "warren",
+    "password": "testtesttesttesttest"
+  },
+  "known_ids": {
+    "session": "test-session-001",
+    "subject": 42,
+    "activity": "test-activity-001"
+  },
+  "expected_session": {
+    "id": "test-session-001",
+    "user": 1001,
+    "public": false,
+    "name": "Integration Test Session",
+    "session_name": "Test Session Alpha",
+    "subject": 42,
+    "activities_count": 3
+  },
+  "expected_subject": {
+    "id": 42,
+    "name": "Test Subject Alpha",
+    "weight": 75.5,
+    "height": 180.0,
+    "age": 30,
+    "birth_year": 1994,
+    "gender": "man",
+    "sex_at_birth": "man",
+    "characteristics": "Test subject for integration testing",
+    "subject_tags": ["test", "integration"]
+  },
+  "expected_activity": {
+    "id": "test-activity-001",
+    "session": "test-session-001",
+    "name": "Test Activity CMJ-1",
+    "status": "done",
+    "video_count": 2,
+    "result_count": 1
+  },
+  "activity_retrieval": {
+    "test_subject_id": "42",
+    "expected_minimum_activity_count": 2,
+    "start_index": 0,
+    "count": 10,
+    "sort_by": "updated_at"
+  }
+}

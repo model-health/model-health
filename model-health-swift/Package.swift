@@ -25,7 +25,17 @@ let package = Package(
         ),
         .testTarget(
             name: "ModelHealthTests",
-            dependencies: ["ModelHealth"]
+            dependencies: ["ModelHealth"],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-no_compact_unwind"])
+            ]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: ["ModelHealth"],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-no_compact_unwind"])
+            ]
         ),
     ]
 )

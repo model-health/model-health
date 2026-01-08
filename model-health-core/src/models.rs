@@ -1,6 +1,44 @@
 use serde::{Deserialize, Serialize};
 use crate::error::ModelHealthError;
 
+// MARK: User
+
+/// User account information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub username: String,
+    pub email: String,
+    pub first_name: String,
+    pub last_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub institution: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profession: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub website: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<Unit>,
+    pub newsletter: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license_start_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license_end_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_joined: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_login: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paid_license: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_picture: Option<String>,
+}
+
 /// The result of a login attempt.
 ///
 /// Indicates whether additional email verification is required to complete authentication.

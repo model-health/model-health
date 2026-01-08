@@ -123,6 +123,17 @@ impl ModelHealthService {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = getUserInfo)]
+    pub async fn get_user_info(&self, username: String) -> Result<JsValue, JsValue> {
+        let user = self.provider
+            .get_user_info(username)
+            .await
+            .map_err(to_js_error)?;
+
+        serde_wasm_bindgen::to_value(&user)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen]
     pub async fn verify(&mut self, code: String, remember_device: bool) -> Result<(), JsValue> {
         self.provider

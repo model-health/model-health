@@ -275,6 +275,59 @@ pub struct RegisterResponse {
     pub token: String,
 }
 
+/// Response from get-user-info endpoint
+#[derive(Debug, Deserialize)]
+pub struct UserResponse {
+    pub username: String,
+    pub email: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub country: Option<String>,
+    pub institution: Option<String>,
+    pub profession: Option<String>,
+    pub reason: Option<String>,
+    pub website: Option<String>,
+    pub language: Option<String>,
+    pub unit: Option<String>,
+    pub newsletter: bool,
+    pub license_start_date: Option<String>,
+    pub license_end_date: Option<String>,
+    pub date_joined: Option<String>,
+    pub last_login: Option<String>,
+    pub paid_license: Option<bool>,
+    pub profile_picture: Option<String>,
+}
+
+impl UserResponse {
+    #[must_use]
+    pub fn to_model(self) -> crate::models::User {
+        crate::models::User {
+            username: self.username,
+            email: self.email,
+            first_name: self.first_name,
+            last_name: self.last_name,
+            country: self.country,
+            institution: self.institution,
+            profession: self.profession,
+            reason: self.reason,
+            website: self.website,
+            language: self.language,
+            unit: self.unit.and_then(|u| match u.to_lowercase().as_str() {
+                "metric" => Some(crate::models::Unit::Metric),
+                "imperial" => Some(crate::models::Unit::Imperial),
+                _ => None,
+            }),
+            newsletter: self.newsletter,
+            license_start_date: self.license_start_date,
+            license_end_date: self.license_end_date,
+            date_joined: self.date_joined,
+            last_login: self.last_login,
+            paid_license: self.paid_license,
+            profile_picture: self.profile_picture,
+        }
+    }
+}
+
 /// Empty response for endpoints that don't return data
 #[derive(Debug, Deserialize)]
 pub struct EmptyResponse {}

@@ -1,4 +1,4 @@
-.PHONY: help docs docs-preview docs-build docs-export docs-zip docs-tar docs-package clean test
+.PHONY: help docs docs-preview docs-build docs-export docs-zip docs-tar docs-package clean test test-swift test-typescript test-integration
 .PHONY: swift swift-dev wasm wasm-dev kotlin kotlin-dev build-all build-all-dev
 .PHONY: docs-swift docs-swift-build docs-swift-export docs-swift-preview
 .PHONY: docs-typescript docs-typescript-build docs-typescript-preview
@@ -31,8 +31,13 @@ help:
 	@echo "  make docs-typescript-preview  - Preview TypeScript docs at http://localhost:8080"
 	@echo "  make docs-typescript-build    - Build TypeScript documentation"
 	@echo ""
+	@echo "Testing:"
+	@echo "  make test             - Run all tests (unit + integration)"
+	@echo "  make test-swift       - Run Swift tests only"
+	@echo "  make test-typescript  - Run TypeScript tests only"
+	@echo "  make test-integration - Run integration tests only (Swift + TypeScript)"
+	@echo ""
 	@echo "Development:"
-	@echo "  make test            - Run tests"
 	@echo "  make clean           - Clean build artifacts"
 
 # Platform-specific builds - Production
@@ -187,14 +192,46 @@ docs-package: docs-zip docs-tar
 	@echo "  2. Open index.html in browser"
 	@echo "  3. Or run view-docs.py (Mac/Linux) or view-docs.bat (Windows)"
 
-# Development
+# Testing
 
-test:
+test: test-swift test-typescript
+	@echo ""
+	@echo "✅ All tests completed"
+
+test-swift:
 	@echo "Running Rust core tests..."
 	cd model-health-core && cargo test
 	@echo ""
 	@echo "Running Swift tests..."
-	swift test
+	cd model-health-swift && xcodebuild test \
+		-scheme ModelHealth \
+		-destination 'platform=iOS Simulator,name=iPhone 15'
+
+test-integration:
+	@echo "Running Swift integration tests..."
+	cd model-health-swift && xcodebuild test \
+		-scheme ModelHealth \
+		-destination 'platform=iOS Simulator,name=iPhone 15' \
+		-only-testing IntegrationTests
+	@echo ""
+	@echo "Running TypeScript integration tests..."
+	@if [ ! -d "model-health-ts/node_modules" ]; then \
+		echo "Installing TypeScript dependencies..."; \
+		cd model-health-ts && npm install; \
+	fi
+	@cd model-health-ts && npm run test:integration
+	@echo ""
+	@echo "✅ Integration tests completed"
+
+test-typescript:
+	@echo "Running TypeScript tests..."
+	@if [ ! -d "model-health-ts/node_modules" ]; then \
+		echo "Installing TypeScript dependencies..."; \
+		cd model-health-ts && npm install; \
+	fi
+	@cd model-health-ts && npm test
+
+# Development
 
 clean:
 	@echo "Cleaning build artifacts..."
@@ -205,5 +242,5 @@ clean:
 	@echo "Cleaning WASM build artifacts..."
 	rm -rf model-health-ts/wasm model-health-ts/dist model-health-ts/node_modules
 	@echo "Cleaning example app..."
-	rm -rf examples/vite-react/node_modules examples/vite-react/dist
+	rm -rf examples/ts/node_modules examples/ts/dist
 	@echo "Clean complete"

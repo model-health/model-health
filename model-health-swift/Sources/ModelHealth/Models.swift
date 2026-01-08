@@ -305,7 +305,7 @@ public struct Activity: Sendable {
 
     public let id: String
     public let session: String
-    public let name: String?
+    public var name: String?
     public let status: String
     public let videos: [Video]
     public let results: [Result]

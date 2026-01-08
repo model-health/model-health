@@ -17,6 +17,33 @@
 export type LoginResult = "ok" | "verification_required";
 
 /**
+ * User account information.
+ * 
+ * Contains profile details, license information, and preferences
+ * for an authenticated user.
+ */
+export interface User {
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  country?: string;
+  institution?: string;
+  profession?: string;
+  reason?: string;
+  website?: string;
+  language?: string;
+  unit?: Unit;
+  newsletter: boolean;
+  license_start_date?: string;
+  license_end_date?: string;
+  date_joined?: string;
+  last_login?: string;
+  paid_license?: boolean;
+  profile_picture?: string;
+}
+
+/**
  * Unit system preference for measurements.
  */
 export type Unit = "metric" | "imperial";

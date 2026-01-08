@@ -15,7 +15,11 @@
     "build": "npm run build:wasm && npm run build:ts",
     "dev": "npm run build:wasm -- --dev && tsc --watch",
     "clean": "rm -rf dist wasm node_modules",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "modelhealth",
@@ -32,7 +36,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "typedoc": "^0.28.15",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
   }
 }

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use serde_json::json;
 
 use crate::error::ModelHealthError;
 use crate::config::Config;
@@ -8,7 +9,7 @@ use crate::models::{
     AnalysisResult, AnalysisTask, AnalysisTaskStatus, AnalysisType, CalibrationStatus,
     CheckerboardDetails, CheckerboardPlacement, Gender, LoginResult, RegistrationParameters, Session, Sex, Subject,
     SubjectParameters, Trial, ActivityProcessingStatus, Unit, VideoVersion, ResultDataType, ResultData,
-    ActivitySort, ActivityTag,
+    ActivitySort, ActivityTag, User,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -42,6 +43,9 @@ pub trait ModelHealthProvider {
 
     /// Authenticate with username and password
     async fn login(&mut self, username: String, password: String) -> Result<LoginResult, ModelHealthError>;
+
+    /// Get user information
+    async fn get_user_info(&self, username: String) -> Result<User, ModelHealthError>;
 
     /// Verify email code for two-factor authentication
     async fn verify(&mut self, code: String, remember_device: bool) -> Result<(), ModelHealthError>;
@@ -233,7 +237,6 @@ impl Default for ModelHealthProviderImpl {
 impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn register(&mut self, parameters: RegistrationParameters) -> Result<(), ModelHealthError> {
         use crate::network::RegisterResponse;
-        use serde_json::json;
         
         let mut body = json!({
             "username": parameters.username,
@@ -284,7 +287,6 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
 
     async fn login(&mut self, username: String, password: String) -> Result<LoginResult, ModelHealthError> {
         use crate::network::LoginResponse;
-        use serde_json::json;
         
         let body = json!({
             "username": username,
@@ -307,9 +309,29 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         })
     }
 
+    async fn get_user_info(&self, username: String) -> Result<User, ModelHealthError> {
+        use crate::network::UserResponse;
+        
+        let token = self.token.as_ref()
+            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
+
+        let body = json!({
+            "username": username,
+        });
+        
+        let path = format!("/get-user-info/");
+        let response: UserResponse = self.network.request(
+            Method::POST,
+            &path,
+            Some(token),
+            Some(&body),
+        ).await?;
+        
+        Ok(response.to_model())
+    }
+
     async fn verify(&mut self, code: String, remember_device: bool) -> Result<(), ModelHealthError> {
         use crate::network::EmptyResponse;
-        use serde_json::json;
         
         let token = self.token.as_ref()
             .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
@@ -411,7 +433,6 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     
     async fn update_activity(&mut self, activity: &Trial) -> Result<Trial, ModelHealthError> {
         use crate::network::TrialResponse;
-        use serde_json::json;
         
         let path = format!("/trials/{}/", activity.id);
         
@@ -554,7 +575,6 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
 
     async fn create_subject(&mut self, parameters: SubjectParameters) -> Result<Subject, ModelHealthError> {
         use crate::network::SubjectResponse;
-        use serde_json::json;
         
         let gender_str = match parameters.gender {
             Gender::Woman => "woman",
@@ -923,7 +943,6 @@ async fn calibrate_camera(
         session: &Session,
     ) -> Result<AnalysisTask, ModelHealthError> {
         use crate::network::InvokeAnalysisResponse;
-        use serde_json::json;
         
         let token = self.token.as_ref()
             .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
