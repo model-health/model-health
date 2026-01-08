@@ -99,6 +99,8 @@ docs-swift-build:
 	@echo "Swift documentation built at: .build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
 
 docs-swift-export: docs-swift-build
+	@echo "Building XCFramework (required for documentation)..."
+	@./build-xcframework.sh
 	@echo "Exporting Swift documentation..."
 	cd model-health-swift && \
 		swift package --disable-sandbox \
