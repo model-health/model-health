@@ -1,0 +1,35 @@
+[package]
+name = "model-health-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[lints.rust]
+warnings = "deny"
+# unsafe_code = "allow" is implicit (not denied)
+unused_must_use = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[dependencies]
+model-health-core = { path = "../model-health-core" }
+tokio = { workspace = true }
+libc = "0.2"
+serde_json = { workspace = true } 
+env_logger = "0.11"
+log = { workspace = true }
+
+[features]
+default = ["production"]
+development = ["model-health-core/development"]
+production = ["model-health-core/production"]
+
+[build-dependencies]
+cbindgen = "0.26"

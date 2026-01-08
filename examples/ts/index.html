@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ModelHealth SDK Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>ModelHealth SDK Demo</h1>
+      <p class="subtitle">Step-by-step guide to using the ModelHealth TypeScript SDK</p>
+    </header>
+
+    <div id="progress-bar">
+      <div class="progress-steps">
+        <div class="step active" data-step="1">1. Login</div>
+        <div class="step" data-step="2">2. Session</div>
+        <div class="step" data-step="3">3. Subject</div>
+        <div class="step" data-step="4">4. Camera Cal</div>
+        <div class="step" data-step="5">5. Neutral</div>
+        <div class="step" data-step="6">6. Record</div>
+        <div class="step" data-step="7">7. Analysis</div>
+        <div class="step" data-step="8">8. Results</div>
+      </div>
+    </div>
+
+    <main>
+      <div id="content">
+        <!-- Dynamic content will be inserted here -->
+      </div>
+
+      <div id="code-example">
+        <h3>Code Example:</h3>
+        <pre><code id="code-snippet">// Code will appear here</code></pre>
+      </div>
+
+      <div id="console-output">
+        <h3>Console Output:</h3>
+        <pre id="log">SDK Demo starting...\n</pre>
+        <button id="clear-log" type="button">Clear Log</button>
+      </div>
+    </main>
+
+    <footer>
+      <div class="test-checklist">
+        <h3>Testing Checklist:</h3>
+        <label><input type="checkbox"> Login with valid credentials</label>
+        <label><input type="checkbox"> Handle 2FA verification</label>
+        <label><input type="checkbox"> Create session successfully</label>
+        <label><input type="checkbox"> Create subject with all fields</label>
+        <label><input type="checkbox"> Camera calibration completes</label>
+        <label><input type="checkbox"> Neutral pose calibration completes</label>
+        <label><input type="checkbox"> Record and stop trial</label>
+        <label><input type="checkbox"> Trial processes to "ready"</label>
+        <label><input type="checkbox"> Analysis starts and completes</label>
+        <label><input type="checkbox"> Results display correctly</label>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module" src="demo.js"></script>
+</body>
+</html>
