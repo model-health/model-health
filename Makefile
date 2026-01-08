@@ -94,13 +94,13 @@ docs-swift-preview:
 		--port 3000
 
 docs-swift-build:
+	@echo "Building XCFramework (required for documentation)..."
+	@./build-xcframework.sh
 	@echo "Building Swift documentation archive..."
 	cd model-health-swift && swift package generate-documentation --target ModelHealth
 	@echo "Swift documentation built at: .build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
 
 docs-swift-export: docs-swift-build
-	@echo "Building XCFramework (required for documentation)..."
-	@./build-xcframework.sh
 	@echo "Exporting Swift documentation..."
 	cd model-health-swift && \
 		swift package --disable-sandbox \
