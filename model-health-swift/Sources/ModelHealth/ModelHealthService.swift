@@ -882,7 +882,7 @@ public protocol ModelHealthProvider {
     /// See ``ModelHealthService/activityList(for:)``
     func activityList(for session: Session) async throws -> [Activity]
 
-    /// See ``ModelHealthService/download(videos:)``
+    /// See ``ModelHealthService/videos(for:version:)``
     func videos(for activity: Activity, version: VideoVersion) async -> [Data]
 
     /// See ``ModelHealthService/data(ofType:for:)``

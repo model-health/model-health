@@ -103,20 +103,18 @@ docs-swift-preview:
 	cd sdk-docs/swift && python3 -m http.server 8000
 
 docs-swift-build:
-	@echo "Generating Swift documentation with Jazzy..."
-	@which jazzy > /dev/null || gem install jazzy --no-document
-	@mkdir -p sdk-docs/swift
-	jazzy \
-		--clean \
-		--author "ModelHealth" \
-		--author_url "https://modelhealth.io" \
-		--module ModelHealth \
-		--output sdk-docs/swift \
-		--source-directory model-health-swift/Sources/ModelHealth \
-		--readme README.md
-	@echo "Swift documentation built at: sdk-docs/swift"
+	@echo "Building Swift documentation archive..."
+	cd model-health-swift && swift package generate-documentation --target ModelHealth
+	@echo "Swift documentation built at: model-health-swift/.build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
 
 docs-swift-export: docs-swift-build
+	@echo "Exporting Swift documentation..."
+	cd model-health-swift && \
+		swift package --disable-sandbox \
+			generate-documentation \
+			--target ModelHealth \
+			--output-path ../sdk-docs/swift \
+			--transform-for-static-hosting
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
