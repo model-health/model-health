@@ -1,0 +1,4 @@
+/* Hide the settings panel with theme toggle */
+.tsd-page-toolbar {
+  display: none !important;
+}

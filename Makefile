@@ -117,9 +117,10 @@ docs-swift-export: docs-swift-build
 			--transform-for-static-hosting \
 			--hosting-base-path swift
 	@echo "Fixing baseUrl in generated HTML..."
-	@# Change "var baseUrl" to "window.baseUrl"
 	@sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' sdk-docs/swift/index.html
 	@find sdk-docs/swift/documentation -name "index.html" -exec sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' {} \;
+	@echo "Removing theme toggle from Swift docs..."
+	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.color-scheme-toggle{[^}]*}/\.color-scheme-toggle{display:none!important}/g' {} \;
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
@@ -143,7 +144,7 @@ docs-typescript-build:
 	fi
 	@echo "Generating TypeScript docs with TypeDoc..."
 	@mkdir -p sdk-docs
-	@cd model-health-ts && npx typedoc src/index.ts --out ../sdk-docs/typescript
+	@cd model-health-ts && npx typedoc --options typedoc.json
 	@echo "TypeScript documentation built at: sdk-docs/typescript"
 
 docs-typescript-preview: docs-typescript-build
