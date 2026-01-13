@@ -114,7 +114,8 @@ docs-swift-export: docs-swift-build
 			generate-documentation \
 			--target ModelHealth \
 			--output-path ../sdk-docs/swift \
-			--transform-for-static-hosting
+			--transform-for-static-hosting \
+			--hosting-base-path swift
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
