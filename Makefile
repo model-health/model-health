@@ -119,8 +119,9 @@ docs-swift-export: docs-swift-build
 	@echo "Fixing baseUrl in generated HTML..."
 	@sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' sdk-docs/swift/index.html
 	@find sdk-docs/swift/documentation -name "index.html" -exec sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' {} \;
-	@echo "Removing theme toggle from Swift docs..."
-	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.color-scheme-toggle{[^}]*}/\.color-scheme-toggle{display:none!important}/g' {} \;
+	@echo "Hiding theme controls and footer in Swift docs..."
+	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.color-scheme-toggle[^}]*/\.color-scheme-toggle{display:none!important;visibility:hidden!important}/g' {} \;
+	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.footer[^}]*/\.footer{display:none!important;visibility:hidden!important}/g' {} \;
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
