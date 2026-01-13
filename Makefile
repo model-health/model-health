@@ -116,6 +116,10 @@ docs-swift-export: docs-swift-build
 			--output-path ../sdk-docs/swift \
 			--transform-for-static-hosting \
 			--hosting-base-path swift
+	@echo "Fixing baseUrl in generated HTML..."
+	@# Change "var baseUrl" to "window.baseUrl"
+	@sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' sdk-docs/swift/index.html
+	@find sdk-docs/swift/documentation -name "index.html" -exec sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' {} \;
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
