@@ -4,7 +4,7 @@
 .PHONY: docs-typescript docs-typescript-build docs-typescript-preview
 
 help:
-	@echo "ModelHealth SDK - Available Commands"
+	@echo "Model Health SDK - Available Commands"
 	@echo ""
 	@echo "Platform Builds (Production):"
 	@echo "  make swift           - Build Swift SDK (iOS, macOS, tvOS, watchOS)"
@@ -91,7 +91,7 @@ docs-swift-preview:
 	@mkdir -p sdk-docs/swift
 	jazzy \
 		--clean \
-		--author "ModelHealth" \
+		--author "Model Health" \
 		--author_url "https://docs.modelhealth.io" \
 		--module ModelHealth \
 		--output sdk-docs/swift \
@@ -161,8 +161,8 @@ docs-zip: docs-swift-export docs-typescript-build
 	@rm -f ModelHealth-Documentation.zip
 	@cp README-CLIENT.md sdk-docs/README.md
 	@echo "Creating index.html for documentation..."
-	@echo '<!DOCTYPE html><html><head><title>ModelHealth Documentation</title></head><body>' > sdk-docs/index.html
-	@echo '<h1>ModelHealth SDK Documentation</h1>' >> sdk-docs/index.html
+	@echo '<!DOCTYPE html><html><head><title>Model Health Documentation</title></head><body>' > sdk-docs/index.html
+	@echo '<h1>Model Health SDK Documentation</h1>' >> sdk-docs/index.html
 	@echo '<ul>' >> sdk-docs/index.html
 	@echo '<li><a href="swift/documentation/modelhealth/">Swift Documentation</a></li>' >> sdk-docs/index.html
 	@echo '<li><a href="typescript/">TypeScript Documentation</a></li>' >> sdk-docs/index.html
@@ -177,8 +177,8 @@ docs-tar: docs-swift-export docs-typescript-build
 	@rm -f ModelHealth-Documentation.tar.gz
 	@cp README-CLIENT.md sdk-docs/README.md
 	@echo "Creating index.html for documentation..."
-	@echo '<!DOCTYPE html><html><head><title>ModelHealth Documentation</title></head><body>' > sdk-docs/index.html
-	@echo '<h1>ModelHealth SDK Documentation</h1>' >> sdk-docs/index.html
+	@echo '<!DOCTYPE html><html><head><title>Model Health Documentation</title></head><body>' > sdk-docs/index.html
+	@echo '<h1>Model Health SDK Documentation</h1>' >> sdk-docs/index.html
 	@echo '<ul>' >> sdk-docs/index.html
 	@echo '<li><a href="swift/documentation/modelhealth/">Swift Documentation</a></li>' >> sdk-docs/index.html
 	@echo '<li><a href="typescript/">TypeScript Documentation</a></li>' >> sdk-docs/index.html

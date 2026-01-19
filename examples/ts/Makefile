@@ -1,7 +1,7 @@
 .PHONY: help run open clean
 
 help:
-	@echo "ModelHealth SDK Demo"
+	@echo "Model Health SDK Demo"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make run    - Start HTTP server and open in browser"

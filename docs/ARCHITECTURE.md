@@ -1,12 +1,12 @@
-# ModelHealth SDK Architecture
+# Model Health SDK Architecture
 
-Internal documentation for developers working on the ModelHealth SDK.
+Internal documentation for developers working on the Model Health SDK.
 
 ## Purpose & Vision
 
 ### Why This Project Exists
 
-The ModelHealth SDK represents a strategic investment in cross-platform code sharing and developer experience.
+The Model Health SDK represents a strategic investment in cross-platform code sharing and developer experience.
 
 **Core Problems:**
 - Building separate SDKs for iOS, Android, Web and potentially multiple Desktops creates at least a 4x development cost
@@ -26,7 +26,7 @@ This iOS SDK is the **reference implementation** and **priority deliverable**. I
 - API design patterns for all future SDKs
 - Documentation standards and structure
 - Developer experience expectations
-- Integration patterns with ModelHealth backend
+- Integration patterns with Model Health backend
 
 While built in Swift for iOS, the public API is designed to be **binding-friendly** - simple async/await 
 patterns that map cleanly to Rust futures and can be exposed to e.g. TypeScript, Kotlin, Java, C++ etc.
@@ -55,7 +55,7 @@ patterns that map cleanly to Rust futures and can be exposed to e.g. TypeScript,
                  │
                  ▼
 ┌─────────────────────────────────────────┐
-│         ModelHealth Cloud APIs          │
+│         Model Health Cloud APIs          │
 │           (REST endpoints)              │
 └─────────────────────────────────────────┘
 ```

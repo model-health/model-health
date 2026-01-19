@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Errors that can occur in the `ModelHealth` SDK
+/// Errors that can occur in the `Model Health` SDK
 #[derive(Error, Debug, Clone)]
 pub enum ModelHealthError {
     /// Errors specific to camera or neutral pose calibration

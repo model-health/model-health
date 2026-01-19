@@ -1,6 +1,6 @@
-# ModelHealth SDK Demo
+# Model Health SDK Demo
 
-A simple, educational web demo that walks through the complete ModelHealth SDK workflow step-by-step.
+A simple, educational web demo that walks through the complete Model Health SDK workflow step-by-step.
 
 ## Purpose
 
@@ -71,7 +71,7 @@ Each step shows:
 
 ## Using with Real SDK
 
-To integrate with the actual ModelHealth SDK:
+To integrate with the actual Model Health SDK:
 
 1. Install the SDK:
 ```bash

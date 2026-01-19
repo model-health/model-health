@@ -1,4 +1,4 @@
-# ModelHealth SDK Documentation
+# Model Health SDK Documentation
 
 ## Quick Start
 
@@ -34,4 +34,4 @@ The documentation uses JavaScript for interactive features (search, navigation, 
 
 ## Questions?
 
-Contact your ModelHealth SDK representative for support.
+Contact your Model Health SDK representative for support.
