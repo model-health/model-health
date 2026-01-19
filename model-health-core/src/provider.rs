@@ -31,7 +31,7 @@ async fn sleep_one_second() {
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 }
 
-/// Defines `ModelHealth` SDK operations for dependency injection and testing.
+/// Defines `Model Health` SDK operations for dependency injection and testing.
 ///
 /// Conform to this trait to create mock implementations for testing.
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]

@@ -1,14 +1,14 @@
-# ModelHealth SDK
+# Model Health SDK
 
 Swift SDK for measuring and analyzing human movement from smartphone videos.
 
 ## Overview
 
-The ModelHealth SDK enables movement practitioners to capture biomechanical data using smartphone cameras and receive actionable insights to improve performance and health. The SDK provides a complete workflow from authentication through data collection to analysis.
+The Model Health SDK enables movement practitioners to capture biomechanical data using smartphone cameras and receive actionable insights to improve performance and health. The SDK provides a complete workflow from authentication through data collection to analysis.
 
 ## What Problem Does It Solve?
 
-Traditional biomechanical analysis requires expensive lab equipment (force plates, motion capture systems) and specialized expertise. ModelHealth democratizes movement analysis by:
+Traditional biomechanical analysis requires expensive lab equipment (force plates, motion capture systems) and specialized expertise. Model Health democratizes movement analysis by:
 
 - **Eliminating expensive equipment** - Use standard smartphone cameras instead of $50k+ motion capture systems
 - **Enabling field testing** - Collect data anywhere, not just in specialized labs
@@ -146,4 +146,4 @@ See LICENSE file for details
 
 ---
 
-© 2025 ModelHealth. All rights reserved.
+© 2025 Model Health. All rights reserved.

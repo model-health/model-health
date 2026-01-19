@@ -3,7 +3,6 @@ Package.resolved
 .swiftpm
 .build
 examples/ios/ModelHealthDemo.xcodeproj/xcshareddata
-sdk-docs
 ModelHealth-Documentation.tar.gz
 ModelHealth-Documentation.zip
 **/*.xcframework/

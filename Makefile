@@ -4,7 +4,7 @@
 .PHONY: docs-typescript docs-typescript-build docs-typescript-preview
 
 help:
-	@echo "ModelHealth SDK - Available Commands"
+	@echo "Model Health SDK - Available Commands"
 	@echo ""
 	@echo "Platform Builds (Production):"
 	@echo "  make swift           - Build Swift SDK (iOS, macOS, tvOS, watchOS)"
@@ -86,25 +86,42 @@ docs: docs-swift docs-typescript docs-package
 docs-swift: docs-swift-build
 
 docs-swift-preview:
-	@echo "Starting Swift documentation preview on http://localhost:3000"
+	@echo "Generating and serving Swift documentation..."
+	@which jazzy > /dev/null || gem install jazzy --no-document
+	@mkdir -p sdk-docs/swift
+	jazzy \
+		--clean \
+		--author "Model Health" \
+		--author_url "https://docs.modelhealth.io" \
+		--module ModelHealth \
+		--output sdk-docs/swift \
+		--source-directory model-health-swift/Sources/ModelHealth \
+		--readme README.md
+	@echo "Starting documentation server on http://localhost:8000"
 	@echo "Press Ctrl+C to stop"
-	@(sleep 2 && open http://localhost:3000/documentation/modelhealth) & \
-	swift package --disable-sandbox preview-documentation \
-		--target ModelHealth \
-		--port 3000
+	@(sleep 2 && open http://localhost:8000) & \
+	cd sdk-docs/swift && python3 -m http.server 8000
 
 docs-swift-build:
 	@echo "Building Swift documentation archive..."
-	swift package generate-documentation --target ModelHealth
-	@echo "Swift documentation built at: .build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
+	cd model-health-swift && swift package generate-documentation --target ModelHealth
+	@echo "Swift documentation built at: model-health-swift/.build/plugins/Swift-DocC/outputs/ModelHealth.doccarchive"
 
 docs-swift-export: docs-swift-build
 	@echo "Exporting Swift documentation..."
-	swift package --disable-sandbox \
-		generate-documentation \
-		--target ModelHealth \
-		--output-path ./sdk-docs/swift \
-		--transform-for-static-hosting
+	cd model-health-swift && \
+		swift package --disable-sandbox \
+			generate-documentation \
+			--target ModelHealth \
+			--output-path ../sdk-docs/swift \
+			--transform-for-static-hosting \
+			--hosting-base-path swift
+	@echo "Fixing baseUrl in generated HTML..."
+	@sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' sdk-docs/swift/index.html
+	@find sdk-docs/swift/documentation -name "index.html" -exec sed -i '' 's/<script>var baseUrl/<script>window.baseUrl/g' {} \;
+	@echo "Hiding theme controls and footer in Swift docs..."
+	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.color-scheme-toggle[^}]*/\.color-scheme-toggle{display:none!important;visibility:hidden!important}/g' {} \;
+	@find sdk-docs/swift -name "*.css" -exec sed -i '' 's/\.footer[^}]*/\.footer{display:none!important;visibility:hidden!important}/g' {} \;
 	@echo "Adding documentation viewer scripts..."
 	@mkdir -p sdk-docs
 	@cp view-docs.py sdk-docs/
@@ -128,7 +145,7 @@ docs-typescript-build:
 	fi
 	@echo "Generating TypeScript docs with TypeDoc..."
 	@mkdir -p sdk-docs
-	@cd model-health-ts && npx typedoc src/index.ts --out ../sdk-docs/typescript
+	@cd model-health-ts && npx typedoc --options typedoc.json
 	@echo "TypeScript documentation built at: sdk-docs/typescript"
 
 docs-typescript-preview: docs-typescript-build
@@ -144,8 +161,8 @@ docs-zip: docs-swift-export docs-typescript-build
 	@rm -f ModelHealth-Documentation.zip
 	@cp README-CLIENT.md sdk-docs/README.md
 	@echo "Creating index.html for documentation..."
-	@echo '<!DOCTYPE html><html><head><title>ModelHealth Documentation</title></head><body>' > sdk-docs/index.html
-	@echo '<h1>ModelHealth SDK Documentation</h1>' >> sdk-docs/index.html
+	@echo '<!DOCTYPE html><html><head><title>Model Health Documentation</title></head><body>' > sdk-docs/index.html
+	@echo '<h1>Model Health SDK Documentation</h1>' >> sdk-docs/index.html
 	@echo '<ul>' >> sdk-docs/index.html
 	@echo '<li><a href="swift/documentation/modelhealth/">Swift Documentation</a></li>' >> sdk-docs/index.html
 	@echo '<li><a href="typescript/">TypeScript Documentation</a></li>' >> sdk-docs/index.html
@@ -160,8 +177,8 @@ docs-tar: docs-swift-export docs-typescript-build
 	@rm -f ModelHealth-Documentation.tar.gz
 	@cp README-CLIENT.md sdk-docs/README.md
 	@echo "Creating index.html for documentation..."
-	@echo '<!DOCTYPE html><html><head><title>ModelHealth Documentation</title></head><body>' > sdk-docs/index.html
-	@echo '<h1>ModelHealth SDK Documentation</h1>' >> sdk-docs/index.html
+	@echo '<!DOCTYPE html><html><head><title>Model Health Documentation</title></head><body>' > sdk-docs/index.html
+	@echo '<h1>Model Health SDK Documentation</h1>' >> sdk-docs/index.html
 	@echo '<ul>' >> sdk-docs/index.html
 	@echo '<li><a href="swift/documentation/modelhealth/">Swift Documentation</a></li>' >> sdk-docs/index.html
 	@echo '<li><a href="typescript/">TypeScript Documentation</a></li>' >> sdk-docs/index.html

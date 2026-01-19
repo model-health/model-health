@@ -1,6 +1,6 @@
-# ModelHealth SDK Reference
+# Model Health SDK Reference
 
-Complete API reference for the ModelHealth iOS SDK.
+Complete API reference for the Model Health iOS SDK.
 
 ---
 
@@ -8,7 +8,7 @@ Complete API reference for the ModelHealth iOS SDK.
 ## ModelHealthService
 *Class*
 
-The primary interface for ModelHealth's movement analysis platform.
+The primary interface for Model Health's movement analysis platform.
 
 ModelHealthService enables you to measure and analyze human movement from smartphone
 videos. It provides a complete workflow for:
@@ -390,7 +390,7 @@ try await service.calibrateCamera(session, checkerboardDetails: details)
 ## Subject
 *Struct*
 
-An individual being monitored or assessed in the ModelHealth system.
+An individual being monitored or assessed in the Model Health system.
 
 ```swift
 let subjects = try await service.subjectList()

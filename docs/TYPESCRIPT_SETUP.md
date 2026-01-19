@@ -1,6 +1,6 @@
 # TypeScript/WASM Setup Guide
 
-Complete guide to building and using the ModelHealth TypeScript SDK.
+Complete guide to building and using the Model Health TypeScript SDK.
 
 ## Prerequisites
 

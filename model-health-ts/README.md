@@ -1,6 +1,6 @@
-# ModelHealth SDK for TypeScript
+# Model Health SDK for TypeScript
 
-TypeScript/JavaScript SDK for the ModelHealth biomechanics platform.
+TypeScript/JavaScript SDK for the Model Health biomechanics platform.
 
 ## Features
 
@@ -306,7 +306,7 @@ try {
 
 ## License
 
-MIT © ModelHealth
+MIT © Model Health
 
 ## Support
 

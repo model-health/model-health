@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ModelHealth Documentation Viewer
+Model Health Documentation Viewer
 
 Double-click this file to start a local web server and view the documentation.
 Press Ctrl+C in the terminal to stop the server.
@@ -20,7 +20,7 @@ PORT = 8080
 Handler = http.server.SimpleHTTPRequestHandler
 
 print("=" * 60)
-print("ModelHealth SDK Documentation Server")
+print("Model Health SDK Documentation Server")
 print("=" * 60)
 print(f"\nStarting server at http://localhost:{PORT}")
 print("\nOpening documentation in your browser...")

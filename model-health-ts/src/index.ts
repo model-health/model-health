@@ -1,7 +1,7 @@
 /**
- * ModelHealth SDK Client
+ * Model Health SDK Client
  * 
- * TypeScript/JavaScript client for the ModelHealth biomechanics SDK.
+ * TypeScript/JavaScript client for the Model Health biomechanics SDK.
  * Provides a clean, typed API over the WASM bindings.
  * 
  * @packageDocumentation
@@ -87,7 +87,7 @@ async function initWasm(): Promise<void> {
 }
 
 /**
- * Configuration options for the ModelHealth client.
+ * Configuration options for the Model Health client.
  */
 export interface ModelHealthConfig {
   /**
@@ -110,9 +110,9 @@ export interface ModelHealthConfig {
 }
 
 /**
- * ModelHealth SDK Client for biomechanical analysis.
+ * Model Health SDK Client for biomechanical analysis.
  * 
- * Main entry point for interacting with the ModelHealth API.
+ * Main entry point for interacting with the Model Health SDK.
  * Provides authentication, session management, data download,
  * and analysis capabilities.
  * 
@@ -142,7 +142,7 @@ export class ModelHealthService {
   private initialized = false;
 
   /**
-   * Create a new ModelHealth client.
+   * Create a new Model Health client.
    * 
    * @param config Configuration options
    * 
@@ -169,7 +169,7 @@ export class ModelHealthService {
     // Auto-initialize if requested
     if (this.config.autoInit) {
       this.init().catch((error) => {
-        console.error("Failed to auto-initialize ModelHealth client:", error);
+        console.error("Failed to auto-initialize Model Health client:", error);
       });
     }
   }
@@ -217,7 +217,7 @@ export class ModelHealthService {
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error(
-        "ModelHealth client not initialized. Call init() before using the client."
+        "Model Health client not initialized. Call init() before using the client."
       );
     }
   }
