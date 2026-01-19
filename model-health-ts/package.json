@@ -1,7 +1,7 @@
 {
   "name": "@modelhealth/sdk",
   "version": "0.1.0",
-  "description": "ModelHealth SDK for TypeScript/JavaScript with WASM bindings",
+  "description": "Model Health SDK for TypeScript/JavaScript with WASM bindings",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

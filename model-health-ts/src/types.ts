@@ -1,7 +1,7 @@
 /**
- * ModelHealth SDK TypeScript Types
+ * Model Health SDK TypeScript Types
  * 
- * Complete type definitions for the ModelHealth biomechanics SDK.
+ * Complete type definitions for the Model Health biomechanics SDK.
  * 
  * @packageDocumentation
  */
@@ -261,7 +261,7 @@ export type CalibrationStatus =
 // MARK: - Analysis
 
 /**
- * Analysis types supported by the ModelHealth platform.
+ * Analysis types supported by the Model Health platform.
  */
 export type AnalysisType = "counter_movement_jump";
 
