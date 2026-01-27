@@ -39,6 +39,13 @@ opt-level = "z"     # Optimize for size
 lto = true          # Enable link-time optimization
 codegen-units = 1   # Single codegen unit for better optimization
 
+# Configure wasm-opt to enable required WebAssembly features
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false
+
 [lints.rust]
 warnings = "deny"
 # Allow unsafe code for WASM interop (similar to FFI)

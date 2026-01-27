@@ -4,15 +4,22 @@ import Foundation
 internal final class ModelHealthProviderImpl: ModelHealthProvider {
     private let handle: OpaquePointer
     
-    init() throws {
-        guard let handle = model_health_provider_new() else {
-            throw ModelHealthError.internalError("Failed to create provider")
+    /// Creates a new provider with the given API key
+    /// - Parameter apiKey: The API key for authentication
+    /// - Throws: ModelHealthError if provider creation fails
+    init(apiKey: String) throws {
+        let handle = try apiKey.withCString { apiKeyPtr in
+            guard let handle = model_health_provider_new(apiKeyPtr) else {
+                throw ModelHealthError.internalError("Failed to create provider with API key")
+            }
+            return handle
         }
+        
         self.handle = handle
 
         if let token = KeychainHelper.get(.authToken) {
-             try? setToken(token)
-         }
+            try? setToken(token)
+        }
     }
     
     deinit {

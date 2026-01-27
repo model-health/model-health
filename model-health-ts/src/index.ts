@@ -10,11 +10,11 @@
  * ```typescript
  * import { ModelHealthService } from '@modelhealth/sdk';
  * 
- * // Create and initialize client
- * const client = new ModelHealthService();
+ * // Create and initialize client with API key
+ * const client = new ModelHealthService({ apiKey: "your-api-key-here" });
  * await client.init();
  * 
- * // Authenticate
+ * // Authenticate (optional - API key already provides authentication)
  * const result = await client.login("user@example.com", "password");
  * if (result === "verification_required") {
  *   await client.verify("123456", true);
@@ -91,6 +91,16 @@ async function initWasm(): Promise<void> {
  */
 export interface ModelHealthConfig {
   /**
+   * Your ModelHealth API key for authentication.
+   * 
+   * This is required to use the SDK. Get your API key from the
+   * ModelHealth dashboard.
+   * 
+   * @required
+   */
+  apiKey: string;
+
+  /**
    * Token storage implementation for persisting authentication.
    * 
    * Provide a custom implementation for secure storage.
@@ -116,20 +126,21 @@ export interface ModelHealthConfig {
  * Provides authentication, session management, data download,
  * and analysis capabilities.
  * 
- * @example Create and authenticate
- * ```typescript
- * const client = new ModelHealthService();
- * await client.init();
- * 
- * const result = await client.login("user@example.com", "password");
- * if (result === "verification_required") {
- *   await client.verify("123456", true);
- * }
- * ```
- * 
- * @example With custom storage
+ * @example Create with API key
  * ```typescript
  * const client = new ModelHealthService({
+ *   apiKey: "your-api-key-here"
+ * });
+ * await client.init();
+ * 
+ * // SDK is ready to use
+ * const sessions = await client.sessionList();
+ * ```
+ * 
+ * @example With custom configuration
+ * ```typescript
+ * const client = new ModelHealthService({
+ *   apiKey: "your-api-key",
  *   storage: new LocalStorageTokenStorage()
  * });
  * await client.init();
@@ -144,23 +155,32 @@ export class ModelHealthService {
   /**
    * Create a new Model Health client.
    * 
-   * @param config Configuration options
+   * @param config Configuration options including API key
+   * @throws If API key is not provided
    * 
    * @example Default configuration
    * ```typescript
-   * const client = new ModelHealthService();
+   * const client = new ModelHealthService({
+   *   apiKey: "your-api-key-here"
+   * });
    * ```
    * 
    * @example Custom configuration
    * ```typescript
    * const client = new ModelHealthService({
+   *   apiKey: "your-api-key",
    *   storage: new LocalStorageTokenStorage(),
    *   autoInit: false
    * });
    * ```
    */
-  constructor(config: ModelHealthConfig = {}) {
+  constructor(config: ModelHealthConfig) {
+    if (!config.apiKey) {
+      throw new Error("API key is required. Provide it in the config: { apiKey: 'your-key' }");
+    }
+
     this.config = {
+      apiKey: config.apiKey,
       storage: config.storage ?? new MemoryTokenStorage(),
       autoInit: config.autoInit ?? true,
     };
@@ -180,14 +200,14 @@ export class ModelHealthService {
    * Must be called before using any other methods if `autoInit: false`
    * was specified in the configuration. Safe to call multiple times.
    * 
-   * The API environment (production vs development) is determined by
-   * how the WASM module was compiled, not at runtime.
-   * 
    * @throws If WASM initialization fails
    * 
    * @example
    * ```typescript
-   * const client = new ModelHealthService({ autoInit: false });
+   * const client = new ModelHealthService({ 
+   *   apiKey: "your-key",
+   *   autoInit: false 
+   * });
    * await client.init();
    * ```
    */
@@ -196,8 +216,12 @@ export class ModelHealthService {
 
     await initWasm();
 
-    // Create the WASM client
-    this.wasmClient = new wasmModule.ModelHealthService();
+    // Create the WASM client with API key
+    try {
+      this.wasmClient = new wasmModule.ModelHealthService(this.config.apiKey);
+    } catch (error) {
+      throw new Error(`Failed to create Model Health client: ${error}`);
+    }
 
     // Set storage
     this.wasmClient.setStorage(this.storage);
@@ -533,6 +557,7 @@ export class ModelHealthService {
     };
 
     await wasmModule.calibrateCamera(
+      this.config.apiKey,
       token,
       session,
       checkerboardDetails,
@@ -583,12 +608,14 @@ export class ModelHealthService {
     };
 
     await wasmModule.calibrateNeutralPose(
+      this.config.apiKey,
       token,
       subject,
       session,
       jsCallback
     );
   }
+
   // MARK: - Subjects
 
   /**

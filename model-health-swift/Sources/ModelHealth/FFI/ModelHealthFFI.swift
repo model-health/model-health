@@ -15,11 +15,7 @@ struct FFIResult {
 // MARK: - C Function Declarations
 
 @_silgen_name("model_health_provider_new")
-func model_health_provider_new() -> ModelHealthProviderHandle?
-
-@_silgen_name("model_health_provider_new_with_url")
-func model_health_provider_new_with_url(_ baseUrl: UnsafePointer<CChar>)
--> ModelHealthProviderHandle?
+func model_health_provider_new(_ apiKey: UnsafePointer<CChar>) -> ModelHealthProviderHandle?
 
 @_silgen_name("model_health_provider_free")
 func model_health_provider_free(_ handle: ModelHealthProviderHandle)
