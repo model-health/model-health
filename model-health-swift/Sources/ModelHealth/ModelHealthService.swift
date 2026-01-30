@@ -77,18 +77,21 @@ import Foundation
 public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     private let serviceProvider: ModelHealthProvider
 
-    /// Creates a new ModelHealth SDK instance.
+    /// Creates a new ModelHealth SDK instance with an API key.
     ///
-    /// The SDK is ready to use immediately after initialization. Begin by calling
-    /// ``login(username:password:)`` to authenticate.
+    /// The SDK requires an API key for authentication. This key should be obtained
+    /// from https://docs.modelhealth.io/register.
     ///
     /// ```swift
-    /// let service = ModelHealthService()
-    /// try await service.login(username: "user@example.com", password: "pass")
+    /// let service = try ModelHealthService(apiKey: "your-api-key-here")
+    /// // SDK is ready to use
+    /// let sessions = try await service.sessionList()
     /// ```
-    /// - Throws: An error if initialisation fails
-    public init() throws {
-        self.serviceProvider = try ModelHealthProviderImpl()
+    ///
+    /// - Parameter apiKey: Your ModelHealth API key
+    /// - Throws: An error if initialization fails
+    public init(apiKey: String) throws {
+        self.serviceProvider = try ModelHealthProviderImpl(apiKey: apiKey)
     }
 
     /// Creates a ModelHealth SDK instance with a custom service provider.

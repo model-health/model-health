@@ -12,22 +12,18 @@ const state = {
   trial: null,
   analysisTask: null,
   results: null,
-  needsVerification: false,
   isProcessing: false
 };
 
-// Code examples for each step
 const codeExamples = {
-  1: `// Step 1: Login
-const client = new ModelHealthService();
+  1: `// Step 1: Initialize SDK with API Key
+const client = new ModelHealthService({
+  apiKey: "your-api-key-here"
+});
 await client.init();
 
-const result = await client.login(email, password);
-
-if (result === "verification_required") {
-  // Verification code sent to email
-  await client.verify(code, rememberDevice);
-}`,
+const isAuth = await client.isAuthenticated();
+console.log('Authenticated:', isAuth); // true`,
 
   2: `// Step 2: Select or Create Session
 const sessions = await client.sessionList();
@@ -145,11 +141,11 @@ async function loadSessions() {
     const sessions = await state.client.sessionList();
     state.sessions = sessions;
     log(`Loaded ${sessions.length} sessions`, 'success');
-    renderStep2();
+    renderStep1();
   } catch (error) {
     log(`Failed to load sessions: ${error.message}`, 'error');
     state.sessions = [];
-    renderStep2();
+    renderStep1();
   }
 }
 
@@ -161,8 +157,8 @@ async function handleSelectSession(sessionId) {
     state.session = session;
     state.sessionIsNew = false;
     log(`Session selected: ${session.name}`, 'success');
-    log('Skipping calibration steps (3-5) - using existing calibration');
-    renderStep2();
+    log('Skipping calibration steps (2-4) - using existing calibration');
+    renderStep1();
   } else {
     log(`Session not found: ${sessionId}`, 'error');
   }
@@ -170,54 +166,6 @@ async function handleSelectSession(sessionId) {
 
 // Render functions for each step
 function renderStep1() {
-  const content = document.getElementById('content');
-
-  if (state.needsVerification) {
-    content.innerHTML = `
-      <div class="card">
-        <h2>Step 1: Email Verification Required</h2>
-        <p>A verification code has been sent to your email.</p>
-        
-        <div class="form-group">
-          <label for="verify-code">Verification Code (6 digits):</label>
-          <input type="text" id="verify-code" placeholder="123456" maxlength="6" />
-        </div>
-        
-        <div class="checkbox-group">
-          <label>
-            <input type="checkbox" id="remember-device" checked />
-            Remember this device for 90 days
-          </label>
-        </div>
-        
-        <button onclick="handleVerify()">Verify</button>
-      </div>
-    `;
-  } else {
-    content.innerHTML = `
-      <div class="card">
-        <h2>Step 1: Login</h2>
-        <p>Enter your credentials to authenticate with the ModelHealth API.</p>
-        
-        <div class="form-group">
-          <label for="email">Email:</label>
-          <input type="email" id="email" placeholder="warren" value="warren" />
-        </div>
-        
-        <div class="form-group">
-          <label for="password">Password:</label>
-          <input type="password" id="password" placeholder="••••••••" value="testtesttesttesttest" />
-        </div>
-        
-        <button onclick="handleLogin()" ${state.isProcessing ? 'disabled' : ''}>
-          ${state.isProcessing ? 'Logging in...' : 'Login'}
-        </button>
-      </div>
-    `;
-  }
-}
-
-function renderStep2() {
   const content = document.getElementById('content');
 
   if (state.session) {
@@ -228,7 +176,7 @@ function renderStep2() {
 
     content.innerHTML = `
       <div class="card">
-        <h2>Step 2: Session ${state.sessionIsNew ? 'Created' : 'Selected'}</h2>
+        <h2>Step 1: Session ${state.sessionIsNew ? 'Created' : 'Selected'}</h2>
         
         <div class="status success">
           <strong>✓ ${message}</strong><br>
@@ -252,7 +200,7 @@ function renderStep2() {
 
     content.innerHTML = `
       <div class="card">
-        <h2>Step 2: Select Session</h2>
+        <h2>Step 1: Select Session</h2>
         <p>Choose an existing session (skip calibration) or create a new one.</p>
         
         <div style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;">
@@ -268,7 +216,7 @@ function renderStep2() {
     // Loading sessions
     content.innerHTML = `
       <div class="card">
-        <h2>Step 2: Loading Sessions...</h2>
+        <h2>Step 1: Loading Sessions...</h2>
         <p>Fetching available sessions...</p>
       </div>
     `;
@@ -276,14 +224,14 @@ function renderStep2() {
   }
 }
 
-function renderStep3() {
+function renderStep2() {
   const content = document.getElementById('content');
 
   if (state.subject) {
     // Subject selected
     content.innerHTML = `
       <div class="card">
-        <h2>Step 3: Select Subject</h2>
+        <h2>Step 2: Select Subject</h2>
         <p>Subject selected for analysis.</p>
         
         <div class="status success">
@@ -312,7 +260,7 @@ function renderStep3() {
 
     content.innerHTML = `
       <div class="card">
-        <h2>Step 3: Select Subject</h2>
+        <h2>Step 2: Select Subject</h2>
         <p>Choose an existing subject for this session. Click to select.</p>
         
         <div style="max-height: 400px; overflow-y: auto;">
@@ -324,7 +272,7 @@ function renderStep3() {
     // Loading subjects
     content.innerHTML = `
       <div class="card">
-        <h2>Step 3: Loading Subjects...</h2>
+        <h2>Step 2: Loading Subjects...</h2>
         <p>Fetching available subjects...</p>
       </div>
     `;
@@ -332,11 +280,11 @@ function renderStep3() {
   }
 }
 
-function renderStep4() {
+function renderStep3() {
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="card">
-      <h2>Step 4: Camera Calibration</h2>
+      <h2>Step 3: Camera Calibration</h2>
       <p>Calibrate cameras using a checkerboard pattern. Show the checkerboard from multiple angles.</p>
       
       <div class="form-group">
@@ -371,14 +319,14 @@ function renderStep4() {
   `;
 }
 
-function renderStep5() {
+function renderStep4() {
   const content = document.getElementById('content');
   const heightCm = state.subject.height ? (state.subject.height * 100).toFixed(0) : 'Not specified';
   const weightKg = state.subject.weight ? state.subject.weight.toFixed(0) : 'Not specified';
 
   content.innerHTML = `
     <div class="card">
-      <h2>Step 5: Neutral Pose Calibration</h2>
+      <h2>Step 4: Neutral Pose Calibration</h2>
       <p>Capture the subject's neutral standing pose for model scaling.</p>
       <p><strong>Instructions:</strong> Stand upright, face forward, arms slightly spread.</p>
       
@@ -397,11 +345,11 @@ function renderStep5() {
   `;
 }
 
-function renderStep6() {
+function renderStep5() {
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="card">
-      <h2>Step 6: Record Trial</h2>
+      <h2>Step 5: Record Trial</h2>
       <p>Record a movement trial. The system will capture video from all calibrated cameras.</p>
       
       ${state.trial ? `
@@ -432,11 +380,11 @@ function renderStep6() {
   `;
 }
 
-function renderStep7() {
+function renderStep6() {
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="card">
-      <h2>Step 7: Start Analysis</h2>
+      <h2>Step 6: Start Analysis</h2>
       <p>Analyze the recorded trial to extract biomechanical metrics.</p>
       
       <div class="status">
@@ -461,13 +409,13 @@ function renderStep7() {
   `;
 }
 
-function renderStep8() {
+function renderStep7() {
   const content = document.getElementById('content');
 
   if (!state.results) {
     content.innerHTML = `
       <div class="card">
-        <h2>Step 8: Loading Results...</h2>
+        <h2>Step 7: Loading Results...</h2>
         <p>Downloading analysis results...</p>
       </div>
     `;
@@ -479,7 +427,7 @@ function renderStep8() {
 
   content.innerHTML = `
     <div class="card">
-      <h2>Step 8: Analysis Results</h2>
+      <h2>Step 7: Analysis Results</h2>
       <h3>${state.results.analysis_title}</h3>
       <p>${state.results.analysis_description}</p>
       
@@ -541,64 +489,9 @@ function renderBilateralMetric(metric, unit) {
 }
 
 // Handler functions
-async function handleLogin() {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-
-  if (!email || !password) {
-    log('Please enter email and password', 'error');
-    return;
-  }
-
-  state.isProcessing = true;
-  renderStep1();
-
-  log(`Calling client.login("${email}", "***")`);
-
-  try {
-    const result = await state.client.login(email, password);
-    log(`Login result: ${result}`, 'success');
-
-    if (result === 'verification_required') {
-      state.needsVerification = true;
-      state.isProcessing = false;
-      renderStep1();
-    } else {
-      log('Login successful!', 'success');
-      nextStep();
-    }
-  } catch (error) {
-    console.error('Full error:', error);
-    log(`Login failed: ${error.message || error.toString() || JSON.stringify(error)}`, 'error');
-    state.isProcessing = false;
-    renderStep1();
-  }
-}
-
-async function handleVerify() {
-  const code = document.getElementById('verify-code').value;
-  const rememberDevice = document.getElementById('remember-device').checked;
-
-  if (!code || code.length !== 6) {
-    log('Please enter a 6-digit code', 'error');
-    return;
-  }
-
-  log(`Calling client.verify("${code}", ${rememberDevice})`);
-
-  try {
-    await state.client.verify(code, rememberDevice);
-    log('Verification successful!', 'success');
-    state.needsVerification = false;
-    nextStep();
-  } catch (error) {
-    log(`Verification failed: ${error.message}`, 'error');
-  }
-}
-
 async function handleCreateSession() {
   state.isProcessing = true;
-  renderStep2();
+  renderStep1();
 
   log('Calling client.createSession()');
 
@@ -608,12 +501,12 @@ async function handleCreateSession() {
     state.sessionIsNew = true;
     state.sessions.push(session);
     log(`Session created: ${session.id}`, 'success');
-    log('New session requires calibration (steps 3-5)');
-    renderStep2();
+    log('New session requires calibration (steps 2-4)');
+    renderStep1();
   } catch (error) {
     log(`Failed to create session: ${error.message}`, 'error');
     state.isProcessing = false;
-    renderStep2();
+    renderStep1();
   }
 }
 
@@ -624,11 +517,11 @@ async function loadSubjects() {
     const subjects = await state.client.subjectList();
     state.subjects = subjects;
     log(`Loaded ${subjects.length} subjects`, 'success');
-    renderStep3();
+    renderStep2();
   } catch (error) {
     log(`Failed to load subjects: ${error.message}`, 'error');
     state.subjects = [];
-    renderStep3();
+    renderStep2();
   }
 }
 
@@ -639,7 +532,7 @@ async function handleSelectSubject(subjectId) {
   if (subject) {
     state.subject = subject;
     log(`Subject selected: ${subject.name}`, 'success');
-    renderStep3();
+    renderStep2();
   } else {
     log(`Subject not found: ${subjectId}`, 'error');
   }
@@ -774,12 +667,12 @@ async function handleRecordTrial() {
       state.currentTrial = null;
       state.isProcessing = false;
       log('Trial ready for analysis!', 'success');
-      renderStep6();
+      renderStep5();
     } catch (error) {
       log(`Stop recording failed: ${error.message}`, 'error');
       state.recording = false;
       state.isProcessing = false;
-      renderStep6();
+      renderStep5();
     }
     return;
   }
@@ -793,7 +686,7 @@ async function handleRecordTrial() {
   }
 
   state.isProcessing = true;
-  renderStep6();
+  renderStep5();
 
   log(`Calling client.record("${trialName}", session)`);
 
@@ -806,11 +699,11 @@ async function handleRecordTrial() {
     log(`Recording started: ${trial.id}`, 'success');
     statusDiv.innerHTML = '<div class="status">⏺ Recording in progress... Click "Stop Recording" when done.</div>';
 
-    renderStep6();
+    renderStep5();
   } catch (error) {
     log(`Recording failed: ${error.message}`, 'error');
     state.isProcessing = false;
-    renderStep6();
+    renderStep5();
   }
 }
 
@@ -843,7 +736,7 @@ async function handleStartAnalysis() {
     if (analysisStatus.type === 'completed') {
       state.analysisTask = task;
       log(`Analysis complete! Result tags: ${analysisStatus.result_tags.join(', ')}`, 'success');
-      renderStep7();
+      renderStep6();
     } else {
       log('Analysis failed', 'error');
       state.isProcessing = false;
@@ -861,7 +754,7 @@ async function handleDownloadResults() {
     const result = await state.client.downloadAnalysisResult(state.trial, 'countermovement_jump');
     state.results = result;
     log('Results downloaded successfully!', 'success');
-    renderStep8();
+    renderStep7();
   } catch (error) {
     log(`Failed to download results: ${error.message}`, 'error');
   }
@@ -910,7 +803,6 @@ function resetDemo() {
     state.trial = null;
     state.analysisTask = null;
     state.results = null;
-    state.needsVerification = false;
     state.isProcessing = false;
 
     log('Demo reset', 'success');
@@ -920,10 +812,10 @@ function resetDemo() {
 
 // Navigation
 function nextStep() {
-  // If we just selected an existing session at step 2, jump to step 6
-  if (state.currentStep === 2 && !state.sessionIsNew) {
-    log('Jumping to step 6 (recording) - skipping calibration for existing session');
-    state.currentStep = 6;
+  // If we just selected an existing session at step 1, jump to step 5
+  if (state.currentStep === 1 && !state.sessionIsNew) {
+    log('Jumping to step 5 (recording) - skipping calibration for existing session');
+    state.currentStep = 5;
   } else {
     state.currentStep++;
   }
@@ -955,20 +847,28 @@ function render() {
     case 5: renderStep5(); break;
     case 6: renderStep6(); break;
     case 7: renderStep7(); break;
-    case 8: renderStep8(); break;
   }
 }
 
 // Initialize
 async function init() {
-  log('Initializing ModelHealth SDK...');
+  log('Initializing ModelHealth SDK with API key...');
 
-  state.client = new ModelHealthService();
+  try {
+    state.client = new ModelHealthService({
+      apiKey: "mh_a33852066e58ed71a5683a33eb52f8aafed95b63"
+    });
 
-  await state.client.init();
-  log('SDK initialized successfully!', 'success');
+    await state.client.init();
 
-  render();
+    // Verify authentication with API key
+    const isAuth = await state.client.isAuthenticated();
+    log(`SDK initialized successfully! Authenticated: ${isAuth}`, 'success');
+
+    render();
+  } catch (error) {
+    log(`Failed to initialize SDK: ${error.message}`, 'error');
+  }
 
   // Setup clear log button
   document.getElementById('clear-log').addEventListener('click', () => {
@@ -977,8 +877,6 @@ async function init() {
 }
 
 // Make functions globally accessible
-window.handleLogin = handleLogin;
-window.handleVerify = handleVerify;
 window.handleCreateSession = handleCreateSession;
 window.loadSubjects = loadSubjects;
 window.handleSelectSubject = handleSelectSubject;

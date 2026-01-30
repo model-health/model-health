@@ -2,7 +2,7 @@
 //!
 //! This module provides C-compatible functions that can be called from Swift, Kotlin, TypeScript, etc.
 
-#![allow(unsafe_code)]  // FFI requires unsafe
+#![allow(unsafe_code)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![allow(clippy::wildcard_imports)]
 
@@ -98,42 +98,23 @@ pub extern "C" fn model_health_free_string(string: *mut c_char) {
 
 // MARK: - Provider Lifecycle
 
-/// Create a new `ModelHealth` provider with default configuration
+/// Create a new `ModelHealth` provider with API key
 #[no_mangle]
-pub extern "C" fn model_health_provider_new() -> *mut ModelHealthProviderHandle {
+pub extern "C" fn model_health_provider_new(api_key: *const c_char) -> *mut ModelHealthProviderHandle {
     init_logger();
     log::debug!("Creating new ModelHealth provider");
 
-    let provider = ModelHealthProviderImpl::new();
-    let Ok(runtime) = Runtime::new() else {
-        return ptr::null_mut();
-    };
-
-    let state = Box::new(ProviderState {
-        provider: Arc::new(Mutex::new(provider)),
-        runtime: Arc::new(runtime),
-    });
-    
-    Box::into_raw(state).cast::<ModelHealthProviderHandle>()
-}
-
-/// Create a new `ModelHealth` provider with custom base URL
-#[no_mangle]
-pub extern "C" fn model_health_provider_new_with_url(base_url: *const c_char) -> *mut ModelHealthProviderHandle {
-    use model_health_core::config::Config;
-    
-    let base_url_str = unsafe {
-        if base_url.is_null() {
+    let api_key_str = unsafe {
+        if api_key.is_null() {
             return ptr::null_mut();
         }
-        match CStr::from_ptr(base_url).to_str() {
+        match CStr::from_ptr(api_key).to_str() {
             Ok(s) => s.to_string(),
             Err(_) => return ptr::null_mut(),
         }
     };
     
-    let config = Config::with_base_url(base_url_str);
-    let provider = ModelHealthProviderImpl::with_config(config);
+    let provider = ModelHealthProviderImpl::new(api_key_str);
     let Ok(runtime) = Runtime::new() else {
         return ptr::null_mut();
     };

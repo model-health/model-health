@@ -22,6 +22,7 @@ pub trait NetworkService {
         method: Method,
         path: &str,
         token: Option<&str>,
+        api_key: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<T, ModelHealthError>;
     
@@ -30,6 +31,7 @@ pub trait NetworkService {
         method: Method,
         path: &str,
         token: Option<&str>,
+        api_key: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<HttpResponse<Option<T>>, ModelHealthError>;
 
@@ -37,6 +39,7 @@ pub trait NetworkService {
         &self,
         url: &str,
         token: Option<&str>,
+        api_key: Option<&str>,
     ) -> Result<Vec<u8>, ModelHealthError>;
 }
 
@@ -63,7 +66,7 @@ impl ReqwestNetworkService {
         let api_version = config.api_version();
         Self {
             base_url: config.base_url,
-            api_version: api_version,
+            api_version,
         }
     }
     
@@ -89,6 +92,7 @@ impl NetworkService for ReqwestNetworkService {
         method: Method,
         path: &str,
         token: Option<&str>,
+        api_key: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<T, ModelHealthError> {
         #[cfg(not(target_arch = "wasm32"))]
@@ -105,11 +109,13 @@ impl NetworkService for ReqwestNetworkService {
             request = request.header("Authorization", format!("Token {token}"));
         }
         
+        if let Some(api_key) = api_key {
+            request = request.header("X-API-Key", api_key);
+        }
+        
         if let Some(body) = body {
             #[cfg(not(target_arch = "wasm32"))]
             log::debug!("Attaching request body");
-            //let body_json = serde_json::to_string(body).unwrap_or_default();
-//            log::debug!("Request body: {}", body_json);
             request = request.json(body);
         }
         
@@ -160,6 +166,7 @@ impl NetworkService for ReqwestNetworkService {
         method: Method,
         path: &str,
         token: Option<&str>,
+        api_key: Option<&str>,
         body: Option<&(impl Serialize + Send + Sync)>,
     ) -> Result<HttpResponse<Option<T>>, ModelHealthError> {
         let translated_path = self.translate_path(path);
@@ -171,6 +178,10 @@ impl NetworkService for ReqwestNetworkService {
         
         if let Some(token) = token {
             request = request.header("Authorization", format!("Token {token}"));
+        }
+        
+        if let Some(api_key) = api_key {
+            request = request.header("X-API-Key", api_key);
         }
         
         if let Some(body) = body {
@@ -226,11 +237,21 @@ impl NetworkService for ReqwestNetworkService {
     async fn download_data(
         &self,
         url: &str,
-        _token: Option<&str>,
+        token: Option<&str>,
+        api_key: Option<&str>,
     ) -> Result<Vec<u8>, ModelHealthError> {
         log::debug!("Downloading data from {url}");
         
-        let request = HTTP_CLIENT.get(url);
+        let mut request = HTTP_CLIENT.get(url);
+        
+        if let Some(token) = token {
+            request = request.header("Authorization", format!("Token {token}"));
+        }
+        
+        if let Some(api_key) = api_key {
+            request = request.header("X-API-Key", api_key);
+        }
+        
         let response = request.send().await?;
         let status = response.status();
         

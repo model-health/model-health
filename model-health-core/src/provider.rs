@@ -168,29 +168,32 @@ pub trait ModelHealthProvider {
 pub struct ModelHealthProviderImpl {
     network: ReqwestNetworkService,
     token: Option<String>,
+    api_key: String,
 }
 
 impl ModelHealthProviderImpl {
-    /// Create a new provider with default configuration
+    /// Create a new provider with API key and default configuration
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(api_key: String) -> Self {
         let config = Config::default();
         let network = ReqwestNetworkService::new(config);
         
         Self {
             network,
             token: None,
+            api_key,
         }
     }
     
-    /// Create a new provider with custom configuration
+    /// Create a new provider with API key and custom configuration
     #[must_use]
-    pub fn with_config(config: Config) -> Self {
+    pub fn with_config(api_key: String, config: Config) -> Self {
         let network = ReqwestNetworkService::new(config);
         
         Self {
             network,
             token: None,
+            api_key,
         }
     }
 
@@ -199,10 +202,13 @@ impl ModelHealthProviderImpl {
         &self,
         path: &str,
     ) -> Result<T, ModelHealthError> {
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
-        self.network.request(Method::GET, path, Some(token), None::<&()>).await
+        self.network.request(
+            Method::GET, 
+            path, 
+            self.token.as_deref(),
+            Some(&self.api_key),
+            None::<&()>
+        ).await
     }
 
     /// Helper method for authenticated POST requests
@@ -215,16 +221,13 @@ impl ModelHealthProviderImpl {
         T: for<'de> serde::Deserialize<'de>,
         B: serde::Serialize + Send + Sync,
     {
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
-        self.network.request(Method::POST, path, Some(token), Some(body)).await
-    }
-}
-
-impl Default for ModelHealthProviderImpl {
-    fn default() -> Self {
-        Self::new()
+        self.network.request(
+            Method::POST, 
+            path, 
+            self.token.as_deref(),
+            Some(&self.api_key),
+            Some(body)
+        ).await
     }
 }
 
@@ -275,6 +278,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
             Method::POST,
             "/register/",
             None,
+            None,
             Some(&body),
         ).await?;
         
@@ -294,6 +298,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         let response: LoginResponse = self.network.request(
             Method::POST,
             "/login/",
+            None,
             None,
             Some(&body),
         ).await?;
@@ -323,6 +328,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
             Method::POST,
             "/verify/",
             Some(token),
+            None,
             Some(&body),
         ).await?;
         
@@ -335,7 +341,7 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     }
 
     async fn is_authenticated(&self) -> bool {
-        self.token.is_some()
+        self.token.is_some() || !self.api_key.is_empty()
     }
 
     fn get_token(&self) -> Option<String> {
@@ -356,16 +362,8 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn get_session(&self, session_id: String) -> Result<Session, ModelHealthError> {
         use crate::network::SessionResponse;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let path = format!("/sessions/{session_id}/");
-        let response: SessionResponse = self.network.request(
-            Method::GET,
-            &path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let response: SessionResponse = self.get(&path).await?;
         
         Ok(response.to_model())
     }
@@ -426,17 +424,13 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     }
     
     async fn delete_activity(&mut self, activity: &Trial) -> Result<(), ModelHealthError> {
-        use reqwest::Method;
-        
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let path = format!("/trials/{}/", activity.id);
         
         self.network.request::<()>(
             Method::DELETE,
             &path,
-            Some(token),
+            self.token.as_deref(),
+            Some(&self.api_key),
             None::<&()>,
         ).await?;
         
@@ -486,9 +480,6 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     ) -> Result<Vec<ResultData>, ModelHealthError> {
         use futures::future::join_all;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         // Collect URLs with their corresponding data types
         let mut urls_with_types: Vec<(String, ResultDataType)> = Vec::new();
         
@@ -507,9 +498,14 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
         }
         
         let downloads = urls_with_types.into_iter().map(|(url, data_type)| {
-            let token = token.clone();
+            let token = self.token.clone();
+            let api_key = self.api_key.clone();
             async move {
-                let raw_data = self.network.download_data(&url, Some(&token)).await.ok()?;
+                let raw_data = self.network.download_data(
+                    &url, 
+                    token.as_deref(),
+                    Some(&api_key)
+                ).await.ok()?;
                 let converted_data = data_type.convert(raw_data).ok()?;
                 Some(ResultData {
                     file_type: data_type.file_type(),
@@ -526,13 +522,15 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn download_videos(&self, urls: Vec<String>) -> Result<Vec<Vec<u8>>, ModelHealthError> {
         use futures::future::join_all;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let downloads = urls.into_iter().map(|url| {
-            let token = token.clone();
+            let token = self.token.clone();
+            let api_key = self.api_key.clone();
             async move {
-                self.network.download_data(&url, Some(&token)).await.ok()
+                self.network.download_data(
+                    &url, 
+                    token.as_deref(),
+                    Some(&api_key)
+                ).await.ok()
             }
         });
         
@@ -607,18 +605,10 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn record(&mut self, trial_name: String, session: &Session) -> Result<Trial, ModelHealthError> {
         use crate::network::TrialResponse;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let encoded_name = urlencoding::encode(&trial_name);
         let path = format!("/sessions/{}/record/?name={}", session.id, encoded_name);
         
-        let response: TrialResponse = self.network.request(
-            Method::GET,
-            &path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let response: TrialResponse = self.get(&path).await?;
         
         Ok(response.to_model())
     }
@@ -626,22 +616,14 @@ impl ModelHealthProvider for ModelHealthProviderImpl {
     async fn stop_recording(&mut self, session: &Session) -> Result<(), ModelHealthError> {
         use crate::network::TrialResponse;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let path = format!("/sessions/{}/stop/", session.id);
         
-        let _: TrialResponse = self.network.request(
-            Method::GET,
-            &path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let _: TrialResponse = self.get(&path).await?;
         
         Ok(())
     }
 
-async fn calibrate_camera(
+    async fn calibrate_camera(
         &mut self,
         session: &Session,
         checkerboard_details: CheckerboardDetails,
@@ -649,9 +631,6 @@ async fn calibrate_camera(
     ) -> Result<(), ModelHealthError> {
         use crate::network::{SessionResponse, TrialResponse, CalibrationImgResponse, 
                              ImgResponseStatus, SessionStatusResponse, CalibratedCamerasResponse};
-        
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
         // Set metadata with checkerboard details
         let metadata_path = format!(
@@ -666,52 +645,27 @@ async fn calibrate_camera(
             }
         );
         
-        let _: SessionResponse = self.network.request(
-            Method::GET,
-            &metadata_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let _: SessionResponse = self.get(&metadata_path).await?;
         
         // Start recording for calibration
         let calibration_path = format!("/sessions/{}/record/?name=calibration", session.id);
-        let trial: TrialResponse = self.network.request(
-            Method::GET,
-            &calibration_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let trial: TrialResponse = self.get(&calibration_path).await?;
         
         let calibration_img_path = format!("/sessions/{}/calibration_img/", session.id);
         
         // Poll until calibration is complete
         loop {
-            let response: CalibrationImgResponse = self.network.request(
-                Method::GET,
-                &calibration_img_path,
-                Some(token),
-                None::<&()>,
-            ).await?;
+            let response: CalibrationImgResponse = self.get(&calibration_img_path).await?;
             
             // Get session status for upload progress
             let session_status_path = format!("/sessions/{}/status/", session.id);
-            let session_status: SessionStatusResponse = self.network.request(
-                Method::GET,
-                &session_status_path,
-                Some(token),
-                None::<&()>,
-            ).await?;
+            let session_status: SessionStatusResponse = self.get(&session_status_path).await?;
             
             match response.status {
                 ImgResponseStatus::Done => {
                     // Check we have enough calibrated cameras
                     let calibrated_path = format!("/sessions/{}/get_n_calibrated_cameras/", session.id);
-                    let calibrated_response: CalibratedCamerasResponse = self.network.request(
-                        Method::GET,
-                        &calibrated_path,
-                        Some(token),
-                        None::<&()>,
-                    ).await?;
+                    let calibrated_response: CalibratedCamerasResponse = self.get(&calibrated_path).await?;
                     
                     if calibrated_response.calibrated_cameras_count < 2 {
                         return Err(ModelHealthError::Calibration(
@@ -730,12 +684,7 @@ async fn calibrate_camera(
                 _ => {
                     // Check trial status
                     let trial_path = format!("/trials/{}/", trial.id);
-                    let trial_status: TrialResponse = self.network.request(
-                        Method::GET,
-                        &trial_path,
-                        Some(token),
-                        None::<&()>,
-                    ).await?;
+                    let trial_status: TrialResponse = self.get(&trial_path).await?;
                     
                     if trial_status.status == "stopped" || trial_status.status == "processing" {
                         let is_uploading = trial_status.videos.iter().any(|v| v.video.is_none());
@@ -766,9 +715,6 @@ async fn calibrate_camera(
         use crate::network::{SessionResponse, TrialResponse, NeutralImgResponse, 
                              ImgResponseStatus, SessionStatusResponse};
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let metadata_path = format!(
             "/sessions/{}/set_metadata/?settings_data_sharing={}&settings_scaling_setup={}&settings_framerate={}&settings_session_name={}&settings_openSimModel={}&settings_augmenter_model={}&settings_filter_frequency={}",
             session.id,
@@ -781,20 +727,9 @@ async fn calibrate_camera(
             "default"
         );
         
-        let _: SessionResponse = self.network.request(
-            Method::GET,
-            &metadata_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
-        
+        let _: SessionResponse = self.get(&metadata_path).await?;
         let subject_path = format!("/sessions/{}/set_subject/?subject_id={}", session.id, subject.id);
-        let _: SessionResponse = self.network.request(
-            Method::GET,
-            &subject_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let _: SessionResponse = self.get(&subject_path).await?;
         
         let recording_path = format!(
             "/sessions/{}/record/?name=neutral&subject_id={}",
@@ -802,22 +737,11 @@ async fn calibrate_camera(
             subject.id
         );
 
-        let trial: TrialResponse = self.network.request(
-            Method::GET,
-            &recording_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
-        
+        let trial: TrialResponse = self.get(&recording_path).await?;
         let neutral_img_path = format!("/sessions/{}/neutral_img/", session.id);
         
         loop {
-            let response: NeutralImgResponse = self.network.request(
-                Method::GET,
-                &neutral_img_path,
-                Some(token),
-                None::<&()>,
-            ).await?;
+            let response: NeutralImgResponse = self.get(&neutral_img_path).await?;
             
             match response.status {
                 ImgResponseStatus::Done => {
@@ -835,24 +759,14 @@ async fn calibrate_camera(
                 _ => {
                     // Check trial status
                     let trial_path = format!("/trials/{}/", trial.id);
-                    let trial_status: TrialResponse = self.network.request(
-                        Method::GET,
-                        &trial_path,
-                        Some(token),
-                        None::<&()>,
-                    ).await?;
+                    let trial_status: TrialResponse = self.get(&trial_path).await?;
                     
                     if trial_status.status == "stopped" || trial_status.status == "processing" {
                         let is_uploading = trial_status.videos.iter().any(|v| v.video.is_none());
                         
                         if is_uploading {
                             let session_status_path = format!("/sessions/{}/status/", session.id);
-                            let session_status: SessionStatusResponse = self.network.request(
-                                Method::GET,
-                                &session_status_path,
-                                Some(token),
-                                None::<&()>,
-                            ).await?;
+                            let session_status: SessionStatusResponse = self.get(&session_status_path).await?;
                             
                             status_update(CalibrationStatus::Uploading {
                                 uploaded: session_status.n_videos_uploaded,
@@ -875,17 +789,8 @@ async fn calibrate_camera(
     async fn get_status(&self, trial: &Trial) -> Result<ActivityProcessingStatus, ModelHealthError> {
         use crate::network::{TrialResponse, SessionStatusResponse};
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let trial_path = format!("/trials/{}/", trial.id);
-        
-        let updated_trial: TrialResponse = self.network.request(
-            Method::GET,
-            &trial_path,
-            Some(token),
-            None::<&()>,
-        ).await?;
+        let updated_trial: TrialResponse = self.get(&trial_path).await?;
         
         match updated_trial.status.as_str() {
             "done" => Ok(ActivityProcessingStatus::Ready),
@@ -896,13 +801,7 @@ async fn calibrate_camera(
                 
                 if is_uploading {
                     let status_path = format!("/sessions/{}/status/", updated_trial.session);
-                    
-                    let session_status: SessionStatusResponse = self.network.request(
-                        Method::GET,
-                        &status_path,
-                        Some(token),
-                        None::<&()>,
-                    ).await?;
+                    let session_status: SessionStatusResponse = self.get(&status_path).await?;
                     
                     Ok(ActivityProcessingStatus::Uploading {
                         uploaded: session_status.n_videos_uploaded,
@@ -924,9 +823,6 @@ async fn calibrate_camera(
     ) -> Result<AnalysisTask, ModelHealthError> {
         use crate::network::InvokeAnalysisResponse;
         use serde_json::json;
-        
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
         
         let trial_name = trial.name.as_ref()
             .ok_or_else(|| ModelHealthError::InternalError("Trial has no name".to_string()))?;        
@@ -950,12 +846,7 @@ async fn calibrate_camera(
             "specific_trial_names": [trial_name],
         });
         
-        let response: InvokeAnalysisResponse = self.network.request(
-            Method::POST,
-            &path,
-            Some(token),
-            Some(&body),
-        ).await?;
+        let response: InvokeAnalysisResponse = self.post(&path, &body).await?;
         
         Ok(AnalysisTask {
             task_id: response.task_id,
@@ -965,15 +856,13 @@ async fn calibrate_camera(
     async fn get_analysis_status(&self, task: &AnalysisTask) -> Result<AnalysisTaskStatus, ModelHealthError> {
         use crate::network::{AnalysisStatusResponse, AnalysisState, HttpResponse};
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         let path = format!("/analysis-result/{}/", task.task_id);
         
         let response: HttpResponse<Option<AnalysisStatusResponse>> = self.network.request_with_status(
             Method::GET,
             &path,
-            Some(token),
+            self.token.as_deref(),
+            Some(&self.api_key),
             None::<&()>,
         ).await?;
         
@@ -1010,9 +899,6 @@ async fn calibrate_camera(
     ) -> Result<AnalysisResult, ModelHealthError> {
         use crate::network::AnalysisResultResponse;
         
-        let token = self.token.as_ref()
-            .ok_or(ModelHealthError::Url(crate::error::URLErrorCode::UserAuthenticationRequired))?;
-        
         // Find the result with matching tag
         let result = trial.results.iter()
             .find(|r| r.tag.as_ref() == Some(&result_tag))
@@ -1026,7 +912,8 @@ async fn calibrate_camera(
         let response: AnalysisResultResponse = self.network.request(
             Method::GET,
             media_url,
-            Some(token),
+            self.token.as_deref(),
+            Some(&self.api_key),
             None::<&()>,
         ).await?;
         
@@ -1040,32 +927,43 @@ mod tests {
     
     #[test]
     fn test_provider_creation() {
-        let provider = ModelHealthProviderImpl::new();
-        assert!(!provider.token.is_some());
+        let provider = ModelHealthProviderImpl::new("test-api-key".to_string());
+        assert_eq!(provider.api_key, "test-api-key");
+        assert!(provider.token.is_none());
     }
     
     #[test]
     fn test_provider_with_custom_config() {
         let config = Config::with_base_url("https://test.example.com".to_string());
-        let provider = ModelHealthProviderImpl::with_config(config);
-        assert!(!provider.token.is_some());
+        let provider = ModelHealthProviderImpl::with_config("test-api-key".to_string(), config);
+        assert_eq!(provider.api_key, "test-api-key");
+        assert!(provider.token.is_none());
     }
     
     #[tokio::test]
-    async fn test_is_authenticated_initially_false() {
-        let provider = ModelHealthProviderImpl::new();
-        assert!(!provider.is_authenticated().await);
-    }
-    
-    #[tokio::test]
-    async fn test_logout_clears_token() {
-        let mut provider = ModelHealthProviderImpl::new();
-        provider.token = Some("test-token".to_string());
-        
+    async fn test_is_authenticated_with_api_key() {
+        let provider = ModelHealthProviderImpl::new("test-api-key".to_string());
         assert!(provider.is_authenticated().await);
+    }
+    
+    #[tokio::test]
+    async fn test_is_authenticated_with_token() {
+        let mut provider = ModelHealthProviderImpl::new("test-api-key".to_string());
+        provider.token = Some("test-token".to_string());
+        assert!(provider.is_authenticated().await);
+    }
+    
+    #[tokio::test]
+    async fn test_logout_clears_token_not_api_key() {
+        let mut provider = ModelHealthProviderImpl::new("test-api-key".to_string());
+        provider.token = Some("test-token".to_string());
         
         provider.logout().await.unwrap();
         
-        assert!(!provider.is_authenticated().await);
+        // Token cleared but API key remains
+        assert!(provider.token.is_none());
+        assert_eq!(provider.api_key, "test-api-key");
+        // Still authenticated via API key
+        assert!(provider.is_authenticated().await);
     }
 }

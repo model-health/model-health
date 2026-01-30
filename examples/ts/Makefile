@@ -1,27 +1,42 @@
-.PHONY: help run open clean
+.PHONY: help install dev build preview clean
 
 help:
 	@echo "Model Health SDK Demo"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make run    - Start HTTP server and open in browser"
-	@echo "  make open   - Open demo in browser (server must be running)"
-	@echo "  make clean  - Stop any running servers"
+	@echo "  make install - Install npm dependencies"
+	@echo "  make dev     - Start dev server (accessible on network)"
+	@echo "  make build   - Build for production"
+	@echo "  make preview - Preview production build"
+	@echo "  make clean   - Clean build artifacts"
 	@echo ""
 
-run:
-	@echo "Starting HTTP server on http://localhost:8888"
-	@echo "Press Ctrl+C to stop the server"
-	@echo ""
-	@python3 -m http.server 8888 || python -m http.server 8888
+install:
+	@echo "Installing dependencies..."
+	npm install
 
-open:
-	@echo "Opening demo in browser..."
-	@command -v xdg-open > /dev/null && xdg-open http://localhost:8888 || \
-	 command -v open > /dev/null && open http://localhost:8888 || \
-	 echo "Please open http://localhost:8888 in your browser"
+dev:
+	@echo "Starting Vite dev server on network..."
+	@echo ""
+	@echo "Server will be accessible at:"
+	@echo "  • http://localhost:5173 (local only)"
+	@echo "  • http://192.168.x.x:5173 (from network)"
+	@echo ""
+	@echo "To find your IP: ifconfig | grep 'inet ' | grep -v 127.0.0.1"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	npm run dev
+
+build:
+	@echo "Building for production..."
+	npm run build
+
+preview:
+	@echo "Starting preview server..."
+	npm run preview
 
 clean:
-	@echo "Stopping any servers on port 8888..."
-	@lsof -ti:8888 | xargs kill -9 2>/dev/null || true
+	@echo "Cleaning build artifacts..."
+	rm -rf dist node_modules
 	@echo "Done"

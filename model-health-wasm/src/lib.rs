@@ -70,22 +70,30 @@ pub struct ModelHealthService {
 #[wasm_bindgen]
 impl ModelHealthService {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        let provider = Box::new(ModelHealthProviderImpl::new());
-        Self {
+    pub fn new(api_key: String) -> Result<ModelHealthService, JsValue> {
+        if api_key.is_empty() {
+            return Err(JsValue::from_str("API key cannot be empty"));
+        }
+
+        let provider = Box::new(ModelHealthProviderImpl::new(api_key));
+        Ok(Self {
             provider,
             storage: None,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = newDevelopment)]
-    pub fn new_development() -> Self {
+    pub fn new_development(api_key: String) -> Result<ModelHealthService, JsValue> {
+        if api_key.is_empty() {
+            return Err(JsValue::from_str("API key cannot be empty"));
+        }
+
         let config = Config::from_env();
-        let provider = ModelHealthProviderImpl::with_config(config);
-        Self {
+        let provider = ModelHealthProviderImpl::with_config(api_key, config);
+        Ok(Self {
             provider: Box::new(provider),
             storage: None,
-        }
+        })
     }
 
     #[wasm_bindgen(js_name = setStorage)]
@@ -490,14 +498,9 @@ impl ModelHealthService {
     }
 }
 
-impl Default for ModelHealthService {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[wasm_bindgen(js_name = calibrateCamera)]
 pub fn calibrate_camera_standalone(
+    api_key: String,
     token: String,
     session_json: JsValue,
     checkerboard_json: JsValue,
@@ -516,7 +519,7 @@ pub fn calibrate_camera_standalone(
     let future = async move {
         let callback = |_status: CalibrationStatus| {};
         
-        let mut provider = ModelHealthProviderImpl::new();
+        let mut provider = ModelHealthProviderImpl::new(api_key);
         provider.set_token(token);
         
         provider
@@ -531,6 +534,7 @@ pub fn calibrate_camera_standalone(
 
 #[wasm_bindgen(js_name = calibrateNeutralPose)]
 pub fn calibrate_neutral_pose_standalone(
+    api_key: String,
     token: String,
     subject_json: JsValue,
     session_json: JsValue,
@@ -549,7 +553,7 @@ pub fn calibrate_neutral_pose_standalone(
     let future = async move {
         let callback = |_status: CalibrationStatus| {};
         
-        let mut provider = ModelHealthProviderImpl::new();
+        let mut provider = ModelHealthProviderImpl::new(api_key);
         provider.set_token(token);
         
         provider

@@ -420,4 +420,15 @@ footer {
   .metrics-grid {
     grid-template-columns: 1fr;
   }
+
+  .api-key-notice {
+    color: #22c55e;
+    font-size: 0.9em;
+    margin-top: 0.5em;
+    font-weight: 500;
+  }
+
+  .api-key-notice::before {
+    content: '🔑 ';
+  }
 }

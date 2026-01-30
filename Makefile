@@ -1,5 +1,5 @@
 .PHONY: help docs docs-preview docs-build docs-export docs-zip docs-tar docs-package clean test
-.PHONY: swift swift-dev wasm wasm-dev kotlin kotlin-dev build-all build-all-dev
+.PHONY: swift swift-dev swift-debug wasm wasm-dev kotlin kotlin-dev build-all build-all-dev
 .PHONY: docs-swift docs-swift-build docs-swift-export docs-swift-preview
 .PHONY: docs-typescript docs-typescript-build docs-typescript-preview
 
@@ -17,6 +17,9 @@ help:
 	@echo "  make wasm-dev        - Build WebAssembly SDK (development mode)"
 	@echo "  make kotlin-dev      - Build Kotlin SDK (development mode - coming soon)"
 	@echo "  make build-all-dev   - Build all platform SDKs (development)"
+	@echo ""
+	@echo "Platform Builds (Debug - for stepping into Rust code):"
+	@echo "  make swift-debug     - Build Swift SDK (debug symbols, no optimization)"
 	@echo ""
 	@echo "Documentation - Combined:"
 	@echo "  make docs            - Build all documentation (Swift + TypeScript)"
@@ -76,6 +79,15 @@ build-all-dev: swift-dev wasm-dev
 	@echo "✅ All SDKs built successfully (development)!"
 	@echo "  - Swift: model-health-swift/ModelHealth.xcframework"
 	@echo "  - WASM:  model-health-ts/wasm/ + model-health-ts/dist/"
+
+# Platform-specific builds - Debug
+
+swift-debug:
+	@echo "Building Swift SDK (debug mode - full symbols, no optimization)..."
+	@./build-xcframework.sh debug
+	@echo ""
+	@echo "⚠️  Debug build complete - use this to step into Rust code in Xcode"
+	@echo "  Make sure your Xcode scheme is set to 'Debug' configuration"
 
 # Documentation - Combined
 
@@ -224,3 +236,4 @@ clean:
 	@echo "Cleaning example app..."
 	rm -rf examples/vite-react/node_modules examples/vite-react/dist
 	@echo "Clean complete"
+	
