@@ -1,9 +1,0 @@
-{
-  "entryPoints": [
-    "src/index.ts"
-  ],
-  "out": "../sdk-docs/typescript",
-  "plugin": [],
-  "hideGenerator": true,
-  "customCss": "./typedoc-custom.css"
-}
