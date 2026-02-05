@@ -1,38 +1,18 @@
-Package.resolved
-**/xcuserdata
-.swiftpm
-.build
-examples/ios/ModelHealthDemo.xcodeproj/xcshareddata
-ModelHealth-Documentation.tar.gz
-ModelHealth-Documentation.zip
-**/*.xcframework/
+# Xcode
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+DerivedData/
 
-# Rust
-target/
-**/*.rs.bk
-Cargo.lock
-**/include/
+# Swift Package Manager
+.build/
+.swiftpm/
 
 # macOS
 .DS_Store
-*.swp
-*~
-
-# Swift Package Manager
-.swiftpm/
+._*
 
 # IDE
 .vscode/
 .idea/
-
-# TypeScript / WASM builds
-model-health-ts/wasm/
-model-health-ts/dist/
-model-health-ts/node_modules/
-
-# Example WASM app
-examples/vite-react/node_modules/
-examples/vite-react/dist/
-package-lock.json
-examples/ts/node_modules
-package.json
+Package.resolved
