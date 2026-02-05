@@ -1,0 +1,498 @@
+#ifndef MODEL_HEALTH_H
+#define MODEL_HEALTH_H
+
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+/**
+ * Opaque handle to a `ModelHealthProvider` instance
+ */
+typedef struct ModelHealthProviderHandle {
+  uint8_t _private[0];
+} ModelHealthProviderHandle;
+
+/**
+ * Result of an FFI operation
+ */
+typedef struct FFIResult {
+  bool success;
+  char *error_message;
+} FFIResult;
+
+/**
+ * C-compatible Session
+ */
+typedef struct CSession {
+  char *id;
+  char *name;
+  char *session_name;
+  int32_t user;
+  bool is_public;
+  char *qrcode;
+  int32_t subject;
+  int32_t trials_count;
+} CSession;
+
+/**
+ * C-compatible array of sessions
+ */
+typedef struct CSessionArray {
+  struct CSession *sessions;
+  uintptr_t count;
+} CSessionArray;
+
+typedef struct CSubject {
+  int32_t id;
+  char *name;
+  double weight;
+  double height;
+  int32_t age;
+  int32_t birth_year;
+  int32_t gender;
+  int32_t sex_at_birth;
+  char *characteristics;
+  char *subject_tags_json;
+} CSubject;
+
+/**
+ * C-compatible array of subjects
+ */
+typedef struct CSubjectArray {
+  struct CSubject *subjects;
+  uintptr_t count;
+} CSubjectArray;
+
+/**
+ * C-compatible Video
+ */
+typedef struct CVideo {
+  char *id;
+  char *trial;
+  char *video;
+  char *video_thumb;
+} CVideo;
+
+/**
+ * C-compatible array of videos
+ */
+typedef struct CVideoArray {
+  struct CVideo *videos;
+  uintptr_t count;
+} CVideoArray;
+
+/**
+ * C-compatible Trial Result
+ */
+typedef struct CTrialResult {
+  int32_t id;
+  char *trial;
+  char *tag;
+  char *media;
+} CTrialResult;
+
+/**
+ * C-compatible array of trial results
+ */
+typedef struct CTrialResultArray {
+  struct CTrialResult *results;
+  uintptr_t count;
+} CTrialResultArray;
+
+/**
+ * C-compatible Trial
+ */
+typedef struct CTrial {
+  char *id;
+  char *session;
+  char *name;
+  char *status;
+  struct CVideoArray videos;
+  struct CTrialResultArray results;
+} CTrial;
+
+/**
+ * C-compatible array of trials
+ */
+typedef struct CTrialArray {
+  struct CTrial *trials;
+  uintptr_t count;
+} CTrialArray;
+
+/**
+ * C-compatible ActivityTag
+ */
+typedef struct CActivityTag {
+  char *value;
+  char *label;
+} CActivityTag;
+
+/**
+ * C-compatible array of activity tags
+ */
+typedef struct CActivityTagArray {
+  struct CActivityTag *tags;
+  uintptr_t count;
+} CActivityTagArray;
+
+/**
+ * C-compatible result data with file type
+ */
+typedef struct CResultData {
+  int32_t file_type;
+  uint8_t *data;
+  uintptr_t length;
+} CResultData;
+
+/**
+ * C-compatible array of result data
+ */
+typedef struct CResultDataArray {
+  struct CResultData *items;
+  uintptr_t count;
+} CResultDataArray;
+
+/**
+ * C-compatible byte data
+ */
+typedef struct CData {
+  uint8_t *data;
+  uintptr_t length;
+} CData;
+
+/**
+ * C-compatible array of byte data
+ */
+typedef struct CDataArray {
+  struct CData *items;
+  uintptr_t count;
+} CDataArray;
+
+/**
+ * Callback for calibration status updates
+ *
+ * # Parameters
+ * - `user_data`: Opaque pointer passed through from the caller
+ * - `status`: JSON string representing `CalibrationStatus`
+ */
+typedef void (*CalibrationStatusCallback)(void *user_data, const char *status);
+
+/**
+ * C-compatible `AnalysisTask`
+ */
+typedef struct CAnalysisTask {
+  char *task_id;
+} CAnalysisTask;
+
+/**
+ * Free an error message allocated by the FFI
+ */
+void model_health_free_error(char *error_message);
+
+/**
+ * Free a string allocated by the FFI
+ */
+void model_health_free_string(char *string);
+
+/**
+ * Create a new `ModelHealth` provider with API key
+ */
+struct ModelHealthProviderHandle *model_health_provider_new(const char *api_key);
+
+/**
+ * Free a `ModelHealth` provider
+ */
+void model_health_provider_free(struct ModelHealthProviderHandle *handle);
+
+/**
+ * Register a new user
+ */
+struct FFIResult model_health_register(struct ModelHealthProviderHandle *handle,
+                                       const char *username,
+                                       const char *email,
+                                       const char *password,
+                                       const char *first_name,
+                                       const char *last_name,
+                                       bool newsletter);
+
+/**
+ * Login with username and password
+ * Returns 0 for Ok, 1 for `VerificationRequired`, -1 for error
+ */
+struct FFIResult model_health_login(struct ModelHealthProviderHandle *handle,
+                                    const char *username,
+                                    const char *password,
+                                    int32_t *result);
+
+/**
+ * Verify two-factor authentication code
+ */
+struct FFIResult model_health_verify(struct ModelHealthProviderHandle *handle,
+                                     const char *code,
+                                     bool remember_device);
+
+/**
+ * Logout
+ */
+struct FFIResult model_health_logout(struct ModelHealthProviderHandle *handle);
+
+/**
+ * Check if authenticated
+ */
+struct FFIResult model_health_is_authenticated(struct ModelHealthProviderHandle *handle,
+                                               bool *result);
+
+/**
+ * Get the current authentication token
+ * Returns empty string if not authenticated
+ */
+char *model_health_get_token(struct ModelHealthProviderHandle *handle);
+
+/**
+ * Set authentication token to restore session
+ */
+struct FFIResult model_health_set_token(struct ModelHealthProviderHandle *handle,
+                                        const char *token);
+
+/**
+ * Free a session array
+ */
+void model_health_free_session_array(struct CSessionArray array);
+
+/**
+ * Free a subject array
+ */
+void model_health_free_subject_array(struct CSubjectArray array);
+
+/**
+ * Free a trial array
+ */
+void model_health_free_trial_array(struct CTrialArray array);
+
+/**
+ * Free a video array
+ */
+void model_health_free_video_array(struct CVideoArray array);
+
+/**
+ * Free a trial result array
+ */
+void model_health_free_trial_result_array(struct CTrialResultArray array);
+
+/**
+ * Free an activity tag array
+ */
+void model_health_free_activity_tag_array(struct CActivityTagArray array);
+
+/**
+ * Free a result data array
+ */
+void model_health_free_result_data_array(struct CResultDataArray array);
+
+/**
+ * Free a data array
+ */
+void model_health_free_data_array(struct CDataArray array);
+
+/**
+ * Get list of sessions
+ */
+struct FFIResult model_health_session_list(struct ModelHealthProviderHandle *handle,
+                                           struct CSessionArray *result);
+
+/**
+ * Get a specific session by ID with populated trials
+ */
+struct FFIResult model_health_get_session(struct ModelHealthProviderHandle *handle,
+                                          const char *session_id,
+                                          struct CSession *result);
+
+/**
+ * Get list of subjects
+ */
+struct FFIResult model_health_subject_list(struct ModelHealthProviderHandle *handle,
+                                           struct CSubjectArray *result);
+
+/**
+ * Get trials for a specific session
+ */
+struct FFIResult model_health_trial_list_for_session(struct ModelHealthProviderHandle *handle,
+                                                     const char *session_id,
+                                                     struct CTrialArray *result);
+
+/**
+ * Download videos for a trial
+ */
+struct FFIResult model_health_download_trial_videos(struct ModelHealthProviderHandle *handle,
+                                                    const char *trial_id,
+                                                    const char *session_id,
+                                                    int32_t version,
+                                                    struct CDataArray *result);
+
+/**
+ * Download result data for a trial
+ */
+struct FFIResult model_health_download_trial_result_data(struct ModelHealthProviderHandle *handle,
+                                                         const char *trial_id,
+                                                         const char *session_id,
+                                                         const int32_t *data_types,
+                                                         uintptr_t data_type_count,
+                                                         struct CResultDataArray *result);
+
+/**
+ * Download videos from URLs
+ */
+struct FFIResult model_health_download_videos(struct ModelHealthProviderHandle *handle,
+                                              const char *const *urls,
+                                              uintptr_t url_count,
+                                              struct CDataArray *result);
+
+/**
+ * Create a new session
+ */
+struct FFIResult model_health_create_session(struct ModelHealthProviderHandle *handle,
+                                             struct CSession *result);
+
+/**
+ * Create a new subject
+ */
+struct FFIResult model_health_create_subject(struct ModelHealthProviderHandle *handle,
+                                             const char *name,
+                                             double weight,
+                                             double height,
+                                             int32_t birth_year,
+                                             int32_t sex_at_birth,
+                                             int32_t gender,
+                                             bool terms,
+                                             struct CSubject *result);
+
+/**
+ * Start recording a trial
+ */
+struct FFIResult model_health_record(struct ModelHealthProviderHandle *handle,
+                                     const char *trial_name,
+                                     const char *session_id,
+                                     struct CTrial *result);
+
+/**
+ * Stop recording in a session
+ */
+struct FFIResult model_health_stop_recording(struct ModelHealthProviderHandle *handle,
+                                             const char *session_id);
+
+/**
+ * Start camera calibration
+ *
+ * The callback will be invoked periodically with status updates.
+ * Status is provided as a JSON string that should be parsed on the client side.
+ */
+struct FFIResult model_health_calibrate_camera(struct ModelHealthProviderHandle *handle,
+                                               const char *session_id,
+                                               int32_t rows,
+                                               int32_t columns,
+                                               int32_t square_size,
+                                               int32_t placement,
+                                               CalibrationStatusCallback callback,
+                                               void *user_data);
+
+/**
+ * Start neutral pose calibration
+ */
+struct FFIResult model_health_calibrate_neutral_pose(struct ModelHealthProviderHandle *handle,
+                                                     const char *session_id,
+                                                     int32_t subject_id,
+                                                     CalibrationStatusCallback callback,
+                                                     void *user_data);
+
+/**
+ * Free an analysis task
+ */
+void model_health_free_analysis_task(struct CAnalysisTask task);
+
+/**
+ * Start analysis on a trial
+ *
+ * # Parameters
+ * - `analysis_type`: 0 = `CounterMovementJump`
+ */
+struct FFIResult model_health_start_analysis(struct ModelHealthProviderHandle *handle,
+                                             int32_t analysis_type,
+                                             const char *trial_id,
+                                             const char *session_id,
+                                             struct CAnalysisTask *result);
+
+/**
+ * Get analysis status
+ *
+ * Returns:
+ * - status: 0 = Processing, 1 = Completed, 2 = Failed
+ * - `result_tags`: JSON array of result tags (if completed), NULL otherwise
+ */
+struct FFIResult model_health_get_analysis_status(struct ModelHealthProviderHandle *handle,
+                                                  const char *task_id,
+                                                  int32_t *status,
+                                                  char **result_tags_json);
+
+/**
+ * Download analysis result
+ *
+ * Returns the analysis result as a JSON string
+ */
+struct FFIResult model_health_download_analysis_result(struct ModelHealthProviderHandle *handle,
+                                                       const char *trial_id,
+                                                       const char *result_tag,
+                                                       char **result_json);
+
+/**
+ * Get trial processing status
+ *
+ * Returns:
+ * - status: 0 = Uploading, 1 = Processing, 2 = Ready, 3 = Failed
+ * - uploaded/total: For uploading status (otherwise 0)
+ */
+struct FFIResult model_health_get_trial_status(struct ModelHealthProviderHandle *handle,
+                                               const char *trial_id,
+                                               const char *session_id,
+                                               int32_t *status,
+                                               int32_t *uploaded,
+                                               int32_t *total);
+
+/**
+ * Get activities for a specific subject with pagination and sorting
+ */
+struct FFIResult model_health_activities_for_subject(struct ModelHealthProviderHandle *handle,
+                                                     const char *subject_id,
+                                                     int32_t start_index,
+                                                     int32_t count,
+                                                     int32_t sort,
+                                                     struct CTrialArray *result);
+
+/**
+ * Get a specific activity by ID
+ */
+struct FFIResult model_health_get_activity(struct ModelHealthProviderHandle *handle,
+                                           const char *activity_id,
+                                           struct CTrial *result);
+
+/**
+ * Update an activity
+ */
+struct FFIResult model_health_update_activity(struct ModelHealthProviderHandle *handle,
+                                              const char *activity_id,
+                                              const char *name,
+                                              struct CTrial *result);
+
+/**
+ * Delete an activity
+ */
+struct FFIResult model_health_delete_activity(struct ModelHealthProviderHandle *handle,
+                                              const char *activity_id);
+
+/**
+ * Get all available activity tags
+ */
+struct FFIResult model_health_activity_tags(struct ModelHealthProviderHandle *handle,
+                                            struct CActivityTagArray *result);
+
+#endif /* MODEL_HEALTH_H */
