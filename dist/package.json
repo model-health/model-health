@@ -1,0 +1,40 @@
+{
+  "name": "@modelhealth/sdk",
+  "version": "0.1.4",
+  "description": "Model Health SDK for TypeScript/JavaScript",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "wasm",
+    "model_health_wasm.js",
+    "model_health_wasm.d.ts",
+    "model_health_wasm_bg.wasm",
+    "model_health_wasm_bg.wasm.d.ts"
+  ],
+  "scripts": {
+    "build:wasm": "wasm-pack build ../model-health-wasm --target web --out-dir ../../model-health-ts/wasm --scope modelhealth",
+    "build:ts": "tsc",
+    "build": "npm run build:wasm && npm run build:ts",
+    "dev": "npm run build:wasm -- --dev && tsc --watch",
+    "clean": "rm -rf dist wasm node_modules"
+  },
+  "keywords": [
+    "modelhealth",
+    "biomechanics",
+    "motion-analysis",
+    "sdk"
+  ],
+  "author": "Model Health",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/model-health/model-health"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typedoc": "^0.28.15",
+    "typescript": "^5.3.0"
+  }
+}
