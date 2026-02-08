@@ -16,3 +16,4 @@ DerivedData/
 .vscode/
 .idea/
 Package.resolved
+examples/ts/node_modules

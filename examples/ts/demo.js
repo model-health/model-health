@@ -183,6 +183,15 @@ function renderStep1() {
           ID: ${state.session.id}<br>
           Name: ${state.session.name}
         </div>
+        
+        ${state.session.qrcode ? `
+          <div style="margin: 20px 0; text-align: center;">
+            <h3>Session QR Code</h3>
+            <img src="${state.session.qrcode}" alt="Session QR Code" style="max-width: 300px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background: white;" />
+            <p style="font-size: 14px; color: #666; margin-top: 10px;">Scan this code to link devices to this session</p>
+          </div>
+        ` : ''}
+        
         <button onclick="nextStep()" class="secondary">Continue</button>
       </div>
     `;
@@ -856,7 +865,7 @@ async function init() {
 
   try {
     state.client = new ModelHealthService({
-      apiKey: "mh_a33852066e58ed71a5683a33eb52f8aafed95b63"
+      apiKey: "mh_aabdf0739662564e62d347defab3637fbdbe260a"
     });
 
     await state.client.init();
