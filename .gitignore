@@ -17,3 +17,6 @@ DerivedData/
 .idea/
 Package.resolved
 examples/ts/node_modules
+
+# SDK Documentation
+sdk-docs/
