@@ -78,10 +78,10 @@ export interface InitOutput {
     readonly modelhealthservice_trialList: (a: number, b: number, c: number) => any;
     readonly modelhealthservice_updateActivity: (a: number, b: any) => any;
     readonly modelhealthservice_verify: (a: number, b: number, c: number, d: number) => any;
-    readonly wasm_bindgen__closure__destroy__ha71e9a94fc0225d6: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__haaf7ae974232f393: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hb3dc8239211a7dce: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h34a416afb1ff4b4f: (a: number, b: number) => number;
+    readonly wasm_bindgen__closure__destroy__h7623950b97f87fe8: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h578f205e426c6879: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h047f284fd3985509: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hf5c938e98822d223: (a: number, b: number) => number;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

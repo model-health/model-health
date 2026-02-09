@@ -8,7 +8,7 @@ Swift and TypeScript SDK for biomechanical analysis from smartphone videos.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/model-health/model-health.git", from: "0.1.7")
+    .package(url: "https://github.com/model-health/model-health.git", from: "0.1.8")
 ]
 ```
 
@@ -20,7 +20,7 @@ Or in Xcode:
 ### npm
 
 ```bash
-npm install @modelhealth/sdk@0.1.7
+npm install @modelhealth/sdk@0.1.8
 ```
 
 ## Quick Start
@@ -30,7 +30,7 @@ npm install @modelhealth/sdk@0.1.7
 ```swift
 import ModelHealth
 
-let service = ModelHealthService()
+let service = ModelHealthService(apiKey: "your-api-key")
 let result = try await service.login(username: "user@example.com", password: "password")
 ```
 
@@ -39,7 +39,7 @@ let result = try await service.login(username: "user@example.com", password: "pa
 ```typescript
 import { ModelHealthService } from '@modelhealth/sdk';
 
-const service = new ModelHealthService();
+const service = new ModelHealthService({ apiKey: "your-api-key"});
 await service.login('user@example.com', 'password');
 ```
 
@@ -58,4 +58,4 @@ See the [`examples/`](./examples) directory for complete working implementations
 
 ## Latest Release
 
-**Version 0.1.7** - View [all releases](https://github.com/model-health/model-health/releases) for version history.
+**Version 0.1.8** - View [all releases](https://github.com/model-health/model-health/releases) for version history.
