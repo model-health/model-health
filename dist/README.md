@@ -258,8 +258,6 @@ import type {
   Session,
   Subject,
   Trial,
-  LoginResult,
-  RegistrationParameters,
   CheckerboardDetails,
   // ... etc
 } from '@modelhealth/sdk';
