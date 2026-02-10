@@ -16,28 +16,20 @@ export class ModelHealthService {
     getAnalysisStatus(task_json: any): Promise<any>;
     getSession(session_id: string): Promise<any>;
     getStatus(trial_json: any): Promise<any>;
-    getToken(): string | undefined;
     isAuthenticated(): Promise<boolean>;
-    login(username: string, password: string): Promise<any>;
-    logout(): Promise<void>;
     constructor(api_key: string);
     record(trial_name: string, session_json: any): Promise<any>;
-    register(parameters: any): Promise<void>;
-    restoreToken(): Promise<boolean>;
     sessionList(): Promise<any>;
-    setStorage(storage: TokenStorage): void;
-    setToken(token: string): void;
     startAnalysis(analysis_type_json: any, trial_json: any, session_json: any): Promise<any>;
     stopRecording(session_json: any): Promise<void>;
     subjectList(): Promise<any>;
     trialList(session_id: string): Promise<any>;
     updateActivity(activity_json: any): Promise<any>;
-    verify(code: string, remember_device: boolean): Promise<void>;
 }
 
-export function calibrateCamera(api_key: string, token: string, session_json: any, checkerboard_json: any, _status_callback: Function): Promise<any>;
+export function calibrateCamera(api_key: string, session_json: any, checkerboard_json: any, _status_callback: Function): Promise<any>;
 
-export function calibrateNeutralPose(api_key: string, token: string, subject_json: any, session_json: any, _status_callback: Function): Promise<any>;
+export function calibrateNeutralPose(api_key: string, subject_json: any, session_json: any, _status_callback: Function): Promise<any>;
 
 export function init(): void;
 
@@ -46,8 +38,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_modelhealthservice_free: (a: number, b: number) => void;
-    readonly calibrateCamera: (a: number, b: number, c: number, d: number, e: any, f: any, g: any) => any;
-    readonly calibrateNeutralPose: (a: number, b: number, c: number, d: number, e: any, f: any, g: any) => any;
+    readonly calibrateCamera: (a: number, b: number, c: any, d: any, e: any) => any;
+    readonly calibrateNeutralPose: (a: number, b: number, c: any, d: any, e: any) => any;
     readonly init: () => void;
     readonly modelhealthservice_createSession: (a: number) => any;
     readonly modelhealthservice_createSubject: (a: number, b: any) => any;
@@ -61,23 +53,15 @@ export interface InitOutput {
     readonly modelhealthservice_getAnalysisStatus: (a: number, b: any) => any;
     readonly modelhealthservice_getSession: (a: number, b: number, c: number) => any;
     readonly modelhealthservice_getStatus: (a: number, b: any) => any;
-    readonly modelhealthservice_getToken: (a: number) => [number, number];
     readonly modelhealthservice_isAuthenticated: (a: number) => any;
-    readonly modelhealthservice_login: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly modelhealthservice_logout: (a: number) => any;
     readonly modelhealthservice_new: (a: number, b: number) => [number, number, number];
     readonly modelhealthservice_record: (a: number, b: number, c: number, d: any) => any;
-    readonly modelhealthservice_register: (a: number, b: any) => any;
-    readonly modelhealthservice_restoreToken: (a: number) => any;
     readonly modelhealthservice_sessionList: (a: number) => any;
-    readonly modelhealthservice_setStorage: (a: number, b: any) => void;
-    readonly modelhealthservice_setToken: (a: number, b: number, c: number) => void;
     readonly modelhealthservice_startAnalysis: (a: number, b: any, c: any, d: any) => any;
     readonly modelhealthservice_stopRecording: (a: number, b: any) => any;
     readonly modelhealthservice_subjectList: (a: number) => any;
     readonly modelhealthservice_trialList: (a: number, b: number, c: number) => any;
     readonly modelhealthservice_updateActivity: (a: number, b: any) => any;
-    readonly modelhealthservice_verify: (a: number, b: number, c: number, d: number) => any;
     readonly wasm_bindgen__closure__destroy__hef952482e2fa4b82: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hc62088f6e4aadc8d: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h39a0ca41b93efad1: (a: number, b: number, c: any) => void;

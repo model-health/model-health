@@ -6,35 +6,6 @@
  * @packageDocumentation
  */
 /**
- * Result of a login attempt.
- *
- * - `ok`: Login successful, user is authenticated
- * - `verification_required`: Two-factor authentication required
- */
-export type LoginResult = "ok" | "verification_required";
-/**
- * Unit system preference for measurements.
- */
-export type Unit = "metric" | "imperial";
-/**
- * Parameters required for creating a new user account.
- */
-export interface RegistrationParameters {
-    username: string;
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    country?: string;
-    institution?: string;
-    profession?: string;
-    reason?: string;
-    website?: string;
-    language?: string;
-    unit?: Unit;
-    newsletter: boolean;
-}
-/**
  * A session represents a collection of activities recorded together.
  *
  * Sessions contain multiple activities, each with their own videos and analysis results.

@@ -24,8 +24,7 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { LoginResult, RegistrationParameters, CheckerboardDetails, Session, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, ResultDataType, ResultData, AnalysisType, AnalysisTask, AnalysisTaskStatus, ActivityProcessingStatus, TokenStorage, CalibrationStatus, AnalysisResult } from "./types.js";
-import { MemoryTokenStorage, LocalStorageTokenStorage } from "./types.js";
+import type { CheckerboardDetails, Session, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, ResultDataType, ResultData, AnalysisType, AnalysisTask, AnalysisTaskStatus, ActivityProcessingStatus, CalibrationStatus, AnalysisResult } from "./types.js";
 /**
  * Configuration options for the Model Health client.
  */
@@ -39,14 +38,6 @@ export interface ModelHealthConfig {
      * @required
      */
     apiKey: string;
-    /**
-     * Token storage implementation for persisting authentication.
-     *
-     * Provide a custom implementation for secure storage.
-     *
-     * @default MemoryTokenStorage (not secure - for development only)
-     */
-    storage?: TokenStorage;
     /**
      * Automatically initialize WASM on construction.
      *
@@ -77,15 +68,13 @@ export interface ModelHealthConfig {
  * @example With custom configuration
  * ```typescript
  * const client = new ModelHealthService({
- *   apiKey: "your-api-key",
- *   storage: new LocalStorageTokenStorage()
+ *   apiKey: "your-api-key"
  * });
  * await client.init();
  * ```
  */
 export declare class ModelHealthService {
     private wasmClient;
-    private storage;
     private config;
     private initialized;
     /**
@@ -105,7 +94,6 @@ export declare class ModelHealthService {
      * ```typescript
      * const client = new ModelHealthService({
      *   apiKey: "your-api-key",
-     *   storage: new LocalStorageTokenStorage(),
      *   autoInit: false
      * });
      * ```
@@ -137,110 +125,6 @@ export declare class ModelHealthService {
      */
     private ensureInitialized;
     /**
-     * Registers a new user account.
-     *
-     * Creates a new user account and automatically authenticates the user.
-     * After successful registration, the SDK is ready to use immediately
-     * without requiring a separate login call.
-     *
-     * @param parameters Registration details including credentials and user information
-     * @throws If registration fails (duplicate username/email, validation errors, etc.)
-     *
-     * @example
-     * ```typescript
-     * const params = {
-     *   username: "user123",
-     *   email: "user@example.com",
-     *   password: "securePassword123456789",
-     *   first_name: "John",
-     *   last_name: "Doe",
-     *   country: "United States",
-     *   institution: "Example University",
-     *   profession: "Researcher",
-     *   reason: "Biomechanical research",
-     *   language: "en",
-     *   unit: "metric",
-     *   newsletter: false
-     * };
-     *
-     * await client.register(params);
-     * // User is now authenticated and ready to use SDK
-     * ```
-     */
-    register(parameters: RegistrationParameters): Promise<void>;
-    /**
-     * Authenticates a user with username and password.
-     *
-     * This initiates the login process. Depending on the account's security settings
-     * and device trust status, either:
-     * - Returns `"ok"` if the device is trusted (previously verified with
-     *   `rememberDevice: true` within the last 90 days)
-     * - Returns `"verification_required"` if email verification is needed
-     *
-     * When verification is required, a code is automatically sent to the user's
-     * registered email address. Complete authentication by calling `verify()`.
-     *
-     * @param username User's email address
-     * @param password User's password
-     * @returns A `LoginResult` indicating whether verification is required
-     * @throws If authentication fails (invalid credentials, network issues, etc.)
-     *
-     * @example
-     * ```typescript
-     * const result = await client.login("user@example.com", "secure_pass");
-     *
-     * switch (result) {
-     *   case "ok":
-     *     // Authentication complete, proceed with SDK usage
-     *     console.log("Login successful");
-     *     break;
-     *
-     *   case "verification_required":
-     *     // Prompt user for email verification code and
-     *     // trust this device for 90 days
-     *     const code = await promptUserForCode();
-     *     await client.verify(code, true);
-     *     break;
-     * }
-     * ```
-     */
-    login(username: string, password: string): Promise<LoginResult>;
-    /**
-     * Completes authentication by verifying an email code.
-     *
-     * After `login()` returns `"verification_required"`, call this method with
-     * the verification code sent to the user's email.
-     *
-     * Set `rememberDevice: true` to skip email verification on this device for 90 days.
-     * Future login attempts from this device will return `"ok"` directly.
-     *
-     * @param code 6-digit verification code from email
-     * @param rememberDevice If `true`, trust this device for 90 days (default: `false`)
-     * @throws If the code is invalid or expired
-     *
-     * @example
-     * ```typescript
-     * // After receiving "verification_required" from login
-     * await client.verify("123456", true);
-     * // Authentication now complete, SDK ready for use
-     * ```
-     */
-    verify(code: string, rememberDevice: boolean): Promise<void>;
-    /**
-     * Logs out the current user.
-     *
-     * After logout, the user must call `login()` or `register()` to use the SDK again.
-     *
-     * @throws If the logout request fails
-     *
-     * @example
-     * ```typescript
-     * await client.logout();
-     * // User is now logged out
-     * ```
-     */
-    logout(): Promise<void>;
-    /**
      * Checks if a user is currently authenticated.
      *
      * @returns `true` if authenticated, `false` otherwise
@@ -256,37 +140,6 @@ export declare class ModelHealthService {
      * ```
      */
     isAuthenticated(): Promise<boolean>;
-    /**
-     * Get the current authentication token.
-     *
-     * @returns The authentication token string, or null if not authenticated
-     *
-     * @example
-     * ```typescript
-     * const token = client.getToken();
-     * if (token) {
-     *   // Store for later use
-     *   localStorage.setItem('backup_token', token);
-     * }
-     * ```
-     */
-    getToken(): string | null;
-    /**
-     * Set authentication token directly.
-     *
-     * Use this to restore a previously saved session without logging in again.
-     *
-     * @param token The authentication token to restore
-     *
-     * @example
-     * ```typescript
-     * const savedToken = localStorage.getItem('backup_token');
-     * if (savedToken) {
-     *   client.setToken(savedToken);
-     * }
-     * ```
-     */
-    setToken(token: string): void;
     /**
      * Retrieves all sessions for the authenticated user.
      *
@@ -846,5 +699,4 @@ export declare class ModelHealthService {
     private parseResponse;
 }
 export * from "./types.js";
-export { MemoryTokenStorage, LocalStorageTokenStorage };
 //# sourceMappingURL=index.d.ts.map
