@@ -17,7 +17,7 @@ struct ModelHealthDemoApp: App {
         if isMockBackend {
             service = ModelHealthService(serviceProvider: MockModelHealthProvider())
         } else {
-            service = try! ModelHealthService(apiKey: "mh_a33852066e58ed71a5683a33eb52f8aafed95b63")
+            service = try! ModelHealthService(apiKey: "mh_aabdf0739662564e62d347defab3637fbdbe260a")
         }
     }
 
