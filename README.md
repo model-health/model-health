@@ -8,14 +8,14 @@ Swift and TypeScript SDK for biomechanical analysis from smartphone videos.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/model-health/model-health.git", from: "0.1.10")
+    .package(url: "https://github.com/model-health/model-health.git", from: "0.1.11")
 ]
 ```
 
 ### npm
 
 ```bash
-npm install @modelhealth/sdk@0.1.10
+npm install @modelhealth/sdk@0.1.11
 ```
 
 ## Documentation
@@ -24,4 +24,4 @@ npm install @modelhealth/sdk@0.1.10
 
 ## Latest Release
 
-**Version 0.1.10**
+**Version 0.1.11**
