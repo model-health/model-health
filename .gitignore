@@ -20,3 +20,5 @@ examples/ts/node_modules
 
 # SDK Documentation
 sdk-docs/
+ModelHealthFFI.xcframework
+*.zip
