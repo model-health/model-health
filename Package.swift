@@ -19,7 +19,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "ModelHealthFFI",
-            path: "ModelHealthFFI.xcframework"
+            url: "https://github.com/model-health/model-health/releases/download/v0.1.14/ModelHealthFFI.xcframework.zip",
+            checksum: "e1451106029c54887aca6369bdf494adb01d4521cc403df7ccd956ccb8940504"
         ),
         .target(
             name: "ModelHealth",
