@@ -9,6 +9,7 @@ const state = {
   sessionIsNew: false,
   subjects: [],
   subject: null,
+  creatingSubject: false,
   trial: null,
   analysisTask: null,
   results: null,
@@ -253,6 +254,64 @@ function renderStep2() {
         <button onclick="nextStep()" class="secondary">Continue to Next Step</button>
       </div>
     `;
+  } else if (state.creatingSubject) {
+    // Show create subject form
+    content.innerHTML = `
+      <div class="card">
+        <h2>Step 2: Create New Subject</h2>
+        
+        <div class="form-group">
+          <label for="subject-name">Full Name:</label>
+          <input type="text" id="subject-name" placeholder="Jane Doe" />
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-height">Height (cm):</label>
+          <input type="number" id="subject-height" />
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-weight">Weight (kg):</label>
+          <input type="number" id="subject-weight" />
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-birth-year">Birth Year:</label>
+          <input type="number" id="subject-birth-year" />
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-sex">Sex at Birth:</label>
+          <select id="subject-sex">
+            <option value="woman">Woman</option>
+            <option value="man">Man</option>
+            <option value="intersex">Intersex</option>
+            <option value="not_listed">Not Listed</option>
+            <option value="no_response">Prefer Not to Say</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-gender">Gender:</label>
+          <select id="subject-gender">
+            <option value="woman">Woman</option>
+            <option value="man">Man</option>
+            <option value="transgender">Transgender</option>
+            <option value="non_binary">Non-Binary</option>
+            <option value="no_response">Prefer Not to Say</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="subject-tags">Tags (comma-separated):</label>
+          <input type="text" id="subject-tags" placeholder="unimpaired" />
+        </div>
+        
+        <button onclick="handleCreateSubject()" ${state.isProcessing ? 'disabled' : ''}>
+          ${state.isProcessing ? 'Creating...' : 'Create Subject'}
+        </button>
+      </div>
+    `;
   } else if (state.subjects.length > 0) {
     // Show subject list
     const subjectOptions = state.subjects.map(subject => `
@@ -270,11 +329,13 @@ function renderStep2() {
     content.innerHTML = `
       <div class="card">
         <h2>Step 2: Select Subject</h2>
-        <p>Choose an existing subject for this session. Click to select.</p>
+        <p>Choose an existing subject or create a new one.</p>
         
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div style="max-height: 400px; overflow-y: auto; margin-bottom: 15px;">
           ${subjectOptions}
         </div>
+        
+        <button onclick="showCreateSubject()">Create New Subject</button>
       </div>
     `;
   } else {
@@ -547,6 +608,60 @@ async function handleSelectSubject(subjectId) {
   }
 }
 
+function showCreateSubject() {
+  state.creatingSubject = true;
+  renderStep2();
+}
+
+async function handleCreateSubject() {
+  const name = document.getElementById('subject-name').value.trim();
+  if (!name) {
+    log('Please enter a name', 'error');
+    return;
+  }
+
+  const weight = parseFloat(document.getElementById('subject-weight').value);
+  const height = parseFloat(document.getElementById('subject-height').value);
+  const birthYear = parseInt(document.getElementById('subject-birth-year').value);
+  const sexAtBirth = document.getElementById('subject-sex').value;
+  const gender = document.getElementById('subject-gender').value;
+  const tagsInput = document.getElementById('subject-tags').value;
+  const tags = tagsInput
+    ? tagsInput.split(',').map(t => t.trim()).filter(t => t)
+    : ['unimpaired'];
+
+  state.isProcessing = true;
+  renderStep2();
+
+  const parameters = {
+    name: name,
+    weight: weight,
+    height: height,
+    birth_year: birthYear,
+    sex_at_birth: sexAtBirth,
+    gender: gender,
+    characteristics: '',
+    subject_tags: tags,
+    terms: true,
+  };
+
+  log(`Calling client.createSubject("${name}")`);
+
+  try {
+    const subject = await state.client.createSubject(parameters);
+    state.subject = subject;
+    state.subjects.push(subject);
+    state.creatingSubject = false;
+    state.isProcessing = false;
+    log(`Subject created: ${subject.name} (ID: ${subject.id})`, 'success');
+    renderStep2();
+  } catch (error) {
+    log(`Failed to create subject: ${error.message}`, 'error');
+    state.isProcessing = false;
+    renderStep2();
+  }
+}
+
 async function handleCameraCalibration() {
   const details = {
     rows: parseInt(document.getElementById('cb-rows').value),
@@ -809,6 +924,7 @@ function resetDemo() {
     state.sessionIsNew = false;
     state.subjects = [];
     state.subject = null;
+    state.creatingSubject = false;
     state.trial = null;
     state.analysisTask = null;
     state.results = null;
@@ -900,5 +1016,7 @@ window.nextStep = nextStep;
 window.prevStep = prevStep;
 window.loadSessions = loadSessions;
 window.handleSelectSession = handleSelectSession;
+window.showCreateSubject = showCreateSubject;
+window.handleCreateSubject = handleCreateSubject;
 
 init();

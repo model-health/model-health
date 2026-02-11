@@ -54,6 +54,15 @@ struct SessionListView: View {
                 }
             }
             .navigationTitle("Sessions")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        CreateSessionView()
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                    }
+                }
+            }
             .task {
                 guard case .notStarted = loadingState else {
                     return
