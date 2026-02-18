@@ -152,7 +152,7 @@ private extension SessionListView {
             async let subjectsAsync = try await modelHealth.subjectList()
 
             let (sessions, subjects) = try await (sessionsAsync, subjectsAsync)
-            loadingState = .loaded(sessions, subjects)
+            loadingState = .loaded(sessions.filter { $0.subject != nil }, subjects)
         } catch let error as ModelHealthError {
             loadingState = .error(error.message)
         } catch {
@@ -170,7 +170,7 @@ struct SessionRow: View {
                 .font(.headline)
 
             HStack {
-                Text(session.sessionName)
+                Text(session.sessionName.isEmpty ? String(session.id.dropLast(28)) : session.sessionName)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 

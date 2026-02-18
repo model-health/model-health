@@ -13,20 +13,29 @@ const state = {
   trial: null,
   analysisTask: null,
   results: null,
-  isProcessing: false
+  isProcessing: false,
+  activities: [],
+  recording: false,
+  currentTrial: null,
 };
 
+const analysisTypes = [
+  { value: 'counter_movement_jump', label: 'Counter Movement Jump' },
+  { value: 'gait', label: 'Overground Walking' },
+  { value: 'treadmill_running', label: 'Treadmill Running' },
+  { value: 'sit_to_stand', label: 'Sit-to-Stand Transfer' },
+  { value: 'squats', label: 'Squats' },
+  { value: 'range_of_motion', label: 'Range of Motion' },
+  { value: 'overground_running', label: 'Overground Running' },
+  { value: 'drop_jump', label: 'Drop Vertical Jump' },
+  { value: 'hop', label: 'Hop Test' },
+  { value: 'treadmill_gait', label: 'Treadmill Walking' },
+  { value: 'change_of_direction', label: '5-0-5 Test' },
+  { value: 'cut', label: 'Cutting Maneuver' },
+];
+
 const codeExamples = {
-  1: `// Step 1: Initialize SDK with API Key
-const client = new ModelHealthService({
-  apiKey: "your-api-key-here"
-});
-await client.init();
-
-const isAuth = await client.isAuthenticated();
-console.log('Authenticated:', isAuth); // true`,
-
-  2: `// Step 2: Select or Create Session
+  1: `// Step 1: Select or Create Session
 const sessions = await client.sessionList();
 console.log('Available sessions:', sessions.length);
 
@@ -37,14 +46,14 @@ const session = sessions[0];
 const newSession = await client.createSession();
 console.log('Session created:', newSession.id);`,
 
-  3: `// Step 3: Select Subject
+  2: `// Step 2: Select Subject
 const subjects = await client.subjectList();
 console.log('Available subjects:', subjects.length);
 
 // Select a subject from the list
 const subject = subjects[0];`,
 
-  4: `// Step 4: Camera Calibration
+  3: `// Step 3: Camera Calibration
 await client.calibrateCamera(
   session,
   {
@@ -59,7 +68,7 @@ await client.calibrateCamera(
   }
 );`,
 
-  5: `// Step 5: Neutral Pose Calibration
+  4: `// Step 4: Neutral Pose Calibration
 await client.calibrateNeutralPose(
   subject,
   session,
@@ -68,7 +77,7 @@ await client.calibrateNeutralPose(
   }
 );`,
 
-  6: `// Step 6: Record Trial
+  5: `// Step 5: Record Trial
 const trial = await client.record("cmj-test-1", session);
 
 // Perform movement...
@@ -82,7 +91,7 @@ while (status.type !== 'ready' && status.type !== 'failed') {
   status = await client.getStatus(trial);
 }`,
 
-  7: `// Step 7: Start Analysis
+  6: `// Step 6: Start Analysis
 const task = await client.startAnalysis(
   "counter_movement_jump",
   trial,
@@ -96,7 +105,7 @@ while (analysisStatus.type === 'processing') {
   analysisStatus = await client.getAnalysisStatus(task);
 }`,
 
-  8: `// Step 8: Download Results
+  7: `// Step 7: Start Analysis
 const result = await client.downloadAnalysisResult(
   trial,
   analysisStatus.result_tags[0]
@@ -417,14 +426,74 @@ function renderStep4() {
 
 function renderStep5() {
   const content = document.getElementById('content');
+
+  const analysisOptions = analysisTypes
+    .map(t => `<option value="${t.value}">${t.label}</option>`)
+    .join('');
+
+  const activitiesHtml = state.activities.length > 0
+    ? state.activities.map(activity => {
+      const statusColor = activity._analysisStatus === 'completed' ? '#4caf50'
+        : activity._analysisStatus === 'processing' ? '#ff9800'
+          : activity._processingStatus === 'ready' ? '#2196f3'
+            : activity._processingStatus === 'processing' ? '#ff9800'
+              : '#999';
+
+      const statusText = activity._analysisStatus === 'completed' ? 'Analysis complete'
+        : activity._analysisStatus === 'processing' ? 'Analyzing...'
+          : activity._processingStatus === 'ready' ? 'Ready for analysis'
+            : activity._processingStatus === 'processing' ? 'Processing...'
+              : activity._processingStatus === 'uploading' ? `Uploading...`
+                : 'Unknown';
+
+      const canAnalyze = activity._processingStatus === 'ready' && !activity._analysisTask;
+      const canViewResults = activity._analysisStatus === 'completed';
+
+      return `
+          <div style="padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+              <strong>${activity.name || 'Activity ' + activity.id}</strong>
+              <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${statusColor}; display: inline-block;"></span>
+                <small style="color: #666;">${statusText}</small>
+              </div>
+              <div style="margin-top: 8px;">
+                <select id="analysis-type-${activity.id}" style="font-size: 13px; padding: 4px 8px;">
+                  ${analysisOptions}
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button
+                onclick="handleRefreshActivity('${activity.id}')"
+                style="padding: 8px 12px; font-size: 13px;"
+                title="Refresh status"
+              >↻</button>
+              <button
+                onclick="handleAnalyzeActivity('${activity.id}')"
+                ${canAnalyze ? '' : 'disabled'}
+                style="padding: 8px 12px; font-size: 13px;"
+                title="Start analysis"
+              >▶ Analyze</button>
+              <button
+                onclick="handleViewActivityResults('${activity.id}')"
+                ${canViewResults ? '' : 'disabled'}
+                style="padding: 8px 12px; font-size: 13px;"
+                title="View results"
+              >📊 Results</button>
+            </div>
+          </div>
+        `;
+    }).join('')
+    : '';
+
   content.innerHTML = `
     <div class="card">
-      <h2>Step 5: Record Trial</h2>
-      <p>Record a movement trial. The system will capture video from all calibrated cameras.</p>
-      
+      <h2>Step 5: Record Activity</h2>
+
       ${state.trial ? `
         <div class="status success">
-          <strong>✓ Trial Recorded</strong><br>
+          <strong>✓ Activity Recorded</strong><br>
           ID: ${state.trial.id}<br>
           Name: ${state.trial.name}<br>
           Status: Processing complete
@@ -432,20 +501,26 @@ function renderStep5() {
         <button onclick="nextStep()" class="secondary">Continue to Next Step</button>
       ` : `
         <div class="form-group">
-          <label for="trial-name">Trial Name:</label>
+          <label for="trial-name">Activity Name:</label>
           <input type="text" id="trial-name" value="cmj-test-1" ${state.isProcessing ? 'disabled' : ''} />
         </div>
-        
-        <button 
-          onclick="handleRecordTrial()" 
+
+        <button
+          onclick="handleRecordTrial()"
           ${state.isProcessing && !state.recording ? 'disabled' : ''}
           class="${state.recording ? 'danger' : ''}"
         >
           ${state.recording ? '⏹ Stop Recording' : (state.isProcessing ? 'Starting...' : 'Start Recording')}
         </button>
-        
+
         <div id="trial-status"></div>
       `}
+
+      ${activitiesHtml ? `
+        <hr style="margin: 25px 0; border: none; border-top: 1px solid #e0e0e0;" />
+        <h3>Completed Activities</h3>
+        ${activitiesHtml}
+      ` : ''}
     </div>
   `;
 }
@@ -791,6 +866,7 @@ async function handleRecordTrial() {
       state.currentTrial = null;
       state.isProcessing = false;
       log('Trial ready for analysis!', 'success');
+      await loadActivities();
       renderStep5();
     } catch (error) {
       log(`Stop recording failed: ${error.message}`, 'error');
@@ -834,11 +910,13 @@ async function handleRecordTrial() {
 async function handleStartAnalysis() {
   state.isProcessing = true;
   const statusDiv = document.getElementById('analysis-status');
+  const select = document.getElementById('analysis-type-select');
+  const analysisType = select ? select.value : 'counter_movement_jump';
 
-  log('Calling client.startAnalysis("counter_movement_jump", trial, session)');
+  log(`Calling client.startAnalysis("${analysisType}", trial, session)`);
 
   try {
-    const task = await state.client.startAnalysis('counter_movement_jump', state.trial, state.session);
+    const task = await state.client.startAnalysis(analysisType, state.trial, state.session);
     log(`Analysis started: ${task.task_id}`, 'success');
 
     statusDiv.innerHTML = '<div class="status">⚙ Analysis in progress...</div>';
@@ -875,13 +953,142 @@ async function handleDownloadResults() {
   log('Calling client.downloadAnalysisResult(...)');
 
   try {
-    const result = await state.client.downloadAnalysisResult(state.trial, 'countermovement_jump');
+    const resultTag = state._resultTag || 'countermovement_jump';
+    const result = await state.client.downloadAnalysisResult(state.trial, resultTag);
+
     state.results = result;
     log('Results downloaded successfully!', 'success');
     renderStep7();
   } catch (error) {
     log(`Failed to download results: ${error.message}`, 'error');
   }
+}
+
+async function loadActivities() {
+  if (!state.session) return;
+
+  log('Calling client.activityList()');
+
+  try {
+    const activities = await state.client.activityList(state.session.id);
+    state.activities = activities
+      .filter(a => a.name !== 'calibration' && a.name !== 'neutral')
+      .map(a => ({
+        ...a,
+        _processingStatus: null,
+        _analysisTask: null,
+        _analysisStatus: null,
+      }));
+    log(`Loaded ${state.activities.length} activities`, 'success');
+
+    await refreshAllActivityStatuses();
+  } catch (error) {
+    log(`Failed to load activities: ${error.message}`, 'error');
+  }
+}
+
+async function refreshAllActivityStatuses() {
+  const promises = state.activities.map(async (activity, index) => {
+    try {
+      const status = await state.client.getStatus(activity);
+      state.activities[index]._processingStatus = status.type;
+
+      // Detect previously completed analyses from result tags
+      if (activity.results && activity.results.some(r => r.tag.startsWith('analysis_function_result'))) {
+        state.activities[index]._analysisStatus = 'completed';
+      }
+    } catch (error) {
+      log(`Failed to get status for activity ${activity.id}: ${error.message}`, 'error');
+    }
+  });
+
+  await Promise.all(promises);
+  renderStep5();
+}
+
+async function handleRefreshActivity(activityId) {
+  const index = state.activities.findIndex(a => a.id === activityId);
+  if (index === -1) return;
+
+  log(`Refreshing status for activity ${activityId}`);
+
+  try {
+    const status = await state.client.getStatus(state.activities[index]);
+    state.activities[index]._processingStatus = status.type;
+
+    if (state.activities[index]._analysisTask) {
+      const analysisStatus = await state.client.getAnalysisStatus(
+        state.activities[index]._analysisTask
+      );
+      state.activities[index]._analysisStatus = analysisStatus.type;
+    } else if (state.activities[index].results?.some(r => r.tag.startsWith('analysis_function_result'))) {
+      state.activities[index]._analysisStatus = 'completed';
+    }
+
+    log(`Activity ${activityId} status: ${status.type}`, 'success');
+    renderStep5();
+  } catch (error) {
+    log(`Failed to refresh activity: ${error.message}`, 'error');
+  }
+}
+
+async function handleAnalyzeActivity(activityId) {
+  const index = state.activities.findIndex(a => a.id === activityId);
+  if (index === -1) return;
+
+  const activity = state.activities[index];
+  const select = document.getElementById(`analysis-type-${activityId}`);
+  const analysisType = select.value;
+
+  log(`Starting ${analysisType} analysis on activity ${activityId}`);
+
+  try {
+    const task = await state.client.startAnalysis(analysisType, activity, state.session);
+    state.activities[index]._analysisTask = task;
+    state.activities[index]._analysisStatus = 'processing';
+    log(`Analysis started: ${task.task_id}`, 'success');
+
+    renderStep5();
+
+    // Poll for completion
+    let analysisStatus = await state.client.getAnalysisStatus(task);
+    let attempts = 0;
+
+    while (analysisStatus.type === 'processing' && attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      analysisStatus = await state.client.getAnalysisStatus(task);
+      attempts++;
+    }
+
+    state.activities[index]._analysisStatus = analysisStatus.type;
+    if (analysisStatus.type === 'completed') {
+      log(`Analysis complete for activity ${activityId}`, 'success');
+    }
+
+    renderStep5();
+  } catch (error) {
+    log(`Analysis failed: ${error.message}`, 'error');
+    state.activities[index]._analysisStatus = null;
+    renderStep5();
+  }
+}
+
+async function handleViewActivityResults(activityId) {
+  const activity = state.activities.find(a => a.id === activityId);
+  if (!activity)
+    return;
+
+  const analysisResult = activity.results?.find(r => r.tag.startsWith('analysis_function_result'));
+  if (!analysisResult) {
+    log(`No analysis results found for activity ${activityId}`, 'error');
+    return;
+  }
+
+  state.trial = activity;
+  state.currentStep = 7;
+  state.results = null;
+  state._resultTag = analysisResult.tag;
+  render();
 }
 
 function exportJSON() {
@@ -929,6 +1136,9 @@ function resetDemo() {
     state.analysisTask = null;
     state.results = null;
     state.isProcessing = false;
+    state.activities = [];
+    state.recording = false;
+    state.currentTrial = null;
 
     log('Demo reset', 'success');
     render();
@@ -943,6 +1153,10 @@ function nextStep() {
     state.currentStep = 5;
   } else {
     state.currentStep++;
+  }
+
+  if (state.currentStep === 5 && state.activities.length === 0) {
+    loadActivities();
   }
 
   state.isProcessing = false;
@@ -1018,5 +1232,8 @@ window.loadSessions = loadSessions;
 window.handleSelectSession = handleSelectSession;
 window.showCreateSubject = showCreateSubject;
 window.handleCreateSubject = handleCreateSubject;
+window.handleRefreshActivity = handleRefreshActivity;
+window.handleAnalyzeActivity = handleAnalyzeActivity;
+window.handleViewActivityResults = handleViewActivityResults;
 
 init();

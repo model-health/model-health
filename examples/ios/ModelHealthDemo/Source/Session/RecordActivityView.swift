@@ -129,11 +129,24 @@ struct RecordActivityView: View {
                         ForEach($completedActivities) { $activityState in
                             ActivityRow(
                                 activityState: $activityState,
-                                onRefreshStatus: { await refreshActivityStatus($activityState) },
-                                onStartAnalysis: { await startAnalysis($activityState) },
-                                onViewResults: { selectedActivityForResults = activityState },
-                                onViewVideos: { selectedActivityForVideos = activityState.activity },
-                                onViewData: { selectedActivityForData = activityState.activity }
+                                onRefreshStatus: {
+                                    await refreshActivityStatus($activityState)
+                                },
+                                onStartAnalysis: { analysisType in
+                                    await startAnalysis(
+                                        $activityState,
+                                        analysisType: analysisType
+                                    )
+                                },
+                                onViewResults: {
+                                    selectedActivityForResults = activityState
+                                },
+                                onViewVideos: {
+                                    selectedActivityForVideos = activityState.activity
+                                },
+                                onViewData: {
+                                    selectedActivityForData = activityState.activity
+                                }
                             )
                         }
                     }
@@ -173,15 +186,19 @@ struct RecordActivityView: View {
 
         do {
             let activities = try await modelHealth.activityList(for: session)
-            completedActivities = activities.map { activity in
-                ActivityState(
-                    activity: activity,
-                    name: activity.name ?? "Activity \(activity.id)",
-                    processingStatus: nil,
-                    analysisTask: nil,
-                    analysisStatus: nil
-                )
-            }
+            completedActivities = activities
+                .filter {
+                    $0.name != "calibration" && $0.name != "neutral"
+                }
+                .map { activity in
+                    ActivityState(
+                        activity: activity,
+                        name: activity.name ?? "Activity \(activity.id)",
+                        processingStatus: nil,
+                        analysisTask: nil,
+                        analysisStatus: nil
+                    )
+                }
         } catch {
             print("Could not load existing activities: \(error)")
         }
@@ -264,7 +281,9 @@ struct RecordActivityView: View {
 
     private func refreshActivityStatus(_ activityState: Binding<ActivityState>) async {
         activityState.wrappedValue.isRefreshing = true
-        defer { activityState.wrappedValue.isRefreshing = false }
+        defer {
+            activityState.wrappedValue.isRefreshing = false
+        }
 
         do {
             let status = try await modelHealth.getStatus(forActivity: activityState.wrappedValue.activity)
@@ -281,13 +300,18 @@ struct RecordActivityView: View {
         }
     }
 
-    private func startAnalysis(_ activityState: Binding<ActivityState>) async {
+    private func startAnalysis(
+        _ activityState: Binding<ActivityState>,
+        analysisType: AnalysisType
+    ) async {
         activityState.wrappedValue.isAnalyzing = true
-        defer { activityState.wrappedValue.isAnalyzing = false }
+        defer {
+            activityState.wrappedValue.isAnalyzing = false
+        }
 
         do {
             let task = try await modelHealth.startAnalysis(
-                .counterMovementJump,
+                analysisType,
                 for: activityState.wrappedValue.activity,
                 in: session
             )
@@ -338,8 +362,10 @@ struct ActivityState: Identifiable {
 
 private struct ActivityRow: View {
     @Binding var activityState: ActivityState
+    @State var analysisType: AnalysisType = .cut
+
     let onRefreshStatus: () async -> Void
-    let onStartAnalysis: () async -> Void
+    let onStartAnalysis: (AnalysisType) async -> Void
     let onViewResults: () -> Void
     let onViewVideos: () -> Void
     let onViewData: () -> Void
@@ -371,6 +397,14 @@ private struct ActivityRow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(activityState.isRefreshing)
+
+                Picker("Analysis Type", selection: $analysisType) {
+                    ForEach(AnalysisType.allCases, id: \.rawValue) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity)
             }
 
             Spacer()
@@ -408,7 +442,7 @@ private struct ActivityRow: View {
             HStack(spacing: 8) {
                 Button {
                     Task {
-                        await onStartAnalysis()
+                        await onStartAnalysis(analysisType)
                     }
                 } label: {
                     if activityState.isAnalyzing {
@@ -555,7 +589,9 @@ struct ActivityResultsView: View {
 
     func loadResults() async {
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            isLoading = false
+        }
 
         do {
             guard let task = activityState.analysisTask else {
@@ -712,7 +748,7 @@ private struct RecordActivityView_Preview: View {
                     ActivityRow(
                         activityState: $activityState,
                         onRefreshStatus: {},
-                        onStartAnalysis: {},
+                        onStartAnalysis: { _ in },
                         onViewResults: {},
                         onViewVideos: {},
                         onViewData: {}
