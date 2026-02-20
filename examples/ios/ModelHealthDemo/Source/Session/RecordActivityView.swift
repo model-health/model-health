@@ -31,7 +31,7 @@ struct RecordActivityView: View {
     @State private var activityName: String = ""
     @State private var currentActivity: Activity?
     @State private var completedActivities: [ActivityState] = []
-    @State private var selectedActivityForResults: ActivityState?
+    @State private var selectedActivityForResults: Activity?
     @State private var selectedActivityForVideos: Activity?
     @State private var selectedActivityForData: Activity?
     @State private var loadingState: LoadingState = .notStarted
@@ -139,7 +139,7 @@ struct RecordActivityView: View {
                                     )
                                 },
                                 onViewResults: {
-                                    selectedActivityForResults = activityState
+                                    selectedActivityForResults = activityState.activity
                                 },
                                 onViewVideos: {
                                     selectedActivityForVideos = activityState.activity
@@ -162,8 +162,8 @@ struct RecordActivityView: View {
             }
             .padding()
             .navigationTitle("Record Activity")
-            .sheet(item: $selectedActivityForResults) { activityState in
-                ActivityResultsView(activityState: activityState)
+            .navigationDestination(item: $selectedActivityForResults) { activity in
+                AnalysisResultDataView(activity: activity)
             }
             .navigationDestination(item: $selectedActivityForVideos) { activity in
                 ActivityVideoView(activity: activity)
@@ -554,76 +554,6 @@ struct StatusIndicator: View {
     }
 }
 
-struct ActivityResultsView: View {
-    let activityState: ActivityState
-    @State private var analysisResult: AnalysisResult?
-    @State private var isLoading = false
-    @EnvironmentObject var service: ModelHealthService
-
-    var body: some View {
-        VStack {
-            if isLoading {
-                ProgressView("Loading results...")
-            } else if let result = analysisResult, let jumpHeight = result.jumpHeight {
-                VStack(spacing: 16) {
-                    Text(activityState.name)
-                        .font(.title)
-
-                    Text("Jump Height")
-                        .font(.headline)
-
-                    Text("\(String(format: "%.1f", jumpHeight)) cm")
-                        .font(.largeTitle)
-                        .bold()
-                }
-            } else {
-                Text("No results available")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .navigationTitle("Results")
-        .task {
-            await loadResults()
-        }
-    }
-
-    func loadResults() async {
-        isLoading = true
-        defer {
-            isLoading = false
-        }
-
-        do {
-            guard let task = activityState.analysisTask else {
-                print("No analysis task found")
-                return
-            }
-
-            let status = try await service.getAnalysisStatus(for: task)
-
-            if case .completed(let tags) = status, let firstTag = tags.first {
-                let result = try await service.downloadAnalysisResult(
-                    forActivity: activityState.activity,
-                    resultTag: firstTag
-                )
-                analysisResult = result
-            }
-        } catch {
-            print("Error loading results: \(error.message)")
-        }
-    }
-}
-
-private extension Error {
-    var message: String {
-        if let modelHealthError = self as? ModelHealthError {
-            return modelHealthError.message
-        }
-
-        return localizedDescription
-    }
-}
-
 // MARK: - Previews
 
 #Preview("Empty State") {
@@ -798,20 +728,8 @@ extension ActivityState {
 
 #Preview("Results") {
     NavigationStack {
-        ActivityResultsView(
-            activityState: .forPreview()
-        )
-        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
-    }
-}
-
-#Preview("Results - No Analysis Task") {
-    NavigationStack {
-        ActivityResultsView(
-            activityState: .forPreview { builder in
-                builder.analysisTask = nil
-                builder.analysisStatus = nil
-            }
+        AnalysisResultDataView(
+            activity: .forPreview()
         )
         .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }

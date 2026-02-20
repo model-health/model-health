@@ -1,13 +1,14 @@
 import SwiftUI
+import PDFKit
 import ModelHealth
 
-struct ActivityDataView: View {
+struct AnalysisResultDataView: View {
     @EnvironmentObject private var modelHealth: ModelHealthService
 
     let activity: Activity
 
     @State private var selectedIndex = 0
-    @State private var dataItems: [ResultData] = []
+    @State private var dataItems: [AnalysisResultData] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -42,7 +43,7 @@ struct ActivityDataView: View {
                 dataPreviewView(for: selectedData)
             }
         }
-        .navigationTitle("Activity Data")
+        .navigationTitle("Analysis Data")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadData()
@@ -53,15 +54,32 @@ struct ActivityDataView: View {
     }
 }
 
-private extension ActivityDataView {
-    var selectedDataItem: ResultData? {
+private extension AnalysisResultDataView {
+    var selectedDataItem: AnalysisResultData? {
         guard dataItems.indices.contains(selectedIndex) else {
             return nil
         }
         return dataItems[selectedIndex]
     }
 
-    func dataPreviewView(for resultData: ResultData) -> some View {
+    @ViewBuilder
+    func dataPreviewView(for resultData: AnalysisResultData) -> some View {
+        switch resultData.resultDataType {
+        case .metrics:
+            metricsPreviewView(for: resultData)
+
+        case .report:
+            reportPreviewView(for: resultData)
+
+        case .data:
+            Text("Unsupported data type")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .padding()
+        }
+    }
+
+    func metricsPreviewView(for resultData: AnalysisResultData) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -87,7 +105,38 @@ private extension ActivityDataView {
                         .textSelection(.enabled)
                         .padding()
                 } else {
-                    Text("Unable to decode data as text")
+                    Text("Unable to decode data as JSON")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+        }
+    }
+
+    func reportPreviewView(for resultData: AnalysisResultData) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(
+                        resultData.fileType,
+                        systemImage: resultData.previewImageName
+                    )
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top)
+
+                if let document = PDFDocument(data: resultData.data) {
+                    PDFKitView(document: document)
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(8.5 / 11, contentMode: .fit)
+                        .padding()
+                } else {
+                    Text("Unable to render PDF")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding()
@@ -107,7 +156,7 @@ private extension ActivityDataView {
             Text("No data available")
                 .font(.headline)
 
-            Text("No data files found for this activity")
+            Text("No analysis data files found for this activity")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -146,118 +195,101 @@ private extension ActivityDataView {
         isLoading = true
         errorMessage = nil
 
-        let types: Set<ResultDataType> = [.animation, .kinematics(.csv)]
-        dataItems = await modelHealth.data(ofType: types, for: activity)
+        let types: Set<AnalysisResultDataType> = [.metrics, .report]
+        dataItems = await modelHealth.analysisResultData(ofType: types, for: activity)
 
         isLoading = false
     }
 }
 
-private extension ResultData {
+// MARK: - PDFKit SwiftUI Wrapper
+
+private struct PDFKitView: UIViewRepresentable {
+    let document: PDFDocument
+
+    func makeUIView(context: Context) -> PDFView {
+        let pdfView = PDFView()
+        pdfView.autoScales = true
+        pdfView.displayMode = .singlePageContinuous
+        pdfView.displayDirection = .vertical
+        return pdfView
+    }
+
+    func updateUIView(_ pdfView: PDFView, context: Context) {
+        pdfView.document = document
+    }
+}
+
+// MARK: - AnalysisResultData Extensions
+
+private extension AnalysisResultData {
     var label: String {
         switch resultDataType {
-        case .animation:
-            "Animation"
+        case .metrics:
+            "Metrics"
 
-        case .kinematics(let format):
-            switch format {
-            case .mot:
-                "Kinematics (MOT)"
-            case .csv:
-                "Kinematics (CSV)"
-            }
+        case .report:
+            "Report"
 
-        case .markers(let format):
-            switch format {
-            case .csv:
-                "Markers (CSV)"
-            case .trc:
-                "Markers (TRC)"
-            }
-
-        case .model:
-            "Model"
+        case .data:
+            "Data"
         }
     }
 
     var fileType: String {
         switch resultDataType {
-        case .animation:
+        case .metrics:
             "JSON"
 
-        case .kinematics(.mot):
-            "MOT"
+        case .report:
+            "PDF"
 
-        case .kinematics(.csv), .markers(.csv):
-            "CSV"
-
-        case .markers(.trc):
-            "TRC"
-
-        case .model:
-            "OSim"
+        case .data:
+            "ZIP"
         }
     }
 
     var previewImageName: String {
         switch resultDataType {
-        case .animation:
+        case .metrics:
             "curlybraces"
 
-        case .kinematics(.mot):
-            "doc.text"
+        case .report:
+            "doc.richtext"
 
-        case .kinematics(.csv), .markers(.csv), .markers(.trc):
-            "tablecells"
-
-        case .model:
-            "cube"
+        case .data:
+            "zipper.page"
         }
     }
 
     func previewText(maxLines: Int) -> String? {
         switch resultDataType {
-        case .animation:
-            guard let prettyJSON = prettyPrintedJSON() else {
+        case .metrics:
+            guard
+                let jsonObject = try? JSONSerialization.jsonObject(with: data),
+                let prettyData = try? JSONSerialization.data(
+                    withJSONObject: jsonObject,
+                    options: [.prettyPrinted, .sortedKeys]
+                ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
+            else {
                 return nil
             }
 
-            let lines = prettyJSON.components(separatedBy: .newlines)
+            let lines = prettyString.components(separatedBy: .newlines)
             let limitedLines = lines.prefix(maxLines)
 
             return limitedLines.joined(separator: "\n")
 
-        default:
-            guard let text = String(data: data, encoding: .utf8) else {
-                return nil
-            }
-
-            let lines = text.components(separatedBy: .newlines)
-            let limitedLines = lines.prefix(maxLines)
-
-            return limitedLines.joined(separator: "\n")
-        }
-    }
-
-    private func prettyPrintedJSON() -> String? {
-        guard
-            let jsonObject = try? JSONSerialization.jsonObject(with: data),
-            let prettyData = try? JSONSerialization.data(
-                withJSONObject: jsonObject,
-                options: [.prettyPrinted, .sortedKeys]
-            ),
-            let prettyString = String(data: prettyData, encoding: .utf8)
-        else {
+        case .report, .data:
             return nil
         }
-
-        return prettyString
     }
 }
 
 #Preview {
     NavigationStack {
-        ActivityDataView(activity: .forPreview())
+        AnalysisResultDataView(activity: .forPreview())
             .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

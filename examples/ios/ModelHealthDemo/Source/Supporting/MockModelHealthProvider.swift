@@ -170,7 +170,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return types.map { type in
-            ModelHealth.ResultData.forPreview()
+            ModelHealth.ResultData.forPreview(resultDataType: type)
         }
     }
 
@@ -290,5 +290,13 @@ final class MockModelHealthProvider: ModelHealthProvider {
     ) async throws -> AnalysisResult {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview()
+    }
+
+    func analysisResultData(
+        ofType types: Set<AnalysisResultDataType>,
+        for activity: Activity
+    ) async -> [AnalysisResultData] {
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        return [.forPreview()]
     }
 }
