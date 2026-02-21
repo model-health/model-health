@@ -5,20 +5,6 @@ import ModelHealth
 ///
 /// This mock provides pre-configured happy-path responses for all SDK operations.
 final class MockModelHealthProvider: ModelHealthProvider {
-    private enum StorageKey {
-        static let isAuthenticated = "mock.isAuthenticated"
-    }
-
-    private var isAuthenticated: Bool {
-        get {
-            UserDefaults.standard.bool(forKey: StorageKey.isAuthenticated)
-        }
-
-        set {
-            UserDefaults.standard.set(newValue, forKey: StorageKey.isAuthenticated)
-        }
-    }
-
     private var subjects: [Subject] = [
         .forPreview { builder in
             builder.id = 1
@@ -45,31 +31,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.subjectTags = ["athlete", "endurance"]
         }
     ]
-
-    func login(username: String, password: String) async throws -> LoginResult {
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        isAuthenticated = true
-        return .ok
-    }
-
-    func verify(code: String, rememberDevice: Bool) async throws {
-        try? await Task.sleep(nanoseconds: 300_000_000)
-    }
-
-    func register(parameters: ModelHealth.RegistrationParameters) async throws {
-        try? await Task.sleep(nanoseconds: 800_000_000)
-        isAuthenticated = true
-    }
-
-    func logout() async throws {
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        isAuthenticated = false
-    }
-
-    func isAuthenticated() async -> Bool {
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        return isAuthenticated
-    }
 
     func sessionList() async throws -> [ModelHealth.Session] {
         try? await Task.sleep(nanoseconds: 400_000_000)

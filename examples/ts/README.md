@@ -100,8 +100,8 @@ npx vite build
 ### Live Console Logging
 Every SDK call and response is logged with timestamps:
 ```
-[14:23:45] → Calling client.login(...)
-[14:23:46] ✓ Login successful
+[14:23:45] → Calling client.sessionList(...)
+[14:23:46] ✓ Sessions loaded
 ```
 
 ### Progress Tracking
