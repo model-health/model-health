@@ -6,8 +6,11 @@ export default defineConfig({
     port: 5173,
     fs: {
       // Allow serving files from the SDK directory
-      allow: ['..', '../..']
+      allow: ['..', '../..', '../../../model-health-internal/build/npm']
     }
+  },
+  build: {
+    sourcemap: true
   },
   optimizeDeps: {
     exclude: ['@modelhealth/sdk']

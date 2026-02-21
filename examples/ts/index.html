@@ -1,72 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Model Health SDK Demo</title>
+  <title>Model Health</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <div id="app">
-    <header>
-      <h1>Model Health SDK Demo</h1>
-      <p class="subtitle">Step-by-step guide to using the Model Health TypeScript SDK</p>
-      <p class="api-key-notice">✓ Authenticated with API Key</p>
+    <header class="app-header">
+      <h1>Model Health</h1>
+      <p class="app-subtitle">Example app — sessions, calibration, record, analyze</p>
     </header>
-
-    <div id="progress-bar">
-      <div class="progress-steps">
-        <div class="step active" data-step="1">1. Session</div>
-        <div class="step" data-step="2">2. Subject</div>
-        <div class="step" data-step="3">3. Camera Cal</div>
-        <div class="step" data-step="4">4. Neutral</div>
-        <div class="step" data-step="5">5. Record</div>
-        <div class="step" data-step="6">6. Analysis</div>
-        <div class="step" data-step="7">7. Results</div>
-      </div>
-    </div>
-
-    <main>
+    <main class="app-main">
       <div id="content">
-        <!-- Dynamic content will be inserted here -->
-      </div>
-
-      <div id="code-example">
-        <h3>Code Example:</h3>
-        <pre><code id="code-snippet">// Code will appear here</code></pre>
-      </div>
-
-      <div id="console-output">
-        <h3>Console Output:</h3>
-        <pre id="log">SDK Demo starting...\n</pre>
-        <button id="clear-log" type="button">Clear Log</button>
+        <!-- Views render here -->
       </div>
     </main>
-
-    <footer>
-      <div class="test-checklist">
-        <h3>Testing Checklist:</h3>
-        <label><input type="checkbox"> SDK initializes with API key</label>
-        <label><input type="checkbox"> Session list loads successfully</label>
-        <label><input type="checkbox"> Create new session works</label>
-        <label><input type="checkbox"> Select existing session works</label>
-        <label><input type="checkbox"> Subject list loads successfully</label>
-        <label><input type="checkbox"> Select subject works</label>
-        <label><input type="checkbox"> Camera calibration completes</label>
-        <label><input type="checkbox"> Neutral pose calibration completes</label>
-        <label><input type="checkbox"> Record and stop trial works</label>
-        <label><input type="checkbox"> Trial processes to "ready"</label>
-        <label><input type="checkbox"> Analysis starts and completes</label>
-        <label><input type="checkbox"> Results display correctly</label>
-        <label><input type="checkbox"> Export JSON works</label>
-        <label><input type="checkbox"> Export CSV works</label>
-      </div>
-    </footer>
   </div>
-
-  <script type="module" src="demo.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
-
 </html>
