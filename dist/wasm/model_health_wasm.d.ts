@@ -7,7 +7,7 @@ export class ModelHealthService {
     createSession(): Promise<any>;
     createSubject(parameters: any): Promise<any>;
     deleteActivity(activity_json: any): Promise<void>;
-    downloadAnalysisResult(trial_json: any, result_tag: string): Promise<any>;
+    downloadTrialAnalysisResultData(trial_json: any, data_types_json: any): Promise<any>;
     downloadTrialResultData(trial_json: any, data_types_json: any): Promise<any>;
     downloadTrialVideos(trial_json: any, version_json: any): Promise<Array<any>>;
     getActivitiesForSubject(subject_id: string, start_index: number, count: number, sort: any): Promise<any>;
@@ -44,7 +44,7 @@ export interface InitOutput {
     readonly modelhealthservice_createSession: (a: number) => any;
     readonly modelhealthservice_createSubject: (a: number, b: any) => any;
     readonly modelhealthservice_deleteActivity: (a: number, b: any) => any;
-    readonly modelhealthservice_downloadAnalysisResult: (a: number, b: any, c: number, d: number) => any;
+    readonly modelhealthservice_downloadTrialAnalysisResultData: (a: number, b: any, c: any) => any;
     readonly modelhealthservice_downloadTrialResultData: (a: number, b: any, c: any) => any;
     readonly modelhealthservice_downloadTrialVideos: (a: number, b: any, c: any) => any;
     readonly modelhealthservice_getActivitiesForSubject: (a: number, b: number, c: number, d: number, e: number, f: any) => any;

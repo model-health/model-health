@@ -586,7 +586,7 @@ export class ModelHealthService {
      */
     async downloadActivityVideos(activity, version = "synced") {
         this.ensureInitialized();
-        const result = await this.wasmClient.downloadActivityVideos(activity, version);
+        const result = await this.wasmClient.downloadTrialVideos(activity, version);
         const videos = [];
         for (let i = 0; i < result.length; i++) {
             videos.push(new Uint8Array(result[i]));
@@ -604,33 +604,27 @@ export class ModelHealthService {
      * structured metrics provided by analysis result methods.
      *
      * @param activity The completed activity to download data from
-     * @param dataTypes The types of result data to download (kinematic, visualization, or both)
-     * @returns An array of result files with their formats. Returns an empty array if no
+     * @param dataTypes The types of result data to download
+     * @returns An array of result data, one entry per requested type. Returns an empty array if no
      *          results are available or all downloads fail.
      *
      * @example
      * ```typescript
-     * // Download kinematic data only
-     * const kinematicData = await client.downloadActivityResultData(activity, ["kinematic"]);
+     * // Download kinematics in MOT format
+     * const results = await client.downloadActivityResultData(activity, ["kinematics_mot"]);
      *
-     * for (const result of kinematicData) {
-     *   switch (result.file_type) {
-     *     case "json":
-     *       const json = JSON.parse(new TextDecoder().decode(result.data));
-     *       console.log("Parsed kinematic JSON");
-     *       break;
-     *
-     *     case "csv":
-     *       const csvString = new TextDecoder().decode(result.data);
-     *       console.log(`CSV data:\n${csvString}`);
+     * for (const result of results) {
+     *   switch (result.result_data_type) {
+     *     case "kinematics_mot":
+     *       // Use result.data directly as a .mot file
      *       break;
      *   }
      * }
      *
-     * // Download all available data types
+     * // Download multiple types in one call
      * const allData = await client.downloadActivityResultData(
      *   activity,
-     *   ["kinematic", "visualization"]
+     *   ["kinematics_mot", "animation"]
      * );
      * console.log(`Downloaded ${allData.length} result files`);
      * ```
@@ -642,6 +636,43 @@ export class ModelHealthService {
     async downloadActivityResultData(activity, dataTypes) {
         this.ensureInitialized();
         const result = await this.wasmClient.downloadActivityResultData(activity, dataTypes);
+        return this.parseResponse(result);
+    }
+    /**
+     * Downloads analysis result data for a completed activity.
+     *
+     * @param activity The activity that has completed analysis
+     * @param dataTypes The types of analysis result data to download
+     * @returns An array of analysis result data, one entry per requested type. Returns an empty
+     *          array if no results are available or all downloads fail.
+     *
+     * @example
+     * ```typescript
+     * const results = await client.downloadActivityAnalysisResultData(
+     *   activity,
+     *   ["metrics", "report"]
+     * );
+     *
+     * for (const result of results) {
+     *   switch (result.result_data_type) {
+     *     case "metrics":
+     *       const json = JSON.parse(new TextDecoder().decode(result.data));
+     *       break;
+     *     case "report":
+     *       // Use result.data directly as a PDF
+     *       break;
+     *     case "data":
+     *       // Use result.data directly as a ZIP file
+     *       break;
+     *   }
+     * }
+     * ```
+     *
+     * @note Individual download failures are silently excluded from results.
+     */
+    async downloadActivityAnalysisResultData(activity, dataTypes) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.downloadTrialAnalysisResultData(activity, dataTypes);
         return this.parseResponse(result);
     }
     // MARK: - Recording & Analysis
@@ -730,7 +761,7 @@ export class ModelHealthService {
      * The activity must have completed processing (status `.ready`) before analysis can begin.
      * Use the returned `AnalysisTask` to poll for completion.
      *
-     * @param analysisType The type of analysis to perform
+     * @param analysisType The type of analysis to perform, Gait, Squats, etc
      * @param activity The activity to analyze
      * @param session The session containing the activity
      * @returns An analysis task for tracking completion
@@ -739,7 +770,7 @@ export class ModelHealthService {
      * @example
      * ```typescript
      * const task = await client.startAnalysis(
-     *   "counter_movement_jump",
+     *   "counterMovementJump",
      *   activity,
      *   session
      * );
@@ -757,7 +788,7 @@ export class ModelHealthService {
      * Retrieves the current status of an analysis task.
      *
      * Poll this method to monitor analysis progress. When status is `.completed`,
-     * use the returned result tags to download analysis files.
+     * use `downloadActivityAnalysisResultData` to fetch metrics, report, or raw data.
      *
      * @param task The task returned from `startAnalysis`
      * @returns The current analysis status
@@ -772,8 +803,14 @@ export class ModelHealthService {
      *     console.log("Analysis running...");
      *     break;
      *   case "completed":
-     *     for (const tag of status.result_tags) {
-     *       const data = await client.downloadAnalysisResult(activity, tag);
+     *     const results = await client.downloadActivityAnalysisResultData(
+     *       activity,
+     *       ["metrics", "report"]
+     *     );
+     *     const metricsEntry = results.find((r) => r.result_data_type === "metrics");
+     *     if (metricsEntry?.data) {
+     *       const metrics = JSON.parse(new TextDecoder().decode(metricsEntry.data));
+     *       console.log("Metrics:", metrics);
      *     }
      *     break;
      *   case "failed":
@@ -785,43 +822,6 @@ export class ModelHealthService {
     async getAnalysisStatus(task) {
         this.ensureInitialized();
         const result = await this.wasmClient.getAnalysisStatus(task);
-        return this.parseResponse(result);
-    }
-    /**
-     * Downloads an analysis result.
-     *
-     * Result tags are provided in the `.completed` status from `getAnalysisStatus`.
-     * Each tag represents a specific analysis output with structured biomechanical metrics.
-     *
-     * @param activity The completed and analyzed activity
-     * @param resultTag The specific result identifier
-     * @returns An `AnalysisResult` containing structured metrics
-     * @throws Network or authentication errors
-     *
-     * @example
-     * ```typescript
-     * const result = await client.downloadAnalysisResult(
-     *   activity,
-     *   "countermovement_jump"
-     * );
-     *
-     * console.log(`Analysis: ${result.analysis_title}`);
-     * console.log(`Description: ${result.analysis_description}`);
-     *
-     * // Access specific metrics
-     * if (result.jump_height) {
-     *   console.log(`Jump Height: ${result.jump_height} cm`);
-     * }
-     *
-     * // Iterate all metrics
-     * for (const [key, metric] of Object.entries(result.metrics)) {
-     *   console.log(`${metric.label}:`, metric.value);
-     * }
-     * ```
-     */
-    async downloadAnalysisResult(activity, resultTag) {
-        this.ensureInitialized();
-        const result = await this.wasmClient.downloadAnalysisResult(activity, resultTag);
         return this.parseResponse(result);
     }
     // MARK: - Utilities

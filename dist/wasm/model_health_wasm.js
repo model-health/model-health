@@ -36,13 +36,11 @@ export class ModelHealthService {
     }
     /**
      * @param {any} trial_json
-     * @param {string} result_tag
+     * @param {any} data_types_json
      * @returns {Promise<any>}
      */
-    downloadAnalysisResult(trial_json, result_tag) {
-        const ptr0 = passStringToWasm0(result_tag, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.modelhealthservice_downloadAnalysisResult(this.__wbg_ptr, trial_json, ptr0, len0);
+    downloadTrialAnalysisResultData(trial_json, data_types_json) {
+        const ret = wasm.modelhealthservice_downloadTrialAnalysisResultData(this.__wbg_ptr, trial_json, data_types_json);
         return ret;
     }
     /**
@@ -493,10 +491,6 @@ function __wbg_get_imports() {
             const ret = new AbortController();
             return ret;
         }, arguments); },
-        __wbg_new_dca287b076112a51: function() {
-            const ret = new Map();
-            return ret;
-        },
         __wbg_new_dd2b680c8bf6ae29: function(arg0) {
             const ret = new Uint8Array(arg0);
             return ret;
@@ -565,10 +559,6 @@ function __wbg_get_imports() {
             const ret = arg0.setTimeout(arg1, arg2);
             return ret;
         }, arguments); },
-        __wbg_set_1eb0999cf5d27fc8: function(arg0, arg1, arg2) {
-            const ret = arg0.set(arg1, arg2);
-            return ret;
-        },
         __wbg_set_3f1d0b984ed272ed: function(arg0, arg1, arg2) {
             arg0[arg1] = arg2;
         },
@@ -651,7 +641,7 @@ function __wbg_get_imports() {
             console.warn(arg0, arg1, arg2, arg3);
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 453, function: Function { arguments: [Externref], shim_idx: 454, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 459, function: Function { arguments: [Externref], shim_idx: 460, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__hef952482e2fa4b82, wasm_bindgen__convert__closures_____invoke__h39a0ca41b93efad1);
             return ret;
         },
@@ -963,8 +953,8 @@ async function __wbg_load(module, imports) {
 }
 
 function initSync(module) {
-    if (wasm !== undefined)
-      return wasm;
+    if (wasm !== undefined) return wasm;
+
 
     if (module !== undefined) {
         if (Object.getPrototypeOf(module) === Object.prototype) {
@@ -983,8 +973,8 @@ function initSync(module) {
 }
 
 async function __wbg_init(module_or_path) {
-    if (wasm !== undefined)
-      return wasm;
+    if (wasm !== undefined) return wasm;
+
 
     if (module_or_path !== undefined) {
         if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
