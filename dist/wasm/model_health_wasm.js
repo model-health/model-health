@@ -963,8 +963,8 @@ async function __wbg_load(module, imports) {
 }
 
 function initSync(module) {
-    if (wasm !== undefined) return wasm;
-
+    if (wasm !== undefined)
+      return wasm;
 
     if (module !== undefined) {
         if (Object.getPrototypeOf(module) === Object.prototype) {
@@ -983,8 +983,8 @@ function initSync(module) {
 }
 
 async function __wbg_init(module_or_path) {
-    if (wasm !== undefined) return wasm;
-
+    if (wasm !== undefined)
+      return wasm;
 
     if (module_or_path !== undefined) {
         if (Object.getPrototypeOf(module_or_path) === Object.prototype) {

@@ -598,9 +598,7 @@ private struct RecordActivityView_Preview: View {
             name: "Gait Analysis",
             processingStatus: .ready,
             analysisTask: .forPreview(),
-            analysisStatus: .completed(
-                resultTags: ["joint-angles-csv", "kinematics-json", "forces-csv"]
-            )
+            analysisStatus: .completed
         ),
 
         // Activity ready for analysis
@@ -708,7 +706,7 @@ extension ActivityState {
         public var name: String = "Counter Movement Jump"
         public var processingStatus: ActivityProcessingStatus? = .ready
         public var analysisTask: AnalysisTask? = .forPreview()
-        public var analysisStatus: AnalysisTaskStatus? = .completed(resultTags: ["cmj_data", "cmj_report"])
+        public var analysisStatus: AnalysisTaskStatus? = .completed
         public var isRefreshing: Bool = false
         public var isAnalyzing: Bool = false
 

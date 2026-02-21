@@ -4,56 +4,14 @@ import ModelHealth
 
 @main
 struct ModelHealthDemoApp: App {
-    @State private var isMockBackend: Bool
-    @State private var isAuthenticated = false
-    @State private var isCheckingAuth = true
-
-    private let service: ModelHealthService
-
-    init() {
-        let isMockBackend = CommandLine.arguments.contains("--mock")
-        self._isMockBackend = .init(initialValue: isMockBackend)
-
-        if isMockBackend {
-            service = ModelHealthService(serviceProvider: MockModelHealthProvider())
-        } else {
-            service = try! ModelHealthService(apiKey: "mh_aabdf0739662564e62d347defab3637fbdbe260a")
-        }
-    }
+    private let service = try! ModelHealthService(apiKey: "mh_aabdf0739662564e62d347defab3637fbdbe260a")
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if isCheckingAuth {
-                    ProgressView("Checking authentication...")
-                } else if isAuthenticated {
-                    NavigationStack {
-                        SessionListView()
-                            .onShakeDeveloperMenu(
-                                isAuthenticated: $isAuthenticated,
-                                isMockBackend: $isMockBackend
-                            )
-                    }
-                } else {
-                    AuthenticationView {
-                        isAuthenticated = true
-                    }
-                }
+            NavigationStack {
+                SessionListView()
             }
             .environmentObject(service)
-            .task {
-                isAuthenticated = await service.isAuthenticated()
-                isCheckingAuth = false
-            }
-            .onChange(of: isMockBackend) { oldValue, newValue in
-                isAuthenticated = false
-                isCheckingAuth = true
-
-                Task {
-                    isAuthenticated = await service.isAuthenticated()
-                    isCheckingAuth = false
-                }
-            }
         }
     }
 }

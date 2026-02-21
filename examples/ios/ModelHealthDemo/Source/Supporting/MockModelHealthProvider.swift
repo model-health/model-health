@@ -280,8 +280,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
         try? await Task.sleep(nanoseconds: 300_000_000)
-        // Always return completed with mock result tags
-        return .completed(resultTags: ["joint-angles-csv", "force-data-csv", "summary-report-pdf"])
+        return .completed
     }
 
     public func downloadAnalysisResult(
