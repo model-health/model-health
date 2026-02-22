@@ -152,18 +152,55 @@ export type ActivityProcessingStatus = {
  */
 export type VideoVersion = "raw" | "synced";
 /**
- * Result data types available for download from activities.
+ * Result data types available for download from activities, including the desired file format.
+ *
+ * Each variant encodes both the data type and the requested format, matching
+ * the `ResultDataTypeWire` discriminants used in the Rust core:
+ * - `"animation"` — JSON only
+ * - `"kinematics_mot"` — Kinematics in OpenSim MOT format
+ * - `"kinematics_csv"` — Kinematics in CSV format
+ * - `"markers_trc"` — Marker trajectories in TRC format
+ * - `"markers_csv"` — Marker trajectories in CSV format
+ * - `"model"` — OpenSim model (.osim), only available in neutral activities
  */
-export type ResultDataType = "visualization" | "kinematic";
+export type ResultDataType = "animation" | "kinematics_mot" | "kinematics_csv" | "markers_trc" | "markers_csv" | "model";
 /**
  * File format types for downloaded result data.
  */
-export type FileType = "json" | "csv";
+export type FileType = "json" | "csv" | "mot" | "trc" | "o_sim";
 /**
  * Downloaded result data from an activity.
+ *
+ * The `result_data_type` identifies both what was requested and the implicit
+ * file format — use it to determine how to parse `data`.
  */
 export interface ResultData {
-    file_type: FileType;
+    result_data_type: ResultDataType;
+    data: Uint8Array;
+}
+/**
+ * Type of analysis result data to download from a completed activity.
+ *
+ * The file format is implicit in the type:
+ * - `"metrics"` — JSON containing computed biomechanical metrics
+ * - `"data"` — ZIP containing raw analysis data
+ * - `"report"` — PDF report
+ */
+export type AnalysisResultDataType = 
+/** Computed biomechanical metrics. Always JSON format. */
+"metrics"
+/** Raw analysis data. Always ZIP format. */
+ | "data"
+/** Analysis report. Always PDF format. */
+ | "report";
+/**
+ * Downloaded analysis result data from a completed activity.
+ *
+ * The `result_data_type` identifies both what was requested and the implicit
+ * file format — use it to determine how to parse `data`.
+ */
+export interface AnalysisResultData {
+    result_data_type: AnalysisResultDataType;
     data: Uint8Array;
 }
 /**
@@ -195,9 +232,38 @@ export type CalibrationStatus = {
     type: "done";
 };
 /**
- * Analysis types supported by the Model Health platform.
+ * Represents available analysis functions for motion capture data.
+ *
+ * Each analysis type processes activity data to extract specific biomechanical metrics
+ * and insights. Analysis can only be performed on activities that have completed processing.
  */
-export type AnalysisType = "counter_movement_jump";
+export declare const AnalysisType: {
+    /** Counter Movement Jump */
+    readonly CounterMovementJump: "counter_movement_jump";
+    /** Overground Walking */
+    readonly Gait: "gait";
+    /** Treadmill Running */
+    readonly TreadmillRunning: "treadmill_running";
+    /** Sit-to-Stand Transfer */
+    readonly SitToStand: "sit_to_stand";
+    /** Squat Exercise */
+    readonly Squats: "squats";
+    /** Range of Motion (ROM) */
+    readonly RangeOfMotion: "range_of_motion";
+    /** Overground Running */
+    readonly OvergroundRunning: "overground_running";
+    /** Drop Vertical Jump */
+    readonly DropJump: "drop_jump";
+    /** Hop Test */
+    readonly Hop: "hop";
+    /** Treadmill Walking */
+    readonly TreadmillGait: "treadmill_gait";
+    /** 5-0-5 Test */
+    readonly ChangeOfDirection: "change_of_direction";
+    /** Cutting Maneuver */
+    readonly Cut: "cut";
+};
+export type AnalysisType = (typeof AnalysisType)[keyof typeof AnalysisType];
 /**
  * Identifier for a running analysis task.
  */
@@ -211,7 +277,6 @@ export type AnalysisTaskStatus = {
     type: "processing";
 } | {
     type: "completed";
-    result_tags: string[];
 } | {
     type: "failed";
 };

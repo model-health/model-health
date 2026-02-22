@@ -73,7 +73,7 @@ import Foundation
 /// - ``getStatus(forActivity:)``
 /// - ``startAnalysis(_:for:in:)``
 /// - ``getAnalysisStatus(for:)``
-/// - ``downloadAnalysisResult(forActivity:resultTag:)``
+/// - ``analysisResultData(ofType:for:)``
 public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     private let serviceProvider: ModelHealthProvider
 
@@ -311,38 +311,33 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// Use this method to retrieve specific types of data (kinematic measurements, visualizations)
     /// in their native file formats (JSON, CSV).
     ///
-    /// This method is useful when you need access to raw analysis data rather than the
-    /// structured metrics provided by ``downloadAnalysisResult(forActivity:resultTag:)``.
+    /// This method is useful when you need access to non-analytical data rather than the
+    /// structured analysis provided by ``analysisResultData(ofType:for:)``.
     ///
     /// - Parameters:
     ///   - types: The types of result data to download (kinematic, visualization, or both)
     ///   - activity: The completed activity to download data from
-    /// - Returns: An array of result files with their formats. Returns an empty array if no
+    /// - Returns: An array of result data, one entry per requested type. Returns an empty array if no
     ///   results are available or all downloads fail.
     ///
     /// ## Example
     /// ```swift
-    /// // Download kinematic data only
-    /// let kinematicData = await service.data(ofType: [.kinematic], for: activity)
+    /// // Download kinematics in MOT format
+    /// let results = await service.data(ofType: [.kinematics(.mot)], for: activity)
     ///
-    /// for result in kinematicData {
-    ///     switch result.fileType {
-    ///     case .json:
-    ///         let decoder = JSONDecoder()
-    ///         if let jsonData = try? decoder.decode([String: Any].self, from: result.data) {
-    ///             print("Parsed kinematic JSON")
-    ///         }
-    ///
-    ///     case .csv:
-    ///         if let csvString = String(data: result.data, encoding: .utf8) {
-    ///             print("CSV data:\n\(csvString)")
-    ///         }
+    /// for result in results {
+    ///     switch result.resultDataType {
+    ///     case .kinematics(.mot):
+    ///         // Use result.data directly as a .mot file
+    ///         break
+    ///     default:
+    ///         break
     ///     }
     /// }
     ///
-    /// // Download all available data types
+    /// // Download multiple types in one call
     /// let allData = await service.data(
-    ///     ofType: [.kinematic, .visualization],
+    ///     ofType: [.kinematics(.mot), .animation],
     ///     for: activity
     /// )
     /// print("Downloaded \(allData.count) result files")
@@ -353,6 +348,44 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     ///   are silently excluded from results.
     public func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
         await serviceProvider.data(ofType: types, for: activity)
+    }
+
+    /// Downloads analysis result data for a completed activity.
+    ///
+    /// Retrieves the requested result types from an activity that has completed analysis.
+    /// Results are returned as an array with one entry per successfully downloaded type.
+    ///
+    /// - Parameters:
+    ///   - types: The analysis result types to download.
+    ///   - activity: The activity to download results from. Must have completed analysis.
+    /// - Returns: An array of analysis result data, one entry per requested type. Returns an empty
+    ///   array if no results are available or all downloads fail.
+    ///
+    /// ## Example
+    /// ```swift
+    /// let results = await service.analysisResultData(ofType: [.metrics, .report, .data], for: activity)
+    ///
+    /// for result in results {
+    ///     switch result.resultDataType {
+    ///     case .metrics:
+    ///         let decoder = JSONDecoder()
+    ///         // Decode metrics JSON from result.data
+    ///     case .report:
+    ///         // Use result.data directly as a PDF
+    ///     case .data:
+    ///         // Use result.data directly as a ZIP file
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Note: This method performs concurrent downloads for optimal performance.
+    ///   Individual download failures do not affect other requests and failed downloads
+    ///   are silently excluded from results.
+    public func analysisResultData(
+        ofType types: Set<AnalysisResultDataType>,
+        for activity: Activity
+    ) async -> [AnalysisResultData] {
+        await serviceProvider.analysisResultData(ofType: types, for: activity)
     }
 
     // MARK: - Subject Management
@@ -727,7 +760,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// Use the returned `AnalysisTask` to poll for completion.
     ///
     /// - Parameters:
-    ///   - analysisType: The type of analysis to perform
+    ///   - analysisType: The type of analysis to perform, .gait, .squats etc
     ///   - activity: The activity to analyze
     ///   - session: The session containing the activity
     /// - Returns: An analysis task for tracking completion
@@ -758,8 +791,7 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
 
     /// Retrieves the current status of an analysis task.
     ///
-    /// Poll this method to monitor analysis progress. When status is `.completed`,
-    /// use the returned result tags to download analysis files.
+    /// Poll this method to monitor analysis progress. When status is `.completed` analysis results are ready for download.
     ///
     /// - Parameter task: The task returned from `startAnalysis`
     /// - Returns: The current analysis status
@@ -772,12 +804,17 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// switch status {
     /// case .processing:
     ///     print("Analysis running...")
-    /// case .completed(let tags):
-    ///     for tag in tags {
-    ///         let data = try await service.downloadAnalysisResult(
-    ///             forActivity: activity,
-    ///             resultTag: tag
-    ///         )
+    /// case .completed:
+    ///     let results = await service.analysisResultData(ofType: [.metrics, .report], for: activity)
+    ///     for result in results {
+    ///         switch result.resultDataType {
+    ///         case .metrics:
+    ///             // JSON metrics – decode result.data
+    ///         case .report:
+    ///             // PDF – use result.data directly
+    ///         case .data:
+    ///             // ZIP – use result.data directly
+    ///         }
     ///     }
     /// case .failed:
     ///     print("Analysis failed")
@@ -785,53 +822,6 @@ public final class ModelHealthService: ObservableObject, @unchecked Sendable {
     /// ```
     public func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
         try await serviceProvider.getAnalysisStatus(for: task)
-    }
-
-    /// Downloads an analysis result.
-    ///
-    /// Result tags are provided in the `.completed` status from `getAnalysisStatus`.
-    /// Each tag represents a specific analysis output with structured biomechanical metrics.
-    ///
-    /// - Parameters:
-    ///   - activity: The completed and analyzed activity
-    ///   - resultTag: The specific result identifier
-    /// - Returns: An ``AnalysisResult`` containing structured metrics
-    /// - Throws: Network or authentication errors
-    ///
-    /// ## Usage
-    /// ```swift
-    /// let result = try await service.downloadAnalysisResult(
-    ///     forActivity: activity,
-    ///     resultTag: "countermovement_jump"
-    /// )
-    ///
-    /// print("Analysis: \(result.analysisTitle)")
-    /// print("Description: \(result.analysisDescription)")
-    ///
-    /// // Access specific metrics
-    /// if let jumpHeight = result.jumpHeight {
-    ///     print("Jump Height: \(jumpHeight) cm")
-    /// }
-    ///
-    /// // Iterate all metrics
-    /// for (key, metric) in result.metrics {
-    ///     print("\(metric.label): ", terminator: "")
-    ///     switch metric.value {
-    ///     case .single(let value):
-    ///         print(String(format: "%.\(metric.decimalPlaces)f", value))
-    ///     case .bilateral(let left, let right):
-    ///         print("L: \(left), R: \(right)")
-    ///     }
-    /// }
-    /// ```
-    public func downloadAnalysisResult(
-        forActivity activity: Activity,
-        resultTag: String
-    ) async throws -> AnalysisResult {
-        try await serviceProvider.downloadAnalysisResult(
-            forActivity: activity,
-            resultTag: resultTag
-        )
     }
 }
 
@@ -891,6 +881,12 @@ public protocol ModelHealthProvider {
     /// See ``ModelHealthService/data(ofType:for:)``
     func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData]
 
+    /// See ``ModelHealthService/analysisResultData(ofType:for:)``
+    func analysisResultData(
+        ofType types: Set<AnalysisResultDataType>,
+        for activity: Activity
+    ) async -> [AnalysisResultData]
+
     /// See ``ModelHealthService/createSession()``
     func createSession() async throws -> Session
 
@@ -929,12 +925,6 @@ public protocol ModelHealthProvider {
 
     /// See ``ModelHealthService/getAnalysisStatus(for:)``
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus
-
-    /// See ``ModelHealthService/downloadAnalysisResult(forActivity:resultTag:)``
-    func downloadAnalysisResult(
-        forActivity activity: Activity,
-        resultTag: String
-    ) async throws -> AnalysisResult
 }
 
 /// Errors that may be thrown by ModelHealthService

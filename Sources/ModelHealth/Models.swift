@@ -343,66 +343,127 @@ public struct ActivityTag: Sendable {
     public let label: String
 }
 
-/// Specifies the type of result data to retrieve from an activity.
+/// Specifies the type of result data to retrieve from an activity, including the desired file format.
 ///
 /// Trials can generate different types of output data during processing and analysis.
-/// Use this enumeration to specify which types of data you want to download.
+/// Use this enumeration to specify which types of data you want to download and in which format.
 ///
 /// ```swift
-/// // Download all visualization data
-/// let vizData = await service.data(ofType: [.visualization], for: activity)
+/// // Download animation data (JSON only)
+/// let animationData = await service.data(ofType: [.animation], for: activity)
 ///
-/// // Download both kinematic and visualization data
-/// let allData = await service.data(ofType: [.kinematic, .visualization], for: activity)
+/// // Download kinematics in MOT format
+/// let motData = await service.data(ofType: [.kinematics(.mot)], for: activity)
+///
+/// // Download kinematics in both formats
+/// let bothFormats = await service.data(ofType: [.kinematics(.mot), .kinematics(.csv)], for: activity)
 /// ```
-public enum ResultDataType: Sendable {
-    /// Visualization data for interpreting movement analysis results.
-    case visualization
+public enum ResultDataType: Hashable, Sendable {
+    /// Animation data for interpreting movement analysis results. Always JSON format.
+    case animation
 
-    /// Raw kinematic data including joint positions, angles, and velocities.
-    case kinematic
-}
-
-/// Result data downloaded from an activity with its associated file format.
-///
-/// Trial analysis generates output files in different formats. This structure
-/// wraps the raw data along with its file type, allowing you to process it appropriately.
-///
-/// ```swift
-/// let resultData = await service.data(ofType: [.kinematic], for: activity)
-///
-/// for result in resultData {
-///     switch result.fileType {
-///     case .json:
-///         let decoder = JSONDecoder()
-///         let kinematicData = try decoder.decode(KinematicData.self, from: result.data)
-///         // Process JSON data
-///
-///     case .csv:
-///         let csvString = String(data: result.data, encoding: .utf8)
-///         // Process CSV data
-///     }
-/// }
-/// ```
-public struct ResultData: Sendable {
-    /// The format of the result data file.
+    /// Raw kinematics data including joint positions, angles, and velocities.
     ///
-    /// Use this to determine how to parse the contents of ``data``.
-    public enum FileType: Sendable {
-        /// JSON-formatted data, suitable for structured parsing
-        case json
+    /// (**Only available in dynamic activities**)
+    case kinematics(KinematicsFormat)
 
-        /// CSV-formatted data, suitable for spreadsheet import or manual inspection
+    /// Marker trajectory data.
+    case markers(MarkersFormat)
+
+    /// OpenSim model. Always OSim format.
+    ///
+    /// (**Only available in neutral activities**)
+    case model
+
+    /// Available file formats for kinematics result data.
+    public enum KinematicsFormat: Sendable {
+        /// OpenSim Motion (.mot) format
+        case mot
+        /// Comma-separated values (.csv) format
         case csv
     }
 
-    /// The format of this result file
-    public let fileType: FileType
+    /// Available file formats for marker result data.
+    public enum MarkersFormat: Sendable {
+        /// TRC marker trajectory (.trc) format
+        case trc
+        /// Comma-separated values (.csv) format
+        case csv
+    }
+}
+
+/// Result data downloaded from an activity.
+///
+/// Each instance carries the ``resultDataType`` that was requested, which also
+/// implies the file format. Use ``resultDataType`` to determine how to parse ``data``.
+///
+/// ```swift
+/// let results = await service.data(ofType: [.kinematics(.mot)], for: activity)
+///
+/// for result in results {
+///     // result.resultDataType identifies both the type and implicit file format
+///     // Use result.data directly as a .mot file
+/// }
+/// ```
+public struct ResultData: Sendable {
+    /// The type of result data and its file format. Use this to determine how to parse the raw data.
+    public let resultDataType: ResultDataType
+
 
     /// The raw file data
     ///
-    /// Parse this data according to the ``fileType``. For JSON files, use `JSONDecoder`.
-    /// For CSV files, convert to a string with UTF-8 encoding.
+    /// Parse this data according to the file format of the associated ``ResultDataType``. For JSON files, use `JSONDecoder`.
+    /// For CSV files, convert to a string with UTF-8 encoding, etc.
+    public let data: Data
+}
+
+// MARK: - Analysis Result Data
+
+/// Type of analysis result data to download from a completed trial.
+///
+/// After analysis completes, three result types are available. The file format
+/// is implicit in the type:
+/// - ``metrics`` — JSON containing computed biomechanical metrics
+/// - ``data`` — ZIP containing raw analysis data
+/// - ``report`` — PDF report
+public enum AnalysisResultDataType: Hashable, Sendable {
+    /// Computed biomechanical metrics. Always JSON format.
+    case metrics
+    /// Raw analysis data. Always ZIP format.
+    case data
+    /// Analysis report. Always PDF format.
+    case report
+}
+
+/// Downloaded analysis result data from a completed trial.
+///
+/// The file format is implicit in ``resultDataType``:
+/// - ``AnalysisResultDataType/metrics`` → JSON
+/// - ``AnalysisResultDataType/data`` → ZIP
+/// - ``AnalysisResultDataType/report`` → PDF
+///
+/// ```swift
+/// let results = await service.analysisResultData(ofType: [.metrics, .report, .data], for: activity)
+///
+/// for result in results {
+///     switch result.resultDataType {
+///     case .metrics:
+///         let decoder = JSONDecoder()
+///         // Decode metrics JSON from result.data
+///     case .report:
+///         // Use result.data directly as a PDF
+///     case .data:
+///         // Use result.data directly as a ZIP file
+///     }
+/// }
+/// ```
+public struct AnalysisResultData: Sendable {
+    /// The type of analysis result, which implies the file format.
+    public let resultDataType: AnalysisResultDataType
+
+    /// The raw file data.
+    ///
+    /// Parse according to the format implied by ``resultDataType``.
     public let data: Data
 }
 
@@ -525,8 +586,42 @@ public enum CalibrationStatus: Sendable {
 ///
 /// Each analysis type processes activity data to extract specific biomechanical metrics
 /// and insights. Analysis can only be performed on activities that have completed processing.
-public enum AnalysisType: Sendable {
-    case counterMovementJump
+public enum AnalysisType: String, CaseIterable, Sendable {
+    /// Counter Movement Jump
+    case counterMovementJump = "Counter Movement Jump"
+
+    /// Overground Walking
+    case gait = "Overground Walking"
+
+    /// Treadmill Running
+    case treadmillRunning = "Treadmill Running"
+
+    /// Sit-to-Stand Transfer
+    case sitToStand = "Sit-to-Stand Transfer"
+
+    /// Squat Exercise
+    case squats = "Squats"
+
+    /// Range of Motion (ROM)
+    case rangeOfMotion = "Range of Motion"
+
+    /// Overground Running
+    case overgroundRunning = "Overground Running"
+
+    /// Drop Vertical Jump
+    case dropJump = "Drop Vertical Jump"
+
+    /// Hop Test
+    case hop = "Hop Test"
+
+    /// Treadmill Walking
+    case treadmillGait = "Treadmill Walking"
+
+    /// 5-0-5 Test
+    case changeOfDirection = "5-0-5 Test"
+
+    /// Cutting Manoeuvre
+    case cut = "Cutting Manoeuvre"
 }
 
 /// Represents the current processing state of an activity.
@@ -549,7 +644,7 @@ public struct AnalysisTask: Sendable {
 /// Represents the current state of an analysis task.
 public enum AnalysisTaskStatus: Sendable {
     case processing
-    case completed(resultTags: [String])
+    case completed
     case failed
 }
 
@@ -559,12 +654,6 @@ public enum AnalysisTaskStatus: Sendable {
 /// countermovement jumps (CMJ). Metrics can be either single values or bilateral
 /// (separate left and right values).
 public struct AnalysisResult: Sendable {
-    /// The title of the analysis function that generated these results.
-    public let analysisTitle: String
-
-    /// A detailed description of the analysis function and its purpose.
-    public let analysisDescription: String
-
     /// Dictionary of all metrics returned by the analysis, keyed by metric identifier.
     ///
     /// Access specific metrics using the convenience properties rather than
@@ -946,20 +1035,21 @@ extension ActivityTag {
 
 extension ResultData {
     public static func forPreview(
+        resultDataType: ResultDataType,
         customizing: (inout PreviewBuilder) -> Void = { _ in }
     ) -> Self {
-        var builder = PreviewBuilder()
+        var builder = PreviewBuilder(resultDataType: resultDataType)
         customizing(&builder)
         return builder.build()
     }
 
     public struct PreviewBuilder {
-        public var fileType: FileType = .csv
-        public var data: Data = Data("time,position,velocity\n0.0,0.0,0.0\n1.0,1.0,1.0".utf8)
+        public let resultDataType: ResultDataType
+        public let data: Data = Data("time,position,velocity\n0.0,0.0,0.0\n1.0,1.0,1.0".utf8)
 
         func build() -> ResultData {
             ResultData(
-                fileType: fileType,
+                resultDataType: resultDataType,
                 data: data
             )
         }
@@ -994,8 +1084,6 @@ extension AnalysisResult {
     }
 
     public struct PreviewBuilder {
-        public var analysisTitle = "Countermovement jump"
-        public var analysisDescription = "Single or double leg, one jump only"
         public var metrics: [String: AnalysisResult.Metric] = [
             "00_jump_height_COM": AnalysisResult.Metric(
                 label: "Jump height (cm)",
@@ -1024,9 +1112,58 @@ extension AnalysisResult {
 
         func build() -> AnalysisResult {
             AnalysisResult(
-                analysisTitle: analysisTitle,
-                analysisDescription: analysisDescription,
                 metrics: metrics
+            )
+        }
+    }
+}
+
+extension AnalysisResultData {
+    public static func forPreview(
+        customizing: (inout PreviewBuilder) -> Void = { _ in }
+    ) -> Self {
+        var builder = PreviewBuilder()
+        customizing(&builder)
+        return builder.build()
+    }
+
+    public struct PreviewBuilder {
+        public let resultDataType: AnalysisResultDataType = .metrics
+        public let data: Data = Data(
+            """
+            {
+                "00_jump_height_COM": {
+                    "label": "Jump height (cm)",
+                    "bilateral": false,
+                    "value": 33.2,
+                    "info": "Jump height is the vertical distance between the center of mass in a standing position and its highest point during the jump.",
+                    "decimalPlaces": 1
+                },
+                "01_jump_time": {
+                    "label": "Jump time (s)",
+                    "bilateral": false,
+                    "value": 0.73,
+                    "info": "Jump time is the time between the start of the downward phase and toe-off.",
+                    "decimalPlaces": 2
+                },
+                "06_peak_hip_extension_speed_during_takeoff": {
+                    "label": "Peak hip extension speed during takeoff (deg/s)",
+                    "bilateral": true,
+                    "value": {
+                        "left": 233.0,
+                        "right": 259.0
+                    },
+                    "info": "Peak hip extension speed during takeoff refers to the maximum angular velocity during vertical jump takeoff.",
+                    "decimalPlaces": 0
+                }
+            }
+            """.utf8
+        )
+
+        func build() -> AnalysisResultData {
+            AnalysisResultData(
+                resultDataType: resultDataType,
+                data: data
             )
         }
     }

@@ -167,8 +167,11 @@ struct CDataArray {
     let count: Int
 }
 
+/// `dataType` discriminant matches `ResultDataTypeWire`:
+///   0 = Animation, 1 = KinematicsMot, 2 = KinematicsCsv
+///   3 = MarkersTrc, 4 = MarkersCsv, 5 = Model
 struct CResultData {
-    let fileType: Int32  // 0=Json, 1=Csv
+    let dataType: Int32
     let data: UnsafeMutablePointer<UInt8>?
     let length: Int
 }
@@ -177,6 +180,10 @@ struct CResultDataArray {
     let items: UnsafeMutablePointer<CResultData>?
     let count: Int
 }
+
+/// `dataType` discriminant matches `AnalysisResultDataType`:
+///   0 = Metrics (JSON), 1 = Data (CSV), 2 = Report (PDF)
+typealias CAnalysisResultDataArray = CResultDataArray
 
 // MARK: - Free Functions
 
@@ -206,6 +213,9 @@ func model_health_free_data_array(_ array: CDataArray)
 
 @_silgen_name("model_health_free_result_data_array")
 func model_health_free_result_data_array(_ array: CResultDataArray)
+
+@_silgen_name("model_health_free_analysis_result_data_array")
+func model_health_free_analysis_result_data_array(_ array: CAnalysisResultDataArray)
 
 // MARK: - List Operations
 
@@ -351,6 +361,7 @@ func model_health_start_analysis(
     _ handle: ModelHealthProviderHandle,
     _ analysisType: Int32,
     _ trialId: UnsafePointer<CChar>,
+    _ trialName: UnsafePointer<CChar>,
     _ sessionId: UnsafePointer<CChar>,
     _ result: UnsafeMutablePointer<CAnalysisTask>
 ) -> FFIResult
@@ -359,16 +370,7 @@ func model_health_start_analysis(
 func model_health_get_analysis_status(
     _ handle: ModelHealthProviderHandle,
     _ taskId: UnsafePointer<CChar>,
-    _ status: UnsafeMutablePointer<Int32>,
-    _ resultTagsJson: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
-) -> FFIResult
-
-@_silgen_name("model_health_download_analysis_result")
-func model_health_download_analysis_result(
-    _ handle: ModelHealthProviderHandle,
-    _ trialId: UnsafePointer<CChar>,
-    _ resultTag: UnsafePointer<CChar>,
-    _ resultJson: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
+    _ status: UnsafeMutablePointer<Int32>
 ) -> FFIResult
 
 @_silgen_name("model_health_get_trial_status")
@@ -398,4 +400,14 @@ func model_health_download_trial_result_data(
     _ dataTypes: UnsafePointer<Int32>,
     _ dataTypeCount: Int,
     _ result: UnsafeMutablePointer<CResultDataArray>
+) -> FFIResult
+
+@_silgen_name("model_health_download_trial_analysis_result_data")
+func model_health_download_trial_analysis_result_data(
+    _ handle: ModelHealthProviderHandle,
+    _ trialId: UnsafePointer<CChar>,
+    _ sessionId: UnsafePointer<CChar>,
+    _ dataTypes: UnsafePointer<Int32>,
+    _ dataTypeCount: Int,
+    _ result: UnsafeMutablePointer<CAnalysisResultDataArray>
 ) -> FFIResult

@@ -3,7 +3,7 @@ import Foundation
 /// Internal implementation of ModelHealthProvider using Rust FFI
 internal final class ModelHealthProviderImpl: ModelHealthProvider {
     private let handle: OpaquePointer
-    
+
     /// Creates a new provider with the given API key
     /// - Parameter apiKey: The API key for authentication
     /// - Throws: ModelHealthError if provider creation fails
@@ -14,20 +14,20 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
             return handle
         }
-        
+
         self.handle = handle
 
         if let token = KeychainHelper.get(.authToken) {
             try? setToken(token)
         }
     }
-    
+
     deinit {
         model_health_provider_free(handle)
     }
-    
+
     // MARK: - Authentication
-    
+
     func register(parameters: RegistrationParameters) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let result = parameters.username.withCString { username in
@@ -49,7 +49,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     }
                 }
             }
-            
+
             handleFFIResult(result, continuation: continuation)
         }
 
@@ -61,13 +61,13 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     func login(username: String, password: String) async throws -> LoginResult {
         try await withCheckedThrowingContinuation { continuation in
             var resultCode: Int32 = -1
-            
+
             let result = username.withCString { u in
                 password.withCString { p in
                     model_health_login(handle, u, p, &resultCode)
                 }
             }
-            
+
             if result.success {
                 do {
                     if let token = getToken() {
@@ -84,17 +84,17 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func verify(code: String, rememberDevice: Bool) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let result = code.withCString { c in
                 model_health_verify(handle, c, rememberDevice)
             }
-            
+
             handleFFIResult(result, continuation: continuation)
         }
     }
-    
+
     func logout() async throws {
         try await withCheckedThrowingContinuation { continuation in
             let result = model_health_logout(handle)
@@ -102,12 +102,12 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             handleFFIResult(result, continuation: continuation)
         }
     }
-    
+
     func isAuthenticated() async -> Bool {
         await withCheckedContinuation { continuation in
             var isAuth = false
             let result = model_health_is_authenticated(handle, &isAuth)
-            
+
             if result.success {
                 continuation.resume(returning: isAuth)
             } else {
@@ -134,22 +134,22 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 model_health_free_error(errorMessage)
                 throw ModelHealthError.internalError(error)
             }
-            
+
             throw ModelHealthError.internalError("Failed to set token")
         }
     }
 
     // MARK: - List Operations
-    
+
     func sessionList() async throws -> [Session] {
         try await withCheckedThrowingContinuation { continuation in
             var cArray = CSessionArray(sessions: nil, count: 0)
             let result = model_health_session_list(handle, &cArray)
-            
+
             defer {
                 model_health_free_session_array(cArray)
             }
-            
+
             if result.success {
                 do {
                     var sessions: [Session] = []
@@ -169,16 +169,16 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func subjectList() async throws -> [Subject] {
         try await withCheckedThrowingContinuation { continuation in
             var cArray = CSubjectArray(subjects: nil, count: 0)
             let result = model_health_subject_list(handle, &cArray)
-            
+
             defer {
                 model_health_free_subject_array(cArray)
             }
-            
+
             if result.success {
                 do {
                     var subjects: [Subject] = []
@@ -198,18 +198,18 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func activityList(for session: Session) async throws -> [Activity] {
         try await withCheckedThrowingContinuation { continuation in
             var cArray = CTrialArray(trials: nil, count: 0)
             let result = session.id.withCString { sessionId in
                 model_health_trial_list_for_session(handle, sessionId, &cArray)
             }
-            
+
             defer {
                 model_health_free_trial_array(cArray)
             }
-            
+
             if result.success {
                 do {
                     var trials: [Activity] = []
@@ -383,9 +383,9 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
     func videos(for trial: Activity, version: VideoVersion) async -> [Data] {
         await withCheckedContinuation { continuation in
             var cArray = CDataArray(items: nil, count: 0)
-            
+
             let versionCode: Int32 = version == .raw ? 0 : 1
-            
+
             let result = trial.id.withCString { trialId in
                 trial.session.withCString { sessionId in
                     model_health_download_trial_videos(
@@ -397,11 +397,11 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     )
                 }
             }
-            
+
             defer {
                 model_health_free_data_array(cArray)
             }
-            
+
             if result.success, cArray.count > 0, let itemsPtr = cArray.items {
                 let dataArray = (0..<cArray.count).compactMap { i -> Data? in
                     let item = itemsPtr[i]
@@ -417,26 +417,18 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func data(ofType types: Set<ResultDataType>, for trial: Activity) async -> [ResultData] {
         await withCheckedContinuation { continuation in
-            let typeCodes: [Int32] = types.map { type in
-                switch type {
-                case .visualization:
-                    return 0
-                    
-                case .kinematic:
-                    return 1
-                }
-            }
-            
+            let typeCodes: [Int32] = types.map(\.cValue)
+
             guard !typeCodes.isEmpty else {
                 continuation.resume(returning: [])
                 return
             }
-            
+
             var cArray = CResultDataArray(items: nil, count: 0)
-            
+
             let result = trial.id.withCString { trialId in
                 trial.session.withCString { sessionId in
                     typeCodes.withUnsafeBufferPointer { buffer in
@@ -454,32 +446,93 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     }
                 }
             }
-            
+
             defer {
                 model_health_free_result_data_array(cArray)
             }
-            
-            if result.success, cArray.count > 0, let itemsPtr = cArray.items {
-                let results = (0..<cArray.count).compactMap { i -> ResultData? in
-                    let item = itemsPtr[i]
-                    guard let dataPtr = item.data, item.length > 0 else {
-                        return nil
-                    }
 
-                    let fileType: ResultData.FileType = item.fileType == 0 ? .json : .csv
-                    let data = Data(bytes: dataPtr, count: item.length)
-                    
-                    return ResultData(fileType: fileType, data: data)
-                }
-                continuation.resume(returning: results)
-            } else {
+            guard result.success, cArray.count > 0, let itemsPtr = cArray.items else {
                 continuation.resume(returning: [])
+                return
             }
+
+            let results: [ResultData] = (0..<cArray.count).compactMap { i in
+                let item = itemsPtr[i]
+                guard
+                    let dataType = ResultDataType(cValue: item.dataType),
+                    let dataPtr = item.data,
+                    item.length > 0
+                else {
+                    return nil
+                }
+
+                return ResultData(resultDataType: dataType, data: Data(bytes: dataPtr, count: item.length))
+            }
+
+            continuation.resume(returning: results)
         }
     }
-    
+
+    func analysisResultData(
+        ofType types: Set<AnalysisResultDataType>,
+        for trial: Activity
+    ) async -> [AnalysisResultData] {
+        await withCheckedContinuation { continuation in
+            let typeCodes: [Int32] = types.map(\.cValue)
+
+            guard !typeCodes.isEmpty else {
+                continuation.resume(returning: [])
+                return
+            }
+
+            var cArray = CAnalysisResultDataArray(items: nil, count: 0)
+
+            let result = trial.id.withCString { trialId in
+                trial.session.withCString { sessionId in
+                    typeCodes.withUnsafeBufferPointer { buffer in
+                        guard let baseAddress = buffer.baseAddress else {
+                            return FFIResult(success: false, errorMessage: nil)
+                        }
+                        return model_health_download_trial_analysis_result_data(
+                            handle,
+                            trialId,
+                            sessionId,
+                            baseAddress,
+                            typeCodes.count,
+                            &cArray
+                        )
+                    }
+                }
+            }
+
+            defer {
+                model_health_free_analysis_result_data_array(cArray)
+            }
+
+            guard result.success, cArray.count > 0, let itemsPtr = cArray.items else {
+                continuation.resume(returning: [])
+                return
+            }
+
+            let results: [AnalysisResultData] = (0..<cArray.count).compactMap { i in
+                let item = itemsPtr[i]
+                guard
+                    let dataType = AnalysisResultDataType(cValue: item.dataType),
+                    let dataPtr = item.data,
+                    item.length > 0
+                else {
+                    return nil
+                }
+
+                return AnalysisResultData(resultDataType: dataType, data: Data(bytes: dataPtr, count: item.length))
+            }
+
+            continuation.resume(returning: results)
+        }
+    }
+
     // MARK: - Create Operations
-    
+
     func createSession() async throws -> Session {
         try await withCheckedThrowingContinuation { continuation in
             var cSession = CSession(
@@ -488,7 +541,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 subject: 0, trialsCount: 0
             )
             let result = model_health_create_session(handle, &cSession)
-            
+
             if result.success {
                 do {
                     let session = try Session.from(cSession: cSession)
@@ -505,7 +558,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func createSubject(parameters: SubjectParameters) async throws -> Subject {
         try await withCheckedThrowingContinuation { continuation in
             var cSubject = CSubject(
@@ -513,7 +566,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 age: 0, birthYear: 0, gender: 0, sexAtBirth: 0,
                 characteristics: nil, subjectTagsJson: nil
             )
-            
+
             let result = parameters.name.withCString { name in
                 model_health_create_subject(
                     handle,
@@ -527,7 +580,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     &cSubject
                 )
             }
-            
+
             if result.success {
                 do {
                     let subject = try Subject.from(cSubject: cSubject)
@@ -544,9 +597,9 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     // MARK: - Recording Operations
-    
+
     func record(activityNamed name: String, in session: Session) async throws -> Activity {
         try await withCheckedThrowingContinuation { continuation in
             var cTrial = CTrial(
@@ -554,13 +607,13 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 videos: CVideoArray(videos: nil, count: 0),
                 results: CTrialResultArray(results: nil, count: 0)
             )
-            
+
             let result = name.withCString { trialName in
                 session.id.withCString { sessionId in
                     model_health_record(handle, trialName, sessionId, &cTrial)
                 }
             }
-            
+
             if result.success {
                 do {
                     let trial = try Activity.from(cTrial: cTrial)
@@ -577,19 +630,19 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func stopRecording(_ session: Session) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let result = session.id.withCString { sessionId in
                 model_health_stop_recording(handle, sessionId)
             }
-            
+
             handleFFIResult(result, continuation: continuation)
         }
     }
-    
+
     // MARK: - Calibration Operations
-    
+
     func calibrateCamera(
         _ session: Session,
         checkerboardDetails: CheckerboardDetails,
@@ -601,7 +654,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 continuation: continuation
             )
             let contextPtr = Unmanaged.passRetained(context).toOpaque()
-            
+
             let result = session.id.withCString { sessionId in
                 model_health_calibrate_camera(
                     handle,
@@ -621,7 +674,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                         let context = Unmanaged<CallbackContext<CalibrationStatus>>.fromOpaque(userDataPtr)
                             .takeUnretainedValue()
                         let jsonString = String(cString: statusJsonPtr)
-                        
+
                         do {
                             let status = try CalibrationStatus.from(jsonString: jsonString)
                             context.statusUpdate(status)
@@ -632,13 +685,13 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     contextPtr
                 )
             }
-            
+
             Unmanaged<CallbackContext<CalibrationStatus>>.fromOpaque(contextPtr).release()
-            
+
             handleFFIResult(result, continuation: continuation)
         }
     }
-    
+
     func calibrateNeutralPose(
         for subject: Subject,
         in session: Session,
@@ -650,7 +703,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                 continuation: continuation
             )
             let contextPtr = Unmanaged.passRetained(context).toOpaque()
-            
+
             let result = session.id.withCString { sessionId in
                 model_health_calibrate_neutral_pose(
                     handle,
@@ -667,7 +720,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                         let context = Unmanaged<CallbackContext<CalibrationStatus>>.fromOpaque(userDataPtr)
                             .takeUnretainedValue()
                         let jsonString = String(cString: statusJsonPtr)
-                        
+
                         do {
                             let status = try CalibrationStatus.from(jsonString: jsonString)
                             context.statusUpdate(status)
@@ -678,20 +731,20 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     contextPtr
                 )
             }
-            
+
             Unmanaged<CallbackContext<CalibrationStatus>>.fromOpaque(contextPtr).release()
             handleFFIResult(result, continuation: continuation)
         }
     }
-    
+
     // MARK: - Analysis Operations
-    
+
     func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus {
         try await withCheckedThrowingContinuation { continuation in
             var statusCode: Int32 = -1
             var uploaded: Int32 = 0
             var total: Int32 = 0
-            
+
             let result = activity.id.withCString { trialId in
                 activity.session.withCString { sessionId in
                     model_health_get_trial_status(
@@ -704,7 +757,7 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
                     )
                 }
             }
-            
+
             if result.success {
                 let status = ActivityProcessingStatus.from(
                     statusCode: statusCode,
@@ -717,27 +770,35 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func startAnalysis(
         _ analysisType: AnalysisType,
         for trial: Activity,
         in session: Session
     ) async throws -> AnalysisTask {
         try await withCheckedThrowingContinuation { continuation in
+            guard let trialName = trial.name else {
+                continuation.resume(
+                    throwing: ModelHealthError.internalError("Trial name is required for analysis")
+                )
+                return
+            }
+
             var cTask = CAnalysisTask(taskId: nil)
-            
+
             let result = trial.id.withCString { trialId in
                 session.id.withCString { sessionId in
                     model_health_start_analysis(
                         handle,
                         analysisType.cValue,
                         trialId,
+                        trialName,
                         sessionId,
                         &cTask
                     )
                 }
             }
-            
+
             if result.success {
                 do {
                     let task = try AnalysisTask.from(cTask: cTask)
@@ -758,78 +819,19 @@ internal final class ModelHealthProviderImpl: ModelHealthProvider {
             }
         }
     }
-    
+
     func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
         try await withCheckedThrowingContinuation { continuation in
             var statusCode: Int32 = -1
-            var resultTagsJsonPtr: UnsafeMutablePointer<CChar>? = nil
-            
+
             let result = task.taskId.withCString { taskId in
-                model_health_get_analysis_status(
-                    handle,
-                    taskId,
-                    &statusCode,
-                    &resultTagsJsonPtr
-                )
+                model_health_get_analysis_status(handle, taskId, &statusCode)
             }
-            
-            defer {
-                if let ptr = resultTagsJsonPtr {
-                    model_health_free_string(ptr)
-                }
-            }
-            
+
             if result.success {
                 do {
-                    let jsonString = resultTagsJsonPtr.map { String(cString: $0) }
-                    let status = try AnalysisTaskStatus.from(
-                        statusCode: statusCode,
-                        resultTagsJson: jsonString
-                    )
+                    let status = try AnalysisTaskStatus.from(statusCode: statusCode)
                     continuation.resume(returning: status)
-                } catch {
-                    continuation.resume(
-                        throwing: ModelHealthError.internalError(error.localizedDescription)
-                    )
-                }
-            } else {
-                handleFFIError(result, continuation: continuation)
-            }
-        }
-    }
-    
-    func downloadAnalysisResult(
-        forActivity activity: Activity,
-        resultTag: String
-    ) async throws -> AnalysisResult {
-        try await withCheckedThrowingContinuation { continuation in
-            var resultJsonPtr: UnsafeMutablePointer<CChar>? = nil
-            
-            let result = activity.id.withCString { trialId in
-                resultTag.withCString { tag in
-                    model_health_download_analysis_result(
-                        handle,
-                        trialId,
-                        tag,
-                        &resultJsonPtr
-                    )
-                }
-            }
-            
-            defer {
-                if let ptr = resultJsonPtr {
-                    model_health_free_string(ptr)
-                }
-            }
-            
-            if result.success {
-                do {
-                    guard let jsonPtr = resultJsonPtr else {
-                        throw ModelHealthError.internalError("Null JSON result")
-                    }
-                    let jsonString = String(cString: jsonPtr)
-                    let analysisResult = try AnalysisResult.from(jsonString: jsonString)
-                    continuation.resume(returning: analysisResult)
                 } catch {
                     continuation.resume(
                         throwing: ModelHealthError.internalError(error.localizedDescription)
@@ -855,7 +857,7 @@ private extension ModelHealthProviderImpl {
             handleFFIError(result, continuation: continuation)
         }
     }
-    
+
     func handleFFIError<T>(
         _ result: FFIResult,
         continuation: CheckedContinuation<T, Error>
@@ -868,20 +870,20 @@ private extension ModelHealthProviderImpl {
             continuation.resume(throwing: ModelHealthError.internalError("Unknown error"))
         }
     }
-    
+
     func freeSessionFields(_ session: CSession) {
         session.id.map { model_health_free_string($0) }
         session.name.map { model_health_free_string($0) }
         session.sessionName.map { model_health_free_string($0) }
         session.qrcode.map { model_health_free_string($0) }
     }
-    
+
     func freeSubjectFields(_ subject: CSubject) {
         subject.name.map { model_health_free_string($0) }
         subject.characteristics.map { model_health_free_string($0) }
         subject.subjectTagsJson.map { model_health_free_string($0) }
     }
-    
+
     func freeTrialFields(_ trial: CTrial) {
         trial.id.map { model_health_free_string($0) }
         trial.session.map { model_health_free_string($0) }
@@ -897,74 +899,9 @@ private extension ModelHealthProviderImpl {
 private class CallbackContext<T>: @unchecked Sendable {
     let statusUpdate: @Sendable (T) -> Void
     let continuation: Any
-    
+
     init(statusUpdate: @escaping @Sendable (T) -> Void, continuation: Any) {
         self.statusUpdate = statusUpdate
         self.continuation = continuation
-    }
-}
-
-// MARK: - Enum cValues
-
-extension Subject.Gender {
-    var cValue: Int32 {
-        switch self {
-        case .man:
-            return 0
-
-        case .woman:
-            return 1
-
-        case .transgender:
-            return 2
-
-        case .nonBinary:
-            return 3
-
-        case .noResponse:
-            return 4
-        }
-    }
-}
-
-extension Subject.Sex {
-    var cValue: Int32 {
-        switch self {
-        case .man:
-            return 0
-
-        case .woman:
-            return 1
-
-        case .intersex:
-            return 2
-
-        case .notListed:
-            return 3
-
-        case .noResponse:
-            return 4
-        }
-    }
-}
-
-extension CheckerboardPlacement {
-    var cValue: Int32 {
-        switch self {
-        case .perpendicular:
-            return 0
-
-        case .parallel:
-            return 1
-        }
-    }
-}
-
-extension AnalysisType {
-    var cValue: Int32 {
-        switch self {
-        case .counterMovementJump:
-            return 0
-        }
     }
 }

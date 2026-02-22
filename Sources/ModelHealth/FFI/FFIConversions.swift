@@ -199,21 +199,13 @@ extension ActivityProcessingStatus {
 }
 
 extension AnalysisTaskStatus {
-    internal static func from(statusCode: Int32, resultTagsJson: String?) throws -> AnalysisTaskStatus
-    {
+    internal static func from(statusCode: Int32) throws -> AnalysisTaskStatus {
         switch statusCode {
         case 0:
             return .processing
 
         case 1:
-            guard
-                let jsonString = resultTagsJson,
-                let data = jsonString.data(using: .utf8),
-                let tags = try? JSONDecoder().decode([String].self, from: data)
-            else {
-                throw FFIConversionError.invalidData("Failed to decode result tags JSON")
-            }
-            return .completed(resultTags: tags)
+            return .completed
 
         case 2:
             return .failed
@@ -322,23 +314,189 @@ private func sexFromI32(_ value: Int32) -> Subject.Sex {
     }
 }
 
+extension Subject.Gender {
+    var cValue: Int32 {
+        switch self {
+        case .man:
+            return 0
+
+        case .woman:
+            return 1
+
+        case .transgender:
+            return 2
+
+        case .nonBinary:
+            return 3
+
+        case .noResponse:
+            return 4
+        }
+    }
+}
+
+extension Subject.Sex {
+    var cValue: Int32 {
+        switch self {
+        case .man:
+            return 0
+
+        case .woman:
+            return 1
+
+        case .intersex:
+            return 2
+
+        case .notListed:
+            return 3
+
+        case .noResponse:
+            return 4
+        }
+    }
+}
+
+extension CheckerboardPlacement {
+    var cValue: Int32 {
+        switch self {
+        case .perpendicular:
+            return 0
+
+        case .parallel:
+            return 1
+        }
+    }
+}
+
+extension AnalysisType {
+    var cValue: Int32 {
+        switch self {
+        case .counterMovementJump:
+            return 0
+
+        case .gait:
+            return 1
+
+        case .treadmillRunning:
+            return 2
+
+        case .sitToStand:
+            return 3
+
+        case .squats:
+            return 4
+
+        case .rangeOfMotion:
+            return 5
+
+        case .overgroundRunning:
+            return 6
+
+        case .dropJump:
+            return 7
+
+        case .hop:
+            return 8
+
+        case .treadmillGait:
+            return 9
+
+        case .changeOfDirection:
+            return 10
+
+        case .cut:
+            return 11
+        }
+    }
+}
+
+extension ResultDataType {
+    var cValue: Int32 {
+        switch self {
+        case .animation:
+            return 0
+
+        case .kinematics(.mot):
+            return 1
+
+        case .kinematics(.csv):
+            return 2
+
+        case .markers(.trc):
+            return 3
+
+        case .markers(.csv):
+            return 4
+
+        case .model:
+            return 5
+        }
+    }
+
+    init?(cValue: Int32) {
+        switch cValue {
+        case 0:
+            self = .animation
+
+        case 1:
+            self = .kinematics(.mot)
+
+        case 2:
+            self = .kinematics(.csv)
+
+        case 3:
+            self = .markers(.trc)
+
+        case 4:
+            self = .markers(.csv)
+
+        case 5:
+            self = .model
+
+        default:
+            return nil
+        }
+    }
+}
+
+extension AnalysisResultDataType {
+    var cValue: Int32 {
+        switch self {
+        case .metrics:
+            return 0
+
+        case .data:
+            return 1
+
+        case .report:
+            return 2
+        }
+    }
+
+    init?(cValue: Int32) {
+        switch cValue {
+        case 0:
+            self = .metrics
+
+        case 1:
+            self = .data
+
+        case 2:
+            self = .report
+
+        default:
+            return nil
+        }
+    }
+}
+
 // MARK: - Internal Codable Types for FFI Deserialization
 
 private struct CodableAnalysisResult: Codable {
-    let analysisTitle: String
-    let analysisDescription: String
     let metrics: [String: CodableMetric]
-
-    enum CodingKeys: String, CodingKey {
-        case analysisTitle = "analysis_title"
-        case analysisDescription = "analysis_description"
-        case metrics
-    }
 
     func toPublic() -> AnalysisResult {
         AnalysisResult(
-            analysisTitle: analysisTitle,
-            analysisDescription: analysisDescription,
             metrics: metrics.mapValues { $0.toPublic() }
         )
     }
