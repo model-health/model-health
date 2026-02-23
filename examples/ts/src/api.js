@@ -1,7 +1,7 @@
 /**
  * Model Health SDK client singleton and init.
  */
-import { ModelHealthService } from '@modelhealth/sdk';
+import { ModelHealthService } from '@modelhealth/modelhealth';
 import { DEFAULT_API_KEY } from './constants.js';
 
 let client = null;

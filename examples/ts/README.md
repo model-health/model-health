@@ -75,13 +75,13 @@ To integrate with the actual Model Health SDK:
 
 1. Install the SDK:
 ```bash
-npm install @modelhealth/sdk
+npm install @modelhealth/modelhealth
 ```
 
 2. Update `demo.js` line 1:
 ```javascript
 // Replace mock client with real SDK
-import { ModelHealthService } from '@modelhealth/sdk';
+import { ModelHealthService } from '@modelhealth/modelhealth';
 
 // Remove MockModelHealthService class
 // Update init() to use real client:

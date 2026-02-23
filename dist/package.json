@@ -1,5 +1,5 @@
 {
-  "name": "@modelhealth/sdk",
+  "name": "@modelhealth/modelhealth",
   "version": "0.1.17",
   "description": "Model Health SDK for TypeScript/JavaScript",
   "type": "module",
@@ -27,7 +27,7 @@
     "sdk"
   ],
   "author": "Model Health",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/model-health/model-health"

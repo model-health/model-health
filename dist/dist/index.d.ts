@@ -8,7 +8,7 @@
  *
  * @example Basic usage
  * ```typescript
- * import { ModelHealthService } from '@modelhealth/sdk';
+ * import { ModelHealthService } from '@modelhealth/modelhealth';
  *
  * // Create and initialize client with API key
  * const client = new ModelHealthService({ apiKey: "your-api-key-here" });

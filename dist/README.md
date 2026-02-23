@@ -12,13 +12,13 @@ TypeScript/JavaScript SDK for the Model Health biomechanics platform.
 ## Installation
 
 ```bash
-npm install @modelhealth/sdk
+npm install @modelhealth/modelhealth
 ```
 
 ## Quick Start
 
 ```typescript
-import { ModelHealthService } from '@modelhealth/sdk';
+import { ModelHealthService } from '@modelhealth/modelhealth';
 
 const client = new ModelHealthService({
   apiKey: 'your-api-key-here',
@@ -93,7 +93,7 @@ const csv = ModelHealthService.motToCsv(motData);
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { ModelHealthService, Session } from '@modelhealth/sdk';
+import { ModelHealthService, Session } from '@modelhealth/modelhealth';
 
 function App() {
   const [client] = useState(
@@ -161,7 +161,7 @@ import type {
   Trial,
   CheckerboardDetails,
   // ... etc
-} from '@modelhealth/sdk';
+} from '@modelhealth/modelhealth';
 ```
 
 ## Building from Source

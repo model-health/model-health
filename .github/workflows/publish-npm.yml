@@ -64,6 +64,6 @@ jobs:
       - name: Publish to npm with provenance
         working-directory: dist
         run: |
-          echo "Publishing @modelhealth/sdk@${{ steps.version.outputs.version }} to npm..."
+          echo "Publishing @modelhealth/modelhealth@${{ steps.version.outputs.version }} to npm..."
           npm publish --access public --provenance
           echo "✅ Successfully published to npm"
