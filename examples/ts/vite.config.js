@@ -13,6 +13,6 @@ export default defineConfig({
     sourcemap: true
   },
   optimizeDeps: {
-    exclude: ['@modelhealth/sdk']
+    exclude: ['@modelhealth/modelhealth']
   }
 })
