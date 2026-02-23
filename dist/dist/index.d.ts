@@ -10,17 +10,9 @@
  * ```typescript
  * import { ModelHealthService } from '@modelhealth/modelhealth';
  *
- * // Create and initialize client with API key
  * const client = new ModelHealthService({ apiKey: "your-api-key-here" });
  * await client.init();
  *
- * // Authenticate (optional - API key already provides authentication)
- * const result = await client.login("user@example.com", "password");
- * if (result === "verification_required") {
- *   await client.verify("123456", true);
- * }
- *
- * // Get sessions
  * const sessions = await client.sessionList();
  * ```
  */
@@ -125,23 +117,7 @@ export declare class ModelHealthService {
      */
     private ensureInitialized;
     /**
-     * Checks if a user is currently authenticated.
-     *
-     * @returns `true` if authenticated, `false` otherwise
-     *
-     * @example
-     * ```typescript
-     * if (await client.isAuthenticated()) {
-     *   // Proceed with authenticated operations
-     *   const sessions = await client.sessionList();
-     * } else {
-     *   // Show login screen
-     * }
-     * ```
-     */
-    isAuthenticated(): Promise<boolean>;
-    /**
-     * Retrieves all sessions for the authenticated user.
+     * Retrieves all sessions for the account (API key).
      *
      * @returns An array of `Session` objects. Returns an empty array if no sessions exist.
      * @throws If the request fails due to network issues, authentication problems,
@@ -192,10 +168,10 @@ export declare class ModelHealthService {
      * const session = await client.createSession();
      *
      * // Proceed with calibration
-     * const details = {
+     * const details: CheckerboardDetails = {
      *   rows: 4,
      *   columns: 5,
-     *   square_size: 35,
+     *   squareSize: 35,
      *   placement: "perpendicular"
      * };
      * // await client.calibrateCamera(session, details, (status) => { ... });
@@ -221,10 +197,10 @@ export declare class ModelHealthService {
      * ```typescript
      * const session = await client.createSession();
      *
-     * const details = {
+     * const details: CheckerboardDetails = {
      *   rows: 4,           // Internal corners, not squares (for 5×6 board)
      *   columns: 5,        // Internal corners, not squares (for 5×6 board)
-     *   square_size: 35,   // Measured in millimeters
+     *   squareSize: 35,    // Measured in millimeters
      *   placement: "perpendicular"
      * };
      *
@@ -263,7 +239,7 @@ export declare class ModelHealthService {
      */
     calibrateNeutralPose(subject: Subject, session: Session, statusCallback: (status: CalibrationStatus) => void): Promise<void>;
     /**
-     * Retrieves all subjects associated with the authenticated account.
+     * Retrieves all subjects associated with the account.
      *
      * Subjects represent individuals being monitored or assessed. Each subject
      * contains demographic information, physical measurements, and categorization tags.
@@ -279,7 +255,7 @@ export declare class ModelHealthService {
      * }
      *
      * // Filter by tags
-     * const athletes = subjects.filter(s => s.subject_tags.includes("athlete"));
+     * const athletes = subjects.filter(s => s.subjectTags.includes("athlete"));
      * ```
      */
     subjectList(): Promise<Subject[]>;
@@ -296,15 +272,15 @@ export declare class ModelHealthService {
      *
      * @example
      * ```typescript
-     * const params = {
+     * const params: SubjectParameters = {
      *   name: "John Doe",
      *   weight: 75.0,        // kilograms
      *   height: 180.0,       // centimeters
-     *   birth_year: 1990,
+     *   birthYear: 1990,
      *   gender: "man",
-     *   sex_at_birth: "man",
+     *   sexAtBirth: "man",
      *   characteristics: "Regular training schedule",
-     *   subject_tags: ["athlete"],
+     *   subjectTags: ["athlete"],
      *   terms: true
      * };
      *
@@ -435,7 +411,7 @@ export declare class ModelHealthService {
      */
     getActivityTags(): Promise<ActivityTag[]>;
     /**
-     * Retrieves all movement activities associated with the authenticated account.
+     * Retrieves all movement activities associated with the account.
      *
      * Activities represent individual recording sessions and contain references to
      * captured videos and analysis results. Use this to review past data or
@@ -507,7 +483,7 @@ export declare class ModelHealthService {
      * const results = await client.downloadActivityResultData(activity, ["kinematics_mot"]);
      *
      * for (const result of results) {
-     *   switch (result.result_data_type) {
+     *   switch (result.resultDataType) {
      *     case "kinematics_mot":
      *       // Use result.data directly as a .mot file
      *       break;
@@ -543,7 +519,7 @@ export declare class ModelHealthService {
      * );
      *
      * for (const result of results) {
-     *   switch (result.result_data_type) {
+     *   switch (result.resultDataType) {
      *     case "metrics":
      *       const json = JSON.parse(new TextDecoder().decode(result.data));
      *       break;
@@ -643,7 +619,7 @@ export declare class ModelHealthService {
      * @example
      * ```typescript
      * const task = await client.startAnalysis(
-     *   "counterMovementJump",
+     *   AnalysisType.CounterMovementJump,
      *   activity,
      *   session
      * );
@@ -676,7 +652,7 @@ export declare class ModelHealthService {
      *       activity,
      *       ["metrics", "report"]
      *     );
-     *     const metricsEntry = results.find((r) => r.result_data_type === "metrics");
+     *     const metricsEntry = results.find((r) => r.resultDataType === "metrics");
      *     if (metricsEntry?.data) {
      *       const metrics = JSON.parse(new TextDecoder().decode(metricsEntry.data));
      *       console.log("Metrics:", metrics);
@@ -690,11 +666,15 @@ export declare class ModelHealthService {
      */
     getAnalysisStatus(task: AnalysisTask): Promise<AnalysisTaskStatus>;
     /**
-     * Parse JSON response from WASM.
+     * Parse a WASM response and normalise object keys to camelCase.
+     *
+     * The WASM layer serialises Rust structs using snake_case field names.
+     * This method converts them to idiomatic TypeScript camelCase before
+     * returning to the caller.
      *
      * @private
-     * @param value Value from WASM (may be string or object)
-     * @returns Parsed TypeScript object
+     * @param value Value from WASM (JsValue or JSON string)
+     * @returns Parsed, camelised TypeScript object
      */
     private parseResponse;
 }

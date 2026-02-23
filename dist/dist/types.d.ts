@@ -16,11 +16,11 @@ export interface Session {
     user: number;
     public: boolean;
     name: string;
-    session_name: string;
+    sessionName: string;
     qrcode?: string;
     activities: Activity[];
     subject?: number;
-    activities_count: number;
+    activitiesCount: number;
 }
 /**
  * Gender identity options for subject demographics.
@@ -43,11 +43,11 @@ export interface Subject {
     weight?: number;
     height?: number;
     age?: number;
-    birth_year?: number;
+    birthYear?: number;
     gender: Gender;
-    sex_at_birth: Sex;
+    sexAtBirth: Sex;
     characteristics: string;
-    subject_tags: string[];
+    subjectTags: string[];
 }
 /**
  * Parameters required for creating a new subject.
@@ -56,11 +56,11 @@ export interface SubjectParameters {
     name: string;
     weight: number;
     height: number;
-    birth_year: number;
-    sex_at_birth: Sex;
+    birthYear: number;
+    sexAtBirth: Sex;
     gender: Gender;
     characteristics: string;
-    subject_tags: string[];
+    subjectTags: string[];
     terms: boolean;
 }
 /**
@@ -70,7 +70,7 @@ export interface Video {
     id: string;
     activity: string;
     video?: string;
-    video_thumb?: string;
+    videoThumb?: string;
 }
 /**
  * An activity represents a single recording within a session.
@@ -171,11 +171,11 @@ export type FileType = "json" | "csv" | "mot" | "trc" | "o_sim";
 /**
  * Downloaded result data from an activity.
  *
- * The `result_data_type` identifies both what was requested and the implicit
+ * The `resultDataType` identifies both what was requested and the implicit
  * file format — use it to determine how to parse `data`.
  */
 export interface ResultData {
-    result_data_type: ResultDataType;
+    resultDataType: ResultDataType;
     data: Uint8Array;
 }
 /**
@@ -196,11 +196,11 @@ export type AnalysisResultDataType =
 /**
  * Downloaded analysis result data from a completed activity.
  *
- * The `result_data_type` identifies both what was requested and the implicit
+ * The `resultDataType` identifies both what was requested and the implicit
  * file format — use it to determine how to parse `data`.
  */
 export interface AnalysisResultData {
-    result_data_type: AnalysisResultDataType;
+    resultDataType: AnalysisResultDataType;
     data: Uint8Array;
 }
 /**
@@ -213,7 +213,7 @@ export type CheckerboardPlacement = "perpendicular" | "parallel";
 export interface CheckerboardDetails {
     rows: number;
     columns: number;
-    square_size: number;
+    squareSize: number;
     placement: CheckerboardPlacement;
 }
 /**
@@ -268,7 +268,7 @@ export type AnalysisType = (typeof AnalysisType)[keyof typeof AnalysisType];
  * Identifier for a running analysis task.
  */
 export interface AnalysisTask {
-    task_id: string;
+    taskId: string;
 }
 /**
  * Status of an analysis task.
@@ -287,8 +287,8 @@ export type AnalysisTaskStatus = {
  * asymmetries, and other biomechanical parameters.
  */
 export interface AnalysisResult {
-    analysis_title: string;
-    analysis_description: string;
+    analysisTitle: string;
+    analysisDescription: string;
     metrics: Record<string, Metric>;
 }
 /**
@@ -299,7 +299,7 @@ export interface Metric {
     bilateral: boolean;
     value: MetricValue;
     info: string;
-    decimal_places: number;
+    decimalPlaces: number;
 }
 /**
  * Value of a metric (single measurement or bilateral left/right).
@@ -312,86 +312,6 @@ export type MetricValue = {
     left: number;
     right: number;
 };
-/**
- * Interface for storing authentication tokens securely.
- *
- * Implement this interface to provide custom token storage
- * (e.g., encrypted storage, secure cookies, etc.)
- *
- * @example
- * ```typescript
- * class SecureTokenStorage implements TokenStorage {
- *   async getToken(): Promise<string | null> {
- *     // Retrieve from encrypted storage
- *   }
- *   async setToken(token: string): Promise<void> {
- *     // Store in encrypted storage
- *   }
- *   async removeToken(): Promise<void> {
- *     // Remove from storage
- *   }
- * }
- * ```
- */
-export interface TokenStorage {
-    /**
-     * Retrieve the stored authentication token.
-     *
-     * @returns The token string, or null if no token is stored
-     */
-    getToken(): Promise<string | null>;
-    /**
-     * Store an authentication token securely.
-     *
-     * @param token The token to store
-     */
-    setToken(token: string): Promise<void>;
-    /**
-     * Remove the stored authentication token.
-     */
-    removeToken(): Promise<void>;
-}
-/**
- * In-memory token storage implementation.
- *
- * **Warning**: Not secure - tokens are lost on page refresh.
- * Only use for development and testing.
- *
- * For production, use:
- * - Encrypted IndexedDB
- * - HttpOnly cookies with CSRF protection
- * - Platform-specific secure storage
- */
-export declare class MemoryTokenStorage implements TokenStorage {
-    private token;
-    getToken(): Promise<string | null>;
-    setToken(token: string): Promise<void>;
-    removeToken(): Promise<void>;
-}
-/**
- * LocalStorage-based token storage implementation.
- *
- * **Warning**: LocalStorage is not encrypted. Use secure
- * HTTP-only cookies or encrypted storage for production.
- *
- * @example
- * ```typescript
- * const storage = new LocalStorageTokenStorage("my_app_token");
- * const client = new ModelHealthService({ storage });
- * ```
- */
-export declare class LocalStorageTokenStorage implements TokenStorage {
-    private key;
-    /**
-     * Create a LocalStorage token storage.
-     *
-     * @param key Storage key name (default: "modelhealth_token")
-     */
-    constructor(key?: string);
-    getToken(): Promise<string | null>;
-    setToken(token: string): Promise<void>;
-    removeToken(): Promise<void>;
-}
 /**
  * Extract jump height from CMJ analysis results.
  *

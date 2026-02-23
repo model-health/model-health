@@ -2,10 +2,21 @@
 
 SDK for biomechanical analysis from smartphone videos.
 
-## SDKs
+## Installation
 
-- **Swift/iOS**: [model-health-swift](https://github.com/model-health/model-health-swift) — Swift Package Manager
-- **TypeScript/Web**: [`@modelhealth/modelhealth`](https://www.npmjs.com/package/@modelhealth/modelhealth) — npm
+### Swift Package Manager
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/model-health/model-health-swift.git", from: "0.1.23")
+]
+```
+
+### npm
+
+```bash
+npm install @modelhealth/modelhealth@0.1.23
+```
 
 ## Documentation
 
@@ -13,4 +24,4 @@ SDK for biomechanical analysis from smartphone videos.
 
 ## Latest Release
 
-**Version 0.1.17**
+**Version 0.1.23**
