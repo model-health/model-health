@@ -205,7 +205,7 @@ try {
 
 ## License
 
-MIT © Model Health
+Apache-2.0 © Model Health
 
 ## Support
 
