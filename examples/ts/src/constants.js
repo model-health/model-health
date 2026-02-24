@@ -16,4 +16,4 @@ export const ANALYSIS_TYPES = [
   { value: 'cut', label: 'Cutting Maneouver' },
 ];
 
-export const DEFAULT_API_KEY = 'mh_aabdf0739662564e62d347defab3637fbdbe260a';
+export const DEFAULT_API_KEY = 'mh_b7389d6adbb24873aee1e9b0bd01340fcdcd2889';

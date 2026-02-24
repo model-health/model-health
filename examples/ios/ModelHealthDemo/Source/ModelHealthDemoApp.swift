@@ -4,7 +4,7 @@ import ModelHealth
 
 @main
 struct ModelHealthDemoApp: App {
-    private let service = try! ModelHealthService(apiKey: "mh_aabdf0739662564e62d347defab3637fbdbe260a")
+    private let service = try! ModelHealthService(apiKey: "mh_b7389d6adbb24873aee1e9b0bd01340fcdcd2889")
 
     var body: some Scene {
         WindowGroup {
@@ -26,6 +26,7 @@ extension ModelHealthError {
             switch reason {
             case .notEnoughCameras:
                 return "Calibration Error: Not enough cameras"
+
             case .calibrationFailed:
                 return "Calibration Error: Calibration failed"
             }

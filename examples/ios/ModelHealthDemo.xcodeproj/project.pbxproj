@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 802955F22EF151CE000C2B72 /* ModelHealth */; };
 		805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 805EFA822EEE9C14006B9AEE /* ModelHealth */; };
-		80D21F3E2F3B49CA001A12DC /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 80D21F3D2F3B49CA001A12DC /* ModelHealth */; };
+		80CB184A2F4DA70900BC610C /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 80CB18492F4DA70900BC610C /* ModelHealth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,7 +29,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				80D21F3E2F3B49CA001A12DC /* ModelHealth in Frameworks */,
+				80CB184A2F4DA70900BC610C /* ModelHealth in Frameworks */,
 				802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */,
 				805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */,
 			);
@@ -76,7 +76,7 @@
 			packageProductDependencies = (
 				805EFA822EEE9C14006B9AEE /* ModelHealth */,
 				802955F22EF151CE000C2B72 /* ModelHealth */,
-				80D21F3D2F3B49CA001A12DC /* ModelHealth */,
+				80CB18492F4DA70900BC610C /* ModelHealth */,
 			);
 			productName = ModelHealthDemo;
 			productReference = 801D65F92EBA415A00FB51D7 /* ModelHealthDemo.app */;
@@ -107,7 +107,7 @@
 			mainGroup = 801D65F02EBA415A00FB51D7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				80D21F3C2F3B49CA001A12DC /* XCRemoteSwiftPackageReference "model-health" */,
+				80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 801D65FA2EBA415A00FB51D7 /* Products */;
@@ -284,7 +284,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.1.14;
+				MARKETING_VERSION = 0.1.24;
 				PRODUCT_BUNDLE_IDENTIFIER = io.modelhealth.ModelHealthDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -327,7 +327,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.1.14;
+				MARKETING_VERSION = 0.1.24;
 				PRODUCT_BUNDLE_IDENTIFIER = io.modelhealth.ModelHealthDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -366,12 +366,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		80D21F3C2F3B49CA001A12DC /* XCRemoteSwiftPackageReference "model-health" */ = {
+		80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/model-health/model-health";
+			repositoryURL = "https://github.com/model-health/model-health-swift";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 0.1.0;
+				kind = exactVersion;
+				version = 0.1.24;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -385,9 +385,9 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ModelHealth;
 		};
-		80D21F3D2F3B49CA001A12DC /* ModelHealth */ = {
+		80CB18492F4DA70900BC610C /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 80D21F3C2F3B49CA001A12DC /* XCRemoteSwiftPackageReference "model-health" */;
+			package = 80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 /* End XCSwiftPackageProductDependency section */
