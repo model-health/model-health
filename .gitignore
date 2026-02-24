@@ -18,6 +18,10 @@ DerivedData/
 Package.resolved
 examples/ts/node_modules
 
+# iOS example app — private config (real values live in model-health-internal)
+examples/ios/LocalConfig.xcconfig
+examples/ios/**/ExampleConfig.swift
+
 # SDK Documentation
 sdk-docs/
 ModelHealthFFI.xcframework
