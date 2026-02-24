@@ -14,6 +14,7 @@
 
 /* Begin PBXFileReference section */
 		801D65F92EBA415A00FB51D7 /* ModelHealthDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ModelHealthDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LocalConfig.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -41,6 +42,7 @@
 		801D65F02EBA415A00FB51D7 = {
 			isa = PBXGroup;
 			children = (
+				80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */,
 				801D65FB2EBA415A00FB51D7 /* ModelHealthDemo */,
 				801D65FA2EBA415A00FB51D7 /* Products */,
 			);
@@ -142,6 +144,7 @@
 /* Begin XCBuildConfiguration section */
 		801D66032EBA415C00FB51D7 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -175,7 +178,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = C785C9X8KV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -204,6 +206,7 @@
 		};
 		801D66042EBA415C00FB51D7 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -237,7 +240,6 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = C785C9X8KV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -258,13 +260,14 @@
 		};
 		801D66062EBA415C00FB51D7 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ModelHealthDemo/ModelHealthDemo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = C785C9X8KV;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -285,8 +288,9 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 0.1.24;
-				PRODUCT_BUNDLE_IDENTIFIER = io.modelhealth.ModelHealthDemo;
+
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -301,13 +305,14 @@
 		};
 		801D66072EBA415C00FB51D7 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 80A1B2C32F000000001AAAAA /* LocalConfig.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ModelHealthDemo/ModelHealthDemo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = C785C9X8KV;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -328,8 +333,9 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MARKETING_VERSION = 0.1.24;
-				PRODUCT_BUNDLE_IDENTIFIER = io.modelhealth.ModelHealthDemo;
+
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

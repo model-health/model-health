@@ -4,7 +4,7 @@ import ModelHealth
 
 @main
 struct ModelHealthDemoApp: App {
-    private let service = try! ModelHealthService(apiKey: "mh_b7389d6adbb24873aee1e9b0bd01340fcdcd2889")
+    private let service = try! ModelHealthService(apiKey: ExampleConfig.apiKey)
 
     var body: some Scene {
         WindowGroup {
