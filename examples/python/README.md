@@ -15,25 +15,8 @@ Camera calibration, neutral pose capture, and activity recording require the Mod
 - Python 3.9 or later
 - `modelhealth` package: `pip install modelhealth`
 
-## Setup
-
-Copy `.env.template` to `.env` and add your API key:
-
-```bash
-cp .env.template .env
-# Edit .env and replace YOUR_API_KEY_HERE with your key
-```
-
-Or export it directly:
-
-```bash
-export MH_API_KEY=mh_your_api_key
-```
-
 ## Run
 
 ```bash
-python3 demo.py
+python3 demo.py <api_key>
 ```
-
-If `MH_API_KEY` is not set the script will prompt for it on startup.

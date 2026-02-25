@@ -9,15 +9,9 @@ Walks through the post-capture workflow:
   5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
 
 Usage:
-    export MH_API_KEY=mh_your_key
-    python3 demo.py
-
-    # Or let the script prompt for the key:
-    python3 demo.py
+    python3 demo.py <api_key>
 """
 
-import json
-import os
 import sys
 import time
 
@@ -137,11 +131,9 @@ def _poll_analysis(service, task, interval=10):
 
 def main():
     # --- API key -----------------------------------------------------------
-    api_key = os.environ.get("MH_API_KEY", "").strip()
-    if not api_key:
-        api_key = input("API key (or set MH_API_KEY env var): ").strip()
-    if not api_key:
-        sys.exit("No API key provided.")
+    if len(sys.argv) != 2:
+        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
+    api_key = sys.argv[1]
 
     print("Connecting...")
     try:
