@@ -8,7 +8,7 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "file:../../../model-health-internal/build/npm"
+    "@modelhealth/modelhealth": "^0.1.30"
   },
   "devDependencies": {
     "vite": "^5.0.0"

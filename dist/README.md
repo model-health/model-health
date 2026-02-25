@@ -62,31 +62,23 @@ const newSession = await client.createSession();
 const subjects = await client.subjectList();
 ```
 
-### Trials
+### Activities
 
 ```typescript
-// Get trials for a session
-const trials = await client.trialList('session-id');
+// Get activities for a session
+const activities = await client.activityList('session-id');
 
-// Download trial videos
-const videos = await client.downloadTrialVideos(
-  trial,
+// Download activity videos
+const videos = await client.downloadActivityVideos(
+  activity,
   'raw' // or 'synced'
 );
 
 // Download result data
-const results = await client.downloadTrialResultData(
-  trial,
-  ['motData', 'csvData']
+const results = await client.downloadActivityResultData(
+  activity,
+  ['kinematics_mot', 'kinematics_csv']
 );
-```
-
-### Utilities
-
-```typescript
-// Convert MOT to CSV
-const motData = new Uint8Array([...]); // MOT file data
-const csv = ModelHealthService.motToCsv(motData);
 ```
 
 ## React Example
@@ -129,25 +121,17 @@ function App() {
 
 ## Vite Configuration
 
-If using Vite, add WASM support:
+If using Vite, exclude the SDK from dependency pre-bundling:
 
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig({
-  plugins: [
-    wasm(),
-    topLevelAwait(),
-  ],
+  optimizeDeps: {
+    exclude: ['@modelhealth/modelhealth'],
+  },
 });
-```
-
-Install plugins:
-```bash
-npm install -D vite-plugin-wasm vite-plugin-top-level-await
 ```
 
 ## TypeScript Types
@@ -158,7 +142,7 @@ All types are fully documented with JSDoc comments. Import types as needed:
 import type {
   Session,
   Subject,
-  Trial,
+  Activity,
   CheckerboardDetails,
   // ... etc
 } from '@modelhealth/modelhealth';
@@ -188,7 +172,6 @@ npm run dev
 - ✅ Modern browsers (Chrome, Firefox, Safari, Edge)
 - ✅ Node.js 18+ (with WASM support)
 - ✅ React, Vue, Svelte, Angular
-- ✅ React Native (with WASM bridge)
 - ✅ Electron
 
 ## Error Handling
