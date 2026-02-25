@@ -20,7 +20,6 @@ examples/ts/node_modules
 
 # iOS example app — private config (real values live in model-health-internal)
 examples/ios/LocalConfig.xcconfig
-examples/ios/**/ExampleConfig.swift
 
 # TypeScript example app — private config
 examples/ts/.env.local
