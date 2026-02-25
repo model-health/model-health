@@ -1,28 +1,18 @@
 # Model Health iOS Example
 
-An iOS demo app built with SwiftUI, showing how to use the Model Health SDK to create sessions, record activities, and view analysis results.
+A native SwiftUI app implementing the complete SDK workflow: session management, camera calibration, subject calibration, activity recording, and analysis retrieval.
 
-**Requirements:** Xcode 16+, iOS 18+
+## Requirements
 
-## Setup
+- iOS 18.0+
+- Xcode 16.0+
+- An API key
 
-**1. Add your API key**
+## Configuration
 
-Copy the template and fill in your key:
+Two files are required but not committed to the repository — they contain your signing credentials and API key. Templates for both are provided.
 
-```bash
-cp ModelHealthDemo/Source/ExampleConfig.swift.template ModelHealthDemo/Source/ExampleConfig.swift
-```
-
-Edit `ExampleConfig.swift`:
-
-```swift
-enum ExampleConfig {
-    static let apiKey = "your_api_key_here"
-}
-```
-
-**2. Configure signing**
+**1. Signing configuration**
 
 Copy the template and fill in your Apple Developer details:
 
@@ -30,15 +20,39 @@ Copy the template and fill in your Apple Developer details:
 cp LocalConfig.xcconfig.template LocalConfig.xcconfig
 ```
 
-Edit `LocalConfig.xcconfig`:
+Open `LocalConfig.xcconfig` and replace the placeholder values:
 
 ```
-DEVELOPMENT_TEAM = XXXXXXXXXX
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
 PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.ModelHealthDemo
 ```
 
-**3. Open and run**
+Your Team ID can be found in [Apple Developer](https://developer.apple.com/account) under **Membership details**.
 
-Open `ModelHealthDemo.xcodeproj` in Xcode, select a simulator or connected device, and press Run.
+**2. API key**
 
-The SDK is fetched automatically via Swift Package Manager from [model-health/model-health-swift](https://github.com/model-health/model-health-swift).
+Copy the template and add your API key:
+
+```bash
+cp ModelHealthDemo/Source/ExampleConfig.swift.template ModelHealthDemo/Source/ExampleConfig.swift
+```
+
+Open `ExampleConfig.swift` and replace the placeholder:
+
+```swift
+enum ExampleConfig {
+    static let apiKey = "your_api_key_here"
+}
+```
+
+## Launch
+
+Open the project in Xcode and run it on a connected device or simulator:
+
+```bash
+open ModelHealthDemo.xcodeproj
+```
+
+Select your target device in Xcode's toolbar and press **Run** (⌘R).
+
+The SDK is fetched automatically via Swift Package Manager.
