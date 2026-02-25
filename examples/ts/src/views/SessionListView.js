@@ -54,7 +54,7 @@ export function render(container, state, { setState, navigate }) {
   `;
 
   container.querySelector('#create-session-btn')?.addEventListener('click', () => {
-    navigate('create-session');
+    navigate('create-session', { newSession: null });
   });
   container.querySelector('#retry-sessions')?.addEventListener('click', () => loadSessions(setState, navigate));
   container.querySelectorAll('.session-item[data-can-open="true"]').forEach((el) => {
