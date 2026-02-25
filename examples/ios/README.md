@@ -31,13 +31,7 @@ Your Team ID can be found in [Apple Developer](https://developer.apple.com/accou
 
 **2. API key**
 
-Copy the template and add your API key:
-
-```bash
-cp ModelHealthDemo/Source/ExampleConfig.swift.template ModelHealthDemo/Source/ExampleConfig.swift
-```
-
-Open `ExampleConfig.swift` and replace the placeholder:
+Open `ModelHealthDemo/Source/ExampleConfig.swift` and replace the placeholder:
 
 ```swift
 enum ExampleConfig {
