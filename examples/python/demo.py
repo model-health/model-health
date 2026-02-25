@@ -12,6 +12,7 @@ Usage:
     python3 demo.py <api_key>
 """
 
+import os
 import sys
 import time
 
@@ -212,6 +213,9 @@ def main():
         sys.exit(f"Analysis did not complete (status: {result_status.get('type')}).")
     print("Analysis complete.")
 
+    # Re-fetch the activity so its results field contains the analysis URLs.
+    activity = service.get_activity(activity["id"])
+
     # --- Choose result files to save --------------------------------------
     print("\nWhich results would you like to save?\n")
     selected = _pick_multi(
@@ -225,11 +229,13 @@ def main():
     print("\nDownloading...")
     results = service.download_trial_analysis_result_data(activity, data_types)
 
+    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
+    os.makedirs(out_dir, exist_ok=True)
     slug = (activity.get("name") or activity["id"]).replace(" ", "_")
     for result in results:
         dtype = result["result_data_type"]
         ext = EXTENSIONS.get(dtype, "bin")
-        filename = f"{slug}_{dtype}.{ext}"
+        filename = os.path.join(out_dir, f"{slug}_{dtype}.{ext}")
         with open(filename, "wb") as f:
             f.write(result["data"])
         print(f"  Saved {filename}")
