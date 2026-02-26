@@ -163,13 +163,14 @@ export type VideoVersion = "raw" | "synced";
  *
  * Each variant encodes both the data type and the requested format:
  *
- * @group Enumerations
  * - `"animation"` — JSON only
  * - `"kinematics_mot"` — Kinematics in OpenSim MOT format
  * - `"kinematics_csv"` — Kinematics in CSV format
  * - `"markers_trc"` — Marker trajectories in TRC format
  * - `"markers_csv"` — Marker trajectories in CSV format
  * - `"model"` — OpenSim model (.osim), only available in neutral activities
+ *
+ * @group Enumerations
  */
 export type ResultDataType = "animation" | "kinematics_mot" | "kinematics_csv" | "markers_trc" | "markers_csv" | "model";
 /**
@@ -193,10 +194,11 @@ export interface ResultData {
  *
  * The file format is implicit in the type:
  *
- * @group Enumerations
  * - `"metrics"` — JSON containing computed biomechanical metrics
  * - `"data"` — ZIP containing raw analysis data
  * - `"report"` — PDF report
+ *
+ * @group Enumerations
  */
 export type AnalysisResultDataType = 
 /** Computed biomechanical metrics. Always JSON format. */
