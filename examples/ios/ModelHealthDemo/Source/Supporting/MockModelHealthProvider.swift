@@ -244,14 +244,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return .completed
     }
 
-    public func downloadAnalysisResult(
-        forActivity activity: Activity,
-        resultTag: String
-    ) async throws -> AnalysisResult {
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        return .forPreview()
-    }
-
     func analysisResultData(
         ofType types: Set<AnalysisResultDataType>,
         for activity: Activity
