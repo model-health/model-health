@@ -668,8 +668,8 @@ export declare class ModelHealthService {
     /**
      * Parse a WASM response and normalise object keys to camelCase.
      *
-     * The WASM layer serialises Rust structs using snake_case field names.
-     * This method converts them to idiomatic TypeScript camelCase before
+     * Normalises snake_case field names from the WASM layer to idiomatic
+     * TypeScript camelCase before
      * returning to the caller.
      *
      * @private

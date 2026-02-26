@@ -164,8 +164,6 @@ npm run dev
 ### Requirements
 
 - Node.js 18+
-- Rust 1.70+
-- wasm-pack (`cargo install wasm-pack`)
 
 ## Platform Support
 

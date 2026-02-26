@@ -24,10 +24,14 @@ export interface Session {
 }
 /**
  * Gender identity options for subject demographics.
+ *
+ * @group Enumerations
  */
 export type Gender = "woman" | "man" | "transgender" | "non_binary" | "no_response";
 /**
  * Sex assigned at birth options for subject demographics.
+ *
+ * @group Enumerations
  */
 export type Sex = "woman" | "man" | "intersex" | "not_listed" | "no_response";
 /**
@@ -90,6 +94,7 @@ export interface Activity {
  *
  * Specifies how activities should be ordered when retrieved from the API.
  *
+ * @group Enumerations
  * @example
  * ```typescript
  * const activities = await client.getActivitiesForSubject(
@@ -149,13 +154,16 @@ export type ActivityProcessingStatus = {
 };
 /**
  * Video version types available for download.
+ *
+ * @group Enumerations
  */
 export type VideoVersion = "raw" | "synced";
 /**
  * Result data types available for download from activities, including the desired file format.
  *
- * Each variant encodes both the data type and the requested format, matching
- * the `ResultDataTypeWire` discriminants used in the Rust core:
+ * Each variant encodes both the data type and the requested format:
+ *
+ * @group Enumerations
  * - `"animation"` — JSON only
  * - `"kinematics_mot"` — Kinematics in OpenSim MOT format
  * - `"kinematics_csv"` — Kinematics in CSV format
@@ -166,6 +174,8 @@ export type VideoVersion = "raw" | "synced";
 export type ResultDataType = "animation" | "kinematics_mot" | "kinematics_csv" | "markers_trc" | "markers_csv" | "model";
 /**
  * File format types for downloaded result data.
+ *
+ * @group Enumerations
  */
 export type FileType = "json" | "csv" | "mot" | "trc" | "o_sim";
 /**
@@ -182,6 +192,8 @@ export interface ResultData {
  * Type of analysis result data to download from a completed activity.
  *
  * The file format is implicit in the type:
+ *
+ * @group Enumerations
  * - `"metrics"` — JSON containing computed biomechanical metrics
  * - `"data"` — ZIP containing raw analysis data
  * - `"report"` — PDF report
@@ -205,6 +217,8 @@ export interface AnalysisResultData {
 }
 /**
  * Orientation of the checkerboard during camera calibration.
+ *
+ * @group Enumerations
  */
 export type CheckerboardPlacement = "perpendicular" | "parallel";
 /**
@@ -236,6 +250,8 @@ export type CalibrationStatus = {
  *
  * Each analysis type processes activity data to extract specific biomechanical metrics
  * and insights. Analysis can only be performed on activities that have completed processing.
+ *
+ * @group Enumerations
  */
 export declare const AnalysisType: {
     /** Counter Movement Jump */
@@ -263,6 +279,7 @@ export declare const AnalysisType: {
     /** Cutting Maneuver */
     readonly Cut: "cut";
 };
+/** @hidden */
 export type AnalysisType = (typeof AnalysisType)[keyof typeof AnalysisType];
 /**
  * Identifier for a running analysis task.
