@@ -60,9 +60,9 @@ export interface InitOutput {
     readonly modelhealthservice_trialList: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_updateActivity: (a: number, b: number) => number;
     readonly init: () => void;
-    readonly __wasm_bindgen_func_elem_866: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_1267: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_867: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_868: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1269: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_869: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;
