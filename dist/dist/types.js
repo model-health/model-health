@@ -11,6 +11,8 @@
  *
  * Each analysis type processes activity data to extract specific biomechanical metrics
  * and insights. Analysis can only be performed on activities that have completed processing.
+ *
+ * @group Enumerations
  */
 export const AnalysisType = {
     /** Counter Movement Jump */

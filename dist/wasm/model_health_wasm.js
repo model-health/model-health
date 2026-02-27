@@ -473,7 +473,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1212(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1269(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -620,8 +620,8 @@ function __wbg_get_imports() {
             console.warn(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 369, function: Function { arguments: [Externref], shim_idx: 370, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_811, __wasm_bindgen_func_elem_812);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 384, function: Function { arguments: [Externref], shim_idx: 385, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_868, __wasm_bindgen_func_elem_869);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -648,12 +648,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_812(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_812(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_869(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_869(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1212(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1212(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1269(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1269(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 
