@@ -147,7 +147,7 @@ private extension ActivityDataView {
         errorMessage = nil
 
         let types: Set<ResultDataType> = [.animation, .kinematics(.csv)]
-        dataItems = await modelHealth.data(ofType: types, for: activity)
+        dataItems = await modelHealth.motionData(ofType: types, for: activity)
 
         isLoading = false
     }

@@ -60,8 +60,8 @@ struct NeutralPoseCalibrationView: View {
         calibrationComplete = false
 
         do {
-            try await modelHealth.calibrateNeutralPose(
-                for: subject,
+            try await modelHealth.calibrateSubject(
+                subject,
                 in: session
             ) { status in
                 print("Calibration status: \(status)")

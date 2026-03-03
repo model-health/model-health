@@ -128,7 +128,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return []
     }
 
-    func data(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
+    func motionData(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return types.map { type in
             ModelHealth.ResultData.forPreview(resultDataType: type)
@@ -179,8 +179,8 @@ final class MockModelHealthProvider: ModelHealthProvider {
         statusUpdate(.done)
     }
 
-    func calibrateNeutralPose(
-        for subject: Subject,
+    func calibrateSubject(
+        _ subject: Subject,
         in session: Session,
         statusUpdate: @escaping @Sendable (CalibrationStatus) -> Void
     ) async throws {
