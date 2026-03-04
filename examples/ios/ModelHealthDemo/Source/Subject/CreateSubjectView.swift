@@ -9,12 +9,10 @@ struct CreateSubjectView: View {
     @State private var weight = ""
     @State private var height = ""
     @State private var birthYear = ""
-    @State private var subjectTags: [String] = []
     @State private var newTag = ""
     @State private var selectedGender: Subject.Gender? = .woman
     @State private var selectedSex: Subject.Sex? = .woman
     @State private var characteristics = ""
-    @State private var agreedToTerms = true
 
     @State private var isCreating = false
     @State private var errorMessage: String?
@@ -26,9 +24,7 @@ struct CreateSubjectView: View {
             Form {
                 basicInformationSection
                 measurementsSection
-                tagsSection
                 optionalSection
-                consentSection
 
                 if let error = errorMessage {
                     Section {
@@ -104,45 +100,6 @@ struct CreateSubjectView: View {
         }
     }
 
-    private var tagsSection: some View {
-        Section {
-            HStack {
-                TextField("Add tag", text: $newTag)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onSubmit {
-                        addTag()
-                    }
-
-                Button(action: addTag) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.accentColor)
-                }
-                .disabled(newTag.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-
-            if subjectTags.isEmpty {
-                Text("No tags added")
-                    .foregroundColor(.secondary)
-                    .font(.callout)
-            } else {
-                FlowLayout(spacing: 8) {
-                    ForEach(subjectTags, id: \.self) { tag in
-                        TagChip(tag: tag) {
-                            removeTag(tag)
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-        } header: {
-            Text("Subject Tags")
-        } footer: {
-            Text("Add tags to categorize the subject. Press return or tap + to add.")
-                .font(.caption)
-        }
-    }
-
     private var optionalSection: some View {
         Section("Optional Information") {
             Picker("Gender", selection: $selectedGender) {
@@ -175,20 +132,6 @@ struct CreateSubjectView: View {
         }
     }
 
-    private var consentSection: some View {
-        Section {
-            Toggle(isOn: $agreedToTerms) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Informed Consent")
-                        .font(.subheadline)
-                    Text("I confirm that informed consent has been obtained from the research participant")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-    }
-
     private var isFormValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         !weight.isEmpty &&
@@ -196,8 +139,7 @@ struct CreateSubjectView: View {
         !height.isEmpty &&
         Double(height) != nil &&
         !birthYear.isEmpty &&
-        isValidBirthYear &&
-        agreedToTerms
+        isValidBirthYear
     }
 
     private var isValidBirthYear: Bool {
@@ -207,20 +149,6 @@ struct CreateSubjectView: View {
         
         let currentYear = Calendar.current.component(.year, from: Date())
         return year >= 1900 && year <= currentYear
-    }
-
-    private func addTag() {
-        let trimmed = newTag.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !subjectTags.contains(trimmed) else {
-            newTag = ""
-            return
-        }
-        subjectTags.append(trimmed)
-        newTag = ""
-    }
-
-    private func removeTag(_ tag: String) {
-        subjectTags.removeAll { $0 == tag }
     }
 
     private func formatGenderLabel(_ gender: Subject.Gender) -> String {
@@ -283,11 +211,9 @@ struct CreateSubjectView: View {
                 weight: weightValue,
                 height: heightValue,
                 birthYear: birthYearValue,
-                subjectTags: subjectTags,
                 sexAtBirth: selectedSex,
                 gender: selectedGender,
-                characteristics: characteristics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines),
-                terms: agreedToTerms
+                characteristics: characteristics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             let subject = try await modelHealth.createSubject(parameters: params)

@@ -16,7 +16,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.gender = .man
             builder.sexAtBirth = .man
             builder.characteristics = "Competitive athlete"
-            builder.subjectTags = ["athlete", "competitive"]
         },
         .forPreview { builder in
             builder.id = 2
@@ -28,7 +27,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.gender = .woman
             builder.sexAtBirth = .woman
             builder.characteristics = "Marathon runner"
-            builder.subjectTags = ["athlete", "endurance"]
         }
     ]
 
@@ -63,7 +61,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.sexAtBirth = parameters.sexAtBirth
             builder.gender = parameters.gender
             builder.characteristics = parameters.characteristics
-            builder.subjectTags = parameters.subjectTags
         }
 
         subjects.append(newSubject)
@@ -98,7 +95,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
-    func getActivities(
+    func activities(
         forSubject subjectId: String,
         startIndex: Int,
         count: Int,
@@ -107,7 +104,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         try await activityList(for: Session.forPreview())
     }
 
-    func get(activity activityId: String) async throws -> Activity {
+    func fetch(activity activityId: String) async throws -> Activity {
         Activity.forPreview()
     }
 
@@ -118,7 +115,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func delete(activity: ModelHealth.Activity) async throws {
     }
 
-    func getActivityTags() async throws -> [ActivityTag] {
+    func activityTags() async throws -> [ActivityTag] {
         [ActivityTag.forPreview()]
     }
 
@@ -128,10 +125,10 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return []
     }
 
-    func motionData(ofType types: Set<ResultDataType>, for activity: Activity) async -> [ResultData] {
+    func motionData(ofType types: Set<MotionDataType>, for activity: Activity) async -> [MotionData] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return types.map { type in
-            ModelHealth.ResultData.forPreview(resultDataType: type)
+            ModelHealth.MotionData.forPreview(resultDataType: type)
         }
     }
 
@@ -206,7 +203,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         statusUpdate(.done)
     }
 
-    func record(activityNamed name: String, in session: Session) async throws -> Activity {
+    func startRecording(activityNamed name: String, in session: Session) async throws -> Activity {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview { builder in
             builder.id = "activity-\(UUID().uuidString.prefix(8))"
@@ -222,7 +219,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         try? await Task.sleep(nanoseconds: 500_000_000)
     }
 
-    func getStatus(forActivity activity: Activity) async throws -> ActivityProcessingStatus {
+    func activityStatus(for activity: Activity) async throws -> ActivityStatus {
         try? await Task.sleep(nanoseconds: 300_000_000)
         // Always return ready for happy path
         return .ready
@@ -232,22 +229,22 @@ final class MockModelHealthProvider: ModelHealthProvider {
         _ analysisType: AnalysisType,
         for activity: Activity,
         in session: Session
-    ) async throws -> AnalysisTask {
+    ) async throws -> Analysis {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview { builder in
             builder.taskId = "task-\(UUID().uuidString.prefix(8))"
         }
     }
 
-    func getAnalysisStatus(for task: AnalysisTask) async throws -> AnalysisTaskStatus {
+    func analysisStatus(for task: Analysis) async throws -> AnalysisStatus {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return .completed
     }
 
-    func analysisResultData(
-        ofType types: Set<AnalysisResultDataType>,
+    func analysisData(
+        ofType types: Set<AnalysisDataType>,
         for activity: Activity
-    ) async -> [AnalysisResultData] {
+    ) async -> [AnalysisData] {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return [.forPreview()]
     }

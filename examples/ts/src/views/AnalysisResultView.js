@@ -69,16 +69,16 @@ export function render(container, state, { setState, navigate }) {
     return;
   }
 
-  const labels = dataItems.map((r) => (r.result_data_type === 'metrics' ? 'Metrics' : r.result_data_type === 'report' ? 'Report' : 'Data'));
+  const labels = dataItems.map((r) => (r.type === 'metrics' ? 'Metrics' : r.type === 'report' ? 'Report' : 'Data'));
   const selected = dataItems[selectedIndex];
-  const isMetrics = selected?.result_data_type === 'metrics';
+  const isMetrics = selected?.type === 'metrics';
 
   let mainContent = '';
   if (isMetrics && result) {
     mainContent = `
       <pre class="metrics-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
     `;
-  } else if (selected?.result_data_type === 'report' && selected.data) {
+  } else if (selected?.type === 'report' && selected.data) {
     mainContent = `
       <p class="muted">PDF report</p>
       <button type="button" class="btn primary" id="download-report">Report</button>
@@ -112,7 +112,7 @@ export function render(container, state, { setState, navigate }) {
   });
 
   const reportBtn = container.querySelector('#download-report');
-  if (reportBtn && selected?.result_data_type === 'report' && selected.data) {
+  if (reportBtn && selected?.type === 'report' && selected.data) {
     reportBtn.addEventListener('click', () => {
       const bytes = toUint8Array(selected.data);
       const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -136,16 +136,16 @@ export async function onEnter(container, state, ctx) {
     return;
   ctx.setState({ loadingState: 'loading', errorMessage: null });
   try {
-    const results = await client.downloadActivityAnalysisResultData(activity, ['metrics', 'report']);
+    const results = await client.analysisDataForActivity(activity, ['metrics', 'report']);
     if (!results?.length) {
       ctx.setState({ loadingState: 'idle', errorMessage: 'No analysis data in result' });
       return;
     }
     const dataItems = results.map((r) => ({
-      result_data_type: r.result_data_type,
+      type: r.type,
       data: toUint8Array(r.data),
     }));
-    const metricsEntry = dataItems.find((r) => r.result_data_type === 'metrics');
+    const metricsEntry = dataItems.find((r) => r.type === 'metrics');
     let analysisResult = null;
     if (metricsEntry?.data?.length) {
       const text = new TextDecoder().decode(metricsEntry.data);

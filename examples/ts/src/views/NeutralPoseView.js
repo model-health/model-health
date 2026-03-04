@@ -47,7 +47,7 @@ export function render(container, state, { setState, navigate }) {
     const statusEl = container.querySelector('#neutral-status');
     setState({ loadingState: 'loading', errorMessage: null });
     try {
-      await client.calibrateNeutralPose(subject, session, (status) => {
+      await client.calibrateSubject(subject, session, (status) => {
         if (status.type === 'recording') statusEl.innerHTML = '<div class="status">⏺ Recording neutral pose...</div>';
         else if (status.type === 'uploading') {
           const pct = status.total ? ((status.uploaded / status.total) * 100).toFixed(0) : 0;
