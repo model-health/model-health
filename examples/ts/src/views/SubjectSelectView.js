@@ -50,10 +50,6 @@ export function render(container, state, { setState, navigate }) {
           <label>Gender</label>
           <select id="subject-gender"><option value="woman">Woman</option><option value="man">Man</option><option value="transgender">Transgender</option><option value="non_binary">Non-binary</option><option value="no_response">Prefer not to say</option></select>
         </div>
-        <div class="form-group">
-          <label>Tags (comma-separated)</label>
-          <input type="text" id="subject-tags" placeholder="athlete" />
-        </div>
         <button type="button" class="btn primary" id="submit-create-subject" ${loading ? 'disabled' : ''}>Create</button>
         <button type="button" class="btn secondary" id="cancel-create-subject">Cancel</button>
       </div>
@@ -67,17 +63,14 @@ export function render(container, state, { setState, navigate }) {
       const client = getClient();
       if (!client)
         return;
-      const tagsInput = container.querySelector('#subject-tags').value.trim();
       const params = {
         name,
         height: Number(container.querySelector('#subject-height').value) || 170,
         weight: Number(container.querySelector('#subject-weight').value) || 70,
-        birth_year: Number(container.querySelector('#subject-birth-year').value) || 1990,
-        sex_at_birth: container.querySelector('#subject-sex').value,
+        birthYear: Number(container.querySelector('#subject-birth-year').value) || 1990,
+        sexAtBirth: container.querySelector('#subject-sex').value,
         gender: container.querySelector('#subject-gender').value,
         characteristics: '',
-        subject_tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : ['unimpaired'],
-        terms: true,
       };
       setState({ loadingState: 'loading', errorMessage: null });
       try {

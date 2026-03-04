@@ -387,7 +387,7 @@ export class ModelHealthService {
      * @example
      * ```typescript
      * const params: SubjectParameters = {
-     *   name: "John Doe",
+     *   name: "John Smith",
      *   weight: 75.0,        // kilograms
      *   height: 180.0,       // centimeters
      *   birthYear: 1990,

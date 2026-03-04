@@ -7,7 +7,7 @@ struct ActivityDataView: View {
     let activity: Activity
 
     @State private var selectedIndex = 0
-    @State private var dataItems: [ResultData] = []
+    @State private var dataItems: [MotionData] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -54,14 +54,14 @@ struct ActivityDataView: View {
 }
 
 private extension ActivityDataView {
-    var selectedDataItem: ResultData? {
+    var selectedDataItem: MotionData? {
         guard dataItems.indices.contains(selectedIndex) else {
             return nil
         }
         return dataItems[selectedIndex]
     }
 
-    func dataPreviewView(for resultData: ResultData) -> some View {
+    func dataPreviewView(for resultData: MotionData) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -146,16 +146,16 @@ private extension ActivityDataView {
         isLoading = true
         errorMessage = nil
 
-        let types: Set<ResultDataType> = [.animation, .kinematics(.csv)]
-        dataItems = await modelHealth.data(ofType: types, for: activity)
+        let types: Set<MotionDataType> = [.animation, .kinematics(.csv)]
+        dataItems = await modelHealth.motionData(ofType: types, for: activity)
 
         isLoading = false
     }
 }
 
-private extension ResultData {
+private extension MotionData {
     var label: String {
-        switch resultDataType {
+        switch type {
         case .animation:
             "Animation"
 
@@ -181,7 +181,7 @@ private extension ResultData {
     }
 
     var fileType: String {
-        switch resultDataType {
+        switch type {
         case .animation:
             "JSON"
 
@@ -200,7 +200,7 @@ private extension ResultData {
     }
 
     var previewImageName: String {
-        switch resultDataType {
+        switch type {
         case .animation:
             "curlybraces"
 
@@ -216,7 +216,7 @@ private extension ResultData {
     }
 
     func previewText(maxLines: Int) -> String? {
-        switch resultDataType {
+        switch type {
         case .animation:
             guard let prettyJSON = prettyPrintedJSON() else {
                 return nil

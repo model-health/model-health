@@ -8,7 +8,7 @@ struct AnalysisResultDataView: View {
     let activity: Activity
 
     @State private var selectedIndex = 0
-    @State private var dataItems: [AnalysisResultData] = []
+    @State private var dataItems: [AnalysisData] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -55,7 +55,7 @@ struct AnalysisResultDataView: View {
 }
 
 private extension AnalysisResultDataView {
-    var selectedDataItem: AnalysisResultData? {
+    var selectedDataItem: AnalysisData? {
         guard dataItems.indices.contains(selectedIndex) else {
             return nil
         }
@@ -63,8 +63,8 @@ private extension AnalysisResultDataView {
     }
 
     @ViewBuilder
-    func dataPreviewView(for resultData: AnalysisResultData) -> some View {
-        switch resultData.resultDataType {
+    func dataPreviewView(for resultData: AnalysisData) -> some View {
+        switch resultData.type {
         case .metrics:
             metricsPreviewView(for: resultData)
 
@@ -79,7 +79,7 @@ private extension AnalysisResultDataView {
         }
     }
 
-    func metricsPreviewView(for resultData: AnalysisResultData) -> some View {
+    func metricsPreviewView(for resultData: AnalysisData) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -114,7 +114,7 @@ private extension AnalysisResultDataView {
         }
     }
 
-    func reportPreviewView(for resultData: AnalysisResultData) -> some View {
+    func reportPreviewView(for resultData: AnalysisData) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -195,8 +195,8 @@ private extension AnalysisResultDataView {
         isLoading = true
         errorMessage = nil
 
-        let types: Set<AnalysisResultDataType> = [.metrics, .report]
-        dataItems = await modelHealth.analysisResultData(ofType: types, for: activity)
+        let types: Set<AnalysisDataType> = [.metrics, .report]
+        dataItems = await modelHealth.analysisData(ofType: types, for: activity)
 
         isLoading = false
     }
@@ -222,9 +222,9 @@ private struct PDFKitView: UIViewRepresentable {
 
 // MARK: - AnalysisResultData Extensions
 
-private extension AnalysisResultData {
+private extension AnalysisData {
     var label: String {
-        switch resultDataType {
+        switch type {
         case .metrics:
             "Metrics"
 
@@ -237,7 +237,7 @@ private extension AnalysisResultData {
     }
 
     var fileType: String {
-        switch resultDataType {
+        switch type {
         case .metrics:
             "JSON"
 
@@ -250,7 +250,7 @@ private extension AnalysisResultData {
     }
 
     var previewImageName: String {
-        switch resultDataType {
+        switch type {
         case .metrics:
             "curlybraces"
 
@@ -263,7 +263,7 @@ private extension AnalysisResultData {
     }
 
     func previewText(maxLines: Int) -> String? {
-        switch resultDataType {
+        switch type {
         case .metrics:
             guard
                 let jsonObject = try? JSONSerialization.jsonObject(with: data),
