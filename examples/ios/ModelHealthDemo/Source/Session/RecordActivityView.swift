@@ -163,7 +163,7 @@ struct RecordActivityView: View {
             .padding()
             .navigationTitle("Record Activity")
             .navigationDestination(item: $selectedActivityForResults) { activity in
-                AnalysisResultDataView(activity: activity)
+                AnalysisDataView(activity: activity)
             }
             .navigationDestination(item: $selectedActivityForVideos) { activity in
                 ActivityVideoView(activity: activity)
@@ -726,7 +726,7 @@ extension ActivityState {
 
 #Preview("Results") {
     NavigationStack {
-        AnalysisResultDataView(
+        AnalysisDataView(
             activity: .forPreview()
         )
         .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))

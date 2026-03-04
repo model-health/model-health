@@ -16,7 +16,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.gender = .man
             builder.sexAtBirth = .man
             builder.characteristics = "Competitive athlete"
-            builder.subjectTags = ["athlete", "competitive"]
         },
         .forPreview { builder in
             builder.id = 2
@@ -28,7 +27,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.gender = .woman
             builder.sexAtBirth = .woman
             builder.characteristics = "Marathon runner"
-            builder.subjectTags = ["athlete", "endurance"]
         }
     ]
 
@@ -63,7 +61,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.sexAtBirth = parameters.sexAtBirth
             builder.gender = parameters.gender
             builder.characteristics = parameters.characteristics
-            builder.subjectTags = parameters.subjectTags
         }
 
         subjects.append(newSubject)
