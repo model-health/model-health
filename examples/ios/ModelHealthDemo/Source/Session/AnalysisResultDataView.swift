@@ -2,7 +2,7 @@ import SwiftUI
 import PDFKit
 import ModelHealth
 
-struct AnalysisResultDataView: View {
+struct AnalysisDataView: View {
     @EnvironmentObject private var modelHealth: ModelHealthService
 
     let activity: Activity
@@ -54,7 +54,7 @@ struct AnalysisResultDataView: View {
     }
 }
 
-private extension AnalysisResultDataView {
+private extension AnalysisDataView {
     var selectedDataItem: AnalysisData? {
         guard dataItems.indices.contains(selectedIndex) else {
             return nil
@@ -220,7 +220,7 @@ private struct PDFKitView: UIViewRepresentable {
     }
 }
 
-// MARK: - AnalysisResultData Extensions
+// MARK: - AnalysisData Extensions
 
 private extension AnalysisData {
     var label: String {
@@ -289,7 +289,7 @@ private extension AnalysisData {
 
 #Preview {
     NavigationStack {
-        AnalysisResultDataView(activity: .forPreview())
+        AnalysisDataView(activity: .forPreview())
             .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

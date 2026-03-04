@@ -202,22 +202,28 @@ export class ModelHealthService {
     // MARK: - Authentication
     // MARK: - Sessions
     /**
-     * Retrieves all sessions for the account (API key).
+     * Retrieves all sessions for the account associated with the API key.
      *
-     * @returns An array of `Session` objects. Returns an empty array if no sessions exist.
-     * @throws If the request fails due to network issues, authentication problems,
-     *         or server errors.
+     * Use this to list existing sessions before creating a new one, or to resume a previous
+     * capture workflow.
+     *
+     * To connect a device to a specific session, use the session `qrcode` URL to download
+     * the QR code image data, then display it in your app to be captured by the ModelHealth
+     * mobile app.
+     *
+     * @returns An array of `Session` objects, or an empty array if none exist.
+     * @throws If the request fails due to network or authentication issues.
      *
      * @example
      * ```typescript
-     * try {
-     *   const sessions = await client.sessionList();
-     *   console.log(`Found ${sessions.length} sessions`);
-     *   for (const session of sessions) {
-     *     console.log(`Session: ${session.id}`);
-     *   }
-     * } catch (error) {
-     *   console.log(`Failed to fetch sessions: ${error}`);
+     * const sessions = await client.sessionList();
+     * console.log(`Found ${sessions.length} sessions`);
+     *
+     * const firstSession = sessions[0];
+     * if (firstSession?.qrcode) {
+     *   const response = await fetch(firstSession.qrcode);
+     *   const qrCodeImageData = new Uint8Array(await response.arrayBuffer());
+     *   // Display qrCodeImageData in your app so the mobile app can scan it
      * }
      * ```
      */
@@ -227,47 +233,18 @@ export class ModelHealthService {
         return this.parseResponse(result);
     }
     /**
-     * Retrieve a specific session by ID with all activities populated.
+     * Creates a session.
      *
-     * @param sessionId Unique session identifier
-     * @returns The requested session with complete activity data
-     * @throws If the session doesn't exist, user lacks access, or request fails
+     * A session is the parent container for a movement capture workflow. It links
+     * related entities such as activities and subjects, and provides the context
+     * used by subsequent operations.
      *
-     * @example
-     * ```typescript
-     * const session = await client.getSession("session-abc123");
-     * console.log(`Session has ${session.activities.length} activities`);
-     * ```
-     */
-    async getSession(sessionId) {
-        this.ensureInitialized();
-        const result = await this.wasmClient.getSession(sessionId);
-        return this.parseResponse(result);
-    }
-    /**
-     * Creates a new session.
-     *
-     * A session is required before performing camera calibration. It represents
-     * a single calibration workflow and groups multiple cameras together.
-     *
-     * After creating a session, use camera calibration methods to calibrate your cameras.
-     *
-     * @returns A `Session` object with a unique identifier
-     * @throws If session creation fails
+     * @returns A new `Session` with a unique identifier.
+     * @throws If session creation fails.
      *
      * @example
      * ```typescript
-     * // Create session
      * const session = await client.createSession();
-     *
-     * // Proceed with calibration
-     * const details: CheckerboardDetails = {
-     *   rows: 4,
-     *   columns: 5,
-     *   squareSize: 35,
-     *   placement: "perpendicular"
-     * };
-     * // await client.calibrateCamera(session, details, (status) => { ... });
      * ```
      */
     async createSession() {
@@ -276,19 +253,19 @@ export class ModelHealthService {
         return this.parseResponse(result);
     }
     /**
-     * Calibrates a camera using a checkerboard pattern.
+     * Calibrates cameras using a checkerboard pattern.
      *
-     * **Requirements:**
-     * - A printed checkerboard pattern
-     * - Accurate measurement of square size in millimeters
-     * - Multiple views of the checkerboard from different angles
+     * Determines each camera's position and orientation in 3D space (extrinsics), enabling
+     * reconstruction of real-world movement from multiple 2D video feeds. Required once per
+     * session setup — recalibrate only if cameras are moved.
      *
-     * The calibration is automated and typically completes in a few seconds
+     * > Note: `rows` and `columns` refer to internal corners, not squares. A 5×6 board has
+     * > 4 internal corner rows and 5 internal corner columns.
      *
-     * @param session The session created with `createSession()`
-     * @param checkerboardDetails Configuration of the calibration checkerboard
-     * @param statusCallback Callback function called with calibration progress updates
-     * @throws If calibration fails (insufficient views, pattern not detected, etc.)
+     * @param session The session context in which calibration is performed.
+     * @param checkerboardDetails The checkerboard dimensions and placement used for calibration.
+     * @param statusCallback Callback called with progress updates during calibration.
+     * @throws If calibration fails (for example, checkerboard pattern not detected).
      *
      * @example
      * ```typescript
@@ -302,9 +279,8 @@ export class ModelHealthService {
      * };
      *
      * await client.calibrateCamera(session, details, (status) => {
-     *   console.log("Calibration status:", status);
+     *   console.log(status);
      * });
-     * // Calibration complete, proceed to neutral pose
      * ```
      */
     async calibrateCamera(session, checkerboardDetails, statusCallback) {
@@ -315,47 +291,42 @@ export class ModelHealthService {
         await wasmModule.calibrateCamera(this.config.apiKey, decamelizeKeys(session), decamelizeKeys(checkerboardDetails), jsCallback);
     }
     /**
-     * Captures the subject's neutral standing pose for model scaling.
+     * Calibrates a subject by recording a neutral standing pose.
      *
-     * This step is required after camera calibration and before recording movement activities.
-     * It takes a quick video of the subject standing in a neutral position, which is
-     * used to scale the biomechanical model to match the subject's dimensions.
+     * Scales the 3D biomechanical model to the subject's body size. Must be run after
+     * camera calibration and requires the subject profile to include height and weight.
      *
-     * **Instructions for subject:**
-     * - Stand upright in a relaxed, natural position
-     * - Face forward with arms spread slightly at sides
-     * - Remain still for a few seconds
+     * > Important: The subject must stand upright, feet pointing forward, completely still,
+     * > and fully visible to all cameras for the duration of the recording.
      *
-     * @param subject The subject to calibrate the neutral pose for
-     * @param session The session to perform calibration in
-     * @param statusCallback Callback function called with calibration progress updates
-     * @throws If pose capture fails (subject not detected, poor lighting, etc.)
+     * @param subject The subject to calibrate.
+     * @param session The session context in which calibration is performed.
+     * @param statusCallback Callback called with calibration status updates.
+     * @throws If pose capture fails (for example, subject not detected or insufficient visibility).
      *
      * @example
      * ```typescript
-     * // After successful camera calibration
-     * await client.calibrateNeutralPose(subject, session, (status) => {
-     *   console.log("Neutral pose status:", status);
+     * await client.calibrateSubject(subject, session, (status) => {
+     *   console.log(status);
      * });
-     * // Model now scaled, ready to record movement activities
      * ```
      */
-    async calibrateNeutralPose(subject, session, statusCallback) {
+    async calibrateSubject(subject, session, statusCallback) {
         this.ensureInitialized();
         const jsCallback = (statusJson) => {
             statusCallback(statusJson);
         };
-        await wasmModule.calibrateNeutralPose(this.config.apiKey, decamelizeKeys(subject), decamelizeKeys(session), jsCallback);
+        await wasmModule.calibrateSubject(this.config.apiKey, decamelizeKeys(subject), decamelizeKeys(session), jsCallback);
     }
     // MARK: - Subjects
     /**
-     * Retrieves all subjects associated with the account.
+     * Retrieves all subjects associated with the API key.
      *
-     * Subjects represent individuals being monitored or assessed. Each subject
-     * contains demographic information, physical measurements, and categorization tags.
+     * Subjects represent individuals being monitored or assessed. Each subject may
+     * contain demographic information, physical measurements, and categorization tags.
      *
-     * @returns An array of `Subject` objects
-     * @throws If the request fails or authentication has expired
+     * @returns An array of `Subject` objects, or an empty array if none exist.
+     * @throws If the request fails due to network or authentication issues.
      *
      * @example
      * ```typescript
@@ -363,9 +334,6 @@ export class ModelHealthService {
      * for (const subject of subjects) {
      *   console.log(`${subject.name}: ${subject.height ?? 0}cm, ${subject.weight ?? 0}kg`);
      * }
-     *
-     * // Filter by tags
-     * const athletes = subjects.filter(s => s.subjectTags.includes("athlete"));
      * ```
      */
     async subjectList() {
@@ -374,15 +342,14 @@ export class ModelHealthService {
         return this.parseResponse(result);
     }
     /**
-     * Creates a new subject in the system.
+     * Creates a subject profile.
      *
-     * Subjects represent individuals being monitored or assessed. After creating
-     * a subject, they can be associated with sessions for neutral pose calibration
-     * and movement activities.
+     * Height and weight are required for biomechanical analysis. Once created, the subject
+     * can be calibrated using `calibrateSubject`.
      *
-     * @param parameters Subject details including name, measurements, and tags
-     * @returns The newly created `Subject` with its assigned ID
-     * @throws If creation fails (validation errors, duplicate name, etc.)
+     * @param parameters The subject profile details including name and anthropometrics.
+     * @returns The newly created `Subject` with its assigned ID.
+     * @throws If creation fails (for example, validation error or duplicate name).
      *
      * @example
      * ```typescript
@@ -391,18 +358,15 @@ export class ModelHealthService {
      *   weight: 75.0,        // kilograms
      *   height: 180.0,       // centimeters
      *   birthYear: 1990,
-     *   gender: "man",
-     *   sexAtBirth: "man",
-     *   characteristics: "Regular training schedule",
-     *   subjectTags: ["athlete"],
-     *   terms: true
      * };
      *
      * const subject = await client.createSubject(params);
      * console.log(`Created subject with ID: ${subject.id}`);
      *
      * // Use the subject for calibration
-     * // await client.calibrateNeutralPose(subject, session, (status) => { ... });
+     * await client.calibrateSubject(subject, session, (status) => {
+     *   console.log(status);
+     * });
      * ```
      */
     async createSubject(parameters) {
@@ -414,29 +378,27 @@ export class ModelHealthService {
     /**
      * Retrieves activities for a specific subject with pagination and sorting.
      *
-     * This method allows you to fetch activities associated with a particular subject,
-     * with control over pagination and sort order. This is useful for displaying
-     * activity history or implementing infinite scroll interfaces.
+     * Use this to display a subject's activity history or implement paginated list interfaces.
      *
-     * @param subjectId The ID of the subject whose activities to retrieve
-     * @param startIndex Zero-based index to start from (for pagination). Use 0 for first page.
-     * @param count Number of activities to retrieve per request
-     * @param sort Sort order for the results (e.g., "updated_at" for most recent first)
-     * @returns An array of activities for the specified subject
-     * @throws If the request fails or authentication has expired
+     * @param subjectId The ID of the subject whose activities to retrieve.
+     * @param startIndex Zero-based index to start from. Use `0` for the first page.
+     * @param count Number of activities to retrieve per request.
+     * @param sort Sort order for the results (for example, `"updated_at"` for most recent first).
+     * @returns An array of `Activity` objects, or an empty array if none exist.
+     * @throws If the request fails due to network or authentication issues.
      *
      * @example
      * ```typescript
-     * // Get the 20 most recent activities for a subject
-     * const recentActivities = await client.getActivitiesForSubject(
+     * // First page
+     * const page1 = await client.activitiesForSubject(
      *   "subject-123",
      *   0,
      *   20,
      *   "updated_at"
      * );
      *
-     * // Pagination - get the next 20 activities
-     * const nextPage = await client.getActivitiesForSubject(
+     * // Next page
+     * const page2 = await client.activitiesForSubject(
      *   "subject-123",
      *   20,
      *   20,
@@ -444,55 +406,50 @@ export class ModelHealthService {
      * );
      * ```
      */
-    async getActivitiesForSubject(subjectId, startIndex, count, sort) {
+    async activitiesForSubject(subjectId, startIndex, count, sort) {
         this.ensureInitialized();
-        const result = await this.wasmClient.getActivitiesForSubject(subjectId, startIndex, count, sort);
+        const result = await this.wasmClient.activitiesForSubject(subjectId, startIndex, count, sort);
         return this.parseResponse(result);
     }
     /**
-     * Retrieves a specific activity by its ID.
+     * Retrieves an activity by its ID.
      *
-     * Use this method to fetch the complete details of an activity, including
-     * its videos, results, and current processing status.
+     * Use this to fetch the latest state of an activity, including its videos, results,
+     * and current processing status.
      *
-     * @param activityId The unique identifier of the activity
-     * @returns The requested activity with all its details
-     * @throws If the activity doesn't exist, or if authentication has expired
+     * @param activityId The unique identifier of the activity.
+     * @returns The `Activity` with its current details.
+     * @throws If the activity doesn't exist or the request fails.
      *
      * @example
      * ```typescript
-     * const activity = await client.getActivity("abc123");
+     * const activity = await client.fetchActivity("abc123");
      * console.log(`Activity: ${activity.name ?? "Unnamed"}`);
      * console.log(`Status: ${activity.status}`);
-     * console.log(`Videos: ${activity.videos.length}`);
      * ```
      */
-    async getActivity(activityId) {
+    async fetchActivity(activityId) {
         this.ensureInitialized();
-        const result = await this.wasmClient.getActivity(activityId);
+        const result = await this.wasmClient.fetchActivity(activityId);
         return this.parseResponse(result);
     }
     /**
-     * Updates an existing activity.
+     * Updates an activity.
      *
-     * Use this method to modify activity properties such as the name.
-     * The activity is updated on the server and the updated version is returned.
+     * Only mutable fields (such as `name`) are applied on the server. The server-side
+     * state is returned, so use the result rather than the input going forward.
      *
-     * @param activity The activity to update (with modified properties)
-     * @returns The updated activity as stored on the server
-     * @throws If the update fails or authentication has expired
+     * @param activity The activity to update, with modified properties.
+     * @returns The updated `Activity` as stored on the server.
+     * @throws If the update fails or the request fails.
      *
      * @example
      * ```typescript
-     * let activity = await client.getActivity("abc123");
-     * // Modify the activity name
+     * let activity = await client.fetchActivity("abc123");
      * activity.name = "CMJ Baseline Test";
      * const updated = await client.updateActivity(activity);
-     * console.log(`Updated: ${updated.name ?? ""}`);
+     * console.log(`Updated: ${updated.name ?? "Unnamed"}`);
      * ```
-     *
-     * @note Not all activity properties can be modified. Only mutable fields
-     *   (such as `name`) will be updated on the server.
      */
     async updateActivity(activity) {
         this.ensureInitialized();
@@ -500,23 +457,20 @@ export class ModelHealthService {
         return this.parseResponse(result);
     }
     /**
-     * Deletes an activity from the system.
+     * Deletes an activity.
      *
-     * This permanently removes the activity and all its associated data,
-     * including videos and analysis results. This action cannot be undone.
+     * Permanently removes the activity and all associated videos, results, and metadata.
      *
-     * @param activity The activity to delete
-     * @throws If the deletion fails or authentication has expired
+     * @param activity The activity to delete.
+     * @throws If the deletion fails or the request fails.
      *
      * @example
      * ```typescript
-     * const activity = await client.getActivity("abc123");
+     * const activity = await client.fetchActivity("abc123");
      * await client.deleteActivity(activity);
-     * // Activity and all associated data are now permanently deleted
      * ```
      *
-     * @warning This operation is irreversible. All videos, analysis results,
-     *   and metadata associated with this activity will be permanently lost.
+     * @warning This operation is irreversible.
      */
     async deleteActivity(activity) {
         this.ensureInitialized();
@@ -525,50 +479,42 @@ export class ModelHealthService {
     /**
      * Retrieves all available activity tags.
      *
-     * Activity tags provide a way to categorize and filter activities.
-     * This method returns all tags configured in the system, which can be
-     * used for filtering or organizing activities in your application.
+     * Use the returned tags to populate a tag picker or validate tag values before
+     * assigning them to activities.
      *
-     * @returns An array of available activity tags
-     * @throws If the request fails or authentication has expired
+     * @returns An array of `ActivityTag` objects, or an empty array if none are configured.
+     * @throws If the request fails due to network or authentication issues.
      *
      * @example
      * ```typescript
-     * const tags = await client.getActivityTags();
+     * const tags = await client.activityTags();
      * for (const tag of tags) {
      *   console.log(`${tag.label}: ${tag.value}`);
      * }
-     *
-     * // Use tags for filtering or categorization
-     * const cmjTag = tags.find(t => t.value === "cmj");
      * ```
      */
-    async getActivityTags() {
+    async activityTags() {
         this.ensureInitialized();
-        const result = await this.wasmClient.getActivityTags();
+        const result = await this.wasmClient.activityTags();
         return this.parseResponse(result);
     }
     // MARK: - Activities
     /**
-     * Retrieves all movement activities associated with the account.
+     * Retrieves all movement activities associated with a session.
      *
-     * Activities represent individual recording sessions and contain references to
-     * captured videos and analysis results. Use this to review past data or
-     * fetch analysis for completed activities.
+     * Activities represent individual recording trials and contain references to
+     * captured videos and results. Use this to review past data or
+     * fetch results for completed activities.
      *
-     * @param sessionId Session identifier
-     * @returns An array of `Activity` objects
-     * @throws If the request fails or authentication has expired
+     * @param sessionId The session ID to retrieve activities for.
+     * @returns An array of `Activity` objects, or an empty array if none exist.
+     * @throws If the request fails due to network or authentication issues.
      *
      * @example
      * ```typescript
      * const activities = await client.activityList(session.id);
      *
-     * // Find completed activities ready for analysis
-     * const completed = activities.filter(t => t.status === "completed");
-     *
-     * // Access videos and results
-     * for (const activity of completed) {
+     * for (const activity of activities) {
      *   console.log(`Activity: ${activity.name ?? activity.id}`);
      *   console.log(`Videos: ${activity.videos.length}`);
      *   console.log(`Results: ${activity.results.length}`);
@@ -581,32 +527,32 @@ export class ModelHealthService {
         return this.parseResponse(result);
     }
     /**
-     * Download video data for a specific activity.
+     * Downloads video data for a specific activity.
      *
-     * Asynchronously fetches all videos associated with a given activity that match the specified type.
-     * Videos with invalid URLs or failed downloads are silently excluded from the result.
+     * Fetches all videos associated with the activity that match the specified version.
+     * Downloads run concurrently. Videos with invalid URLs or failed downloads are
+     * silently excluded from the result.
      *
-     * @param activity The activity whose videos should be downloaded
-     * @param version The version type of videos to download (default: "synced")
-     * @returns An array of video data as Uint8Array. The array may be empty if no valid
-     *          videos are available or all downloads fail.
+     * @param activity The activity whose videos should be downloaded.
+     * @param version The version of videos to download (for example, `"raw"` or `"synced"`).
+     * @returns An array of `Uint8Array` objects. May be empty if no videos are available
+     *   or all downloads fail.
      *
      * @example
      * ```typescript
-     * const activity = // ... obtained activity
-     * const videoData = await client.downloadActivityVideos(activity, "raw");
+     * const activity = // ... fetched activity
+     * const videoData = await client.videosForActivity(activity, "raw");
      *
      * for (const data of videoData) {
      *   // Process video data
      * }
      * ```
      *
-     * @note This method performs concurrent downloads for optimal performance. Individual download
-     *       failures do not affect other requests.
+     * @note Downloads run concurrently. Individual download failures do not affect other requests.
      */
-    async downloadActivityVideos(activity, version = "synced") {
+    async videosForActivity(activity, version = "synced") {
         this.ensureInitialized();
-        const result = await this.wasmClient.downloadTrialVideos(decamelizeKeys(activity), version);
+        const result = await this.wasmClient.videosForActivity(decamelizeKeys(activity), version);
         const videos = [];
         for (let i = 0; i < result.length; i++) {
             videos.push(new Uint8Array(result[i]));
@@ -614,24 +560,21 @@ export class ModelHealthService {
         return videos;
     }
     /**
-     * Downloads result data files from a processed activity.
+     * Downloads motion data from a processed activity.
      *
-     * After an activity completes processing, various result files become available for download.
-     * Use this method to retrieve specific types of data (kinematic measurements, visualizations)
-     * in their native file formats (JSON, CSV).
+     * Use this after an activity reaches `ready` status to retrieve biomechanical result files
+     * such as kinematics, marker data, or an OpenSim model. Downloads run concurrently and
+     * failed downloads are silently excluded from results.
      *
-     * This method is useful when you need access to raw analysis data rather than the
-     * structured metrics provided by analysis result methods.
-     *
-     * @param activity The completed activity to download data from
-     * @param dataTypes The types of result data to download
-     * @returns An array of result data, one entry per requested type. Returns an empty array if no
-     *          results are available or all downloads fail.
+     * @param dataTypes The motion data types to download (for example, `"kinematics_mot"`, `"markers"`, `"animation"`).
+     * @param activity The activity to download data from. Must have completed processing.
+     * @returns An array of `MotionData`, one entry per successfully downloaded type. May be empty
+     *   if no results are available or all downloads fail.
      *
      * @example
      * ```typescript
      * // Download kinematics in MOT format
-     * const results = await client.downloadActivityResultData(activity, ["kinematics_mot"]);
+     * const results = await client.motionDataForActivity(activity, ["kinematics_mot"]);
      *
      * for (const result of results) {
      *   switch (result.resultDataType) {
@@ -641,34 +584,28 @@ export class ModelHealthService {
      *   }
      * }
      *
-     * // Download multiple types in one call
-     * const allData = await client.downloadActivityResultData(
-     *   activity,
-     *   ["kinematics_mot", "animation"]
-     * );
-     * console.log(`Downloaded ${allData.length} result files`);
      * ```
-     *
-     * @note This method performs concurrent downloads for optimal performance.
-     *       Individual download failures do not affect other requests and failed downloads
-     *       are silently excluded from results.
      */
-    async downloadActivityResultData(activity, dataTypes) {
+    async motionDataForActivity(activity, dataTypes) {
         this.ensureInitialized();
-        const result = await this.wasmClient.downloadActivityResultData(decamelizeKeys(activity), dataTypes);
+        const result = await this.wasmClient.motionDataForActivity(decamelizeKeys(activity), dataTypes);
         return this.parseResponse(result);
     }
     /**
-     * Downloads analysis result data for a completed activity.
+     * Downloads result data for an activity with a completed analysis.
      *
-     * @param activity The activity that has completed analysis
-     * @param dataTypes The types of analysis result data to download
-     * @returns An array of analysis result data, one entry per requested type. Returns an empty
-     *          array if no results are available or all downloads fail.
+     * Use this after `analysisStatus` returns `completed` to retrieve metrics,
+     * a report, or raw data. Downloads run concurrently and failed downloads are silently
+     * excluded from results.
+     *
+     * @param dataTypes The analysis result data types to download (for example, `"metrics"`, `"report"`, `"data"`).
+     * @param activity The activity to download analysis results from. Must have a completed analysis.
+     * @returns An array of `AnalysisData`, one entry per successfully downloaded type.
+     *   May be empty if no results are available or all downloads fail.
      *
      * @example
      * ```typescript
-     * const results = await client.downloadActivityAnalysisResultData(
+     * const results = await client.analysisDataForActivity(
      *   activity,
      *   ["metrics", "report"]
      * );
@@ -688,51 +625,47 @@ export class ModelHealthService {
      * }
      * ```
      *
-     * @note Individual download failures are silently excluded from results.
      */
-    async downloadActivityAnalysisResultData(activity, dataTypes) {
+    async analysisDataForActivity(activity, dataTypes) {
         this.ensureInitialized();
-        const result = await this.wasmClient.downloadTrialAnalysisResultData(decamelizeKeys(activity), dataTypes);
+        const result = await this.wasmClient.analysisDataForActivity(decamelizeKeys(activity), dataTypes);
         return this.parseResponse(result);
     }
     // MARK: - Recording & Analysis
     /**
-     * Starts recording a dynamic movement activity.
+     * Creates an activity and starts recording a dynamic movement trial.
      *
-     * After completing calibration steps (camera calibration and neutral pose),
-     * use this method to begin recording an activity.
+     * Must be called after both camera and subject calibration are complete.
+     * Call `stopRecording` when the subject has finished the movement.
      *
-     * @param activityName A descriptive name for this activity (e.g., "cmj-test")
-     * @param session The session this activity is associated with
-     * @returns The newly created activity
-     * @throws If recording cannot start (session not calibrated, camera issues, etc.)
+     * @param activityName A descriptive name for this activity (e.g., `"cmj"`, `"squat"`).
+     * @param session The session this activity is associated with.
+     * @returns The newly created `Activity`.
+     * @throws If recording cannot start (e.g., missing calibration).
      *
      * @example
      * ```typescript
-     * // Record a CMJ session
-     * const activity = await client.record("cmj-2024", session);
-     * // Subject performs CMJ while cameras record
-     *
-     * // When complete, stop recording
+     * const activity = await client.startRecording("cmj", session);
+     * // Subject performs movement...
      * await client.stopRecording(session);
      * ```
      */
-    async record(activityName, session) {
+    async startRecording(activityName, session) {
         this.ensureInitialized();
-        const result = await this.wasmClient.record(activityName, decamelizeKeys(session));
+        const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session));
         return this.parseResponse(result);
     }
     /**
-     * Stops recording of a dynamic movement activity in a session.
+     * Stops the active recording for a movement trial.
      *
-     * Call this method when the subject has completed the movement activity.
+     * Call this after the subject has completed the movement. Once stopped, the recorded
+     * videos begin uploading and can be tracked with `activityStatus`.
      *
-     * @param session The session to stop recording in
-     * @throws If the activity cannot be stopped (invalid session ID, already stopped, etc.)
+     * @param session The session context to stop recording in.
+     * @throws If there is no active recording or the request fails.
      *
      * @example
      * ```typescript
-     * // After recording is complete
      * await client.stopRecording(session);
      * ```
      */
@@ -743,16 +676,16 @@ export class ModelHealthService {
     /**
      * Retrieves the current processing status of an activity.
      *
-     * Poll this method to determine when an activity is ready for analysis.
-     * Activities must complete video upload and processing before analysis can begin.
+     * Poll this method after `stopRecording` to track upload and processing progress.
+     * Once the status reaches `ready`, pass the activity to `startAnalysis`.
      *
-     * @param activity A completed activity
-     * @returns The current processing status
-     * @throws Network or authentication errors
+     * @param activity The activity to check status for.
+     * @returns The current `ActivityStatus`.
+     * @throws If the request fails.
      *
      * @example
      * ```typescript
-     * const status = await client.getStatus(activity);
+     * const status = await client.activityStatus(activity);
      *
      * switch (status.type) {
      *   case "ready":
@@ -770,33 +703,27 @@ export class ModelHealthService {
      * }
      * ```
      */
-    async getStatus(activity) {
+    async activityStatus(activity) {
         this.ensureInitialized();
-        const result = await this.wasmClient.getStatus(decamelizeKeys(activity));
+        const result = await this.wasmClient.activityStatus(decamelizeKeys(activity));
         return this.parseResponse(result);
     }
     /**
-     * Starts an analysis task for a completed activity.
+     * Starts an analysis task for an activity that is ready for analysis.
      *
-     * The activity must have completed processing (status `.ready`) before analysis can begin.
-     * Use the returned `AnalysisTask` to poll for completion.
+     * Call this after `activityStatus` returns `ready`. Use the
+     * returned `Analysis` with `analysisStatus` to poll progress.
      *
-     * @param analysisType The type of analysis to perform, Gait, Squats, etc
-     * @param activity The activity to analyze
-     * @param session The session containing the activity
-     * @returns An analysis task for tracking completion
-     * @throws Network or authentication errors
+     * @param analysisType The type of analysis to run (for example, `"gait"`, `"counter_movement_jump"`).
+     * @param activity The activity to analyze.
+     * @param session The session context containing the activity.
+     * @returns An `Analysis` for tracking analysis progress.
+     * @throws If the activity is not ready or the request fails.
      *
      * @example
      * ```typescript
-     * const task = await client.startAnalysis(
-     *   AnalysisType.CounterMovementJump,
-     *   activity,
-     *   session
-     * );
-     *
-     * // Poll for completion
-     * const status = await client.getAnalysisStatus(task);
+     * const task = await client.startAnalysis("counter_movement_jump", activity, session);
+     * const status = await client.analysisStatus(task);
      * ```
      */
     async startAnalysis(analysisType, activity, session) {
@@ -807,31 +734,23 @@ export class ModelHealthService {
     /**
      * Retrieves the current status of an analysis task.
      *
-     * Poll this method to monitor analysis progress. When status is `.completed`,
-     * use `downloadActivityAnalysisResultData` to fetch metrics, report, or raw data.
+     * Poll this method after `startAnalysis` to monitor progress.
+     * When status reaches `completed`, download results with `analysisDataForActivity`.
      *
-     * @param task The task returned from `startAnalysis`
-     * @returns The current analysis status
-     * @throws Network or authentication errors
+     * @param task The task returned from `startAnalysis`.
+     * @returns The current `AnalysisStatus`.
+     * @throws If the request fails.
      *
      * @example
      * ```typescript
-     * const status = await client.getAnalysisStatus(task);
+     * const status = await client.analysisStatus(task);
      *
      * switch (status.type) {
      *   case "processing":
      *     console.log("Analysis running...");
      *     break;
      *   case "completed":
-     *     const results = await client.downloadActivityAnalysisResultData(
-     *       activity,
-     *       ["metrics", "report"]
-     *     );
-     *     const metricsEntry = results.find((r) => r.resultDataType === "metrics");
-     *     if (metricsEntry?.data) {
-     *       const metrics = JSON.parse(new TextDecoder().decode(metricsEntry.data));
-     *       console.log("Metrics:", metrics);
-     *     }
+     *     console.log("Analysis complete");
      *     break;
      *   case "failed":
      *     console.log("Analysis failed");
@@ -839,9 +758,9 @@ export class ModelHealthService {
      * }
      * ```
      */
-    async getAnalysisStatus(task) {
+    async analysisStatus(task) {
         this.ensureInitialized();
-        const result = await this.wasmClient.getAnalysisStatus(decamelizeKeys(task));
+        const result = await this.wasmClient.analysisStatus(decamelizeKeys(task));
         return this.parseResponse(result);
     }
     // MARK: - Utilities
