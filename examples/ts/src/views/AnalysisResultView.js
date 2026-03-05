@@ -79,9 +79,15 @@ export function render(container, state, { setState, navigate }) {
       <pre class="metrics-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
     `;
   } else if (selected?.type === 'report' && selected.data) {
+    const bytes = toUint8Array(selected.data);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const pdfUrl = URL.createObjectURL(blob);
     mainContent = `
-      <p class="muted">PDF report</p>
-      <button type="button" class="btn primary" id="download-report">Report</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button type="button" class="btn primary" id="download-report">Download PDF</button>
+        <a class="btn secondary" href="${pdfUrl}" target="_blank">Open in new tab</a>
+      </div>
+      <iframe id="pdf-frame" src="${pdfUrl}" style="width:100%;height:70vh;border:none;border-radius:4px;"></iframe>
     `;
   } else {
     mainContent = '<p class="muted">No preview for this type.</p>';
@@ -114,13 +120,13 @@ export function render(container, state, { setState, navigate }) {
   const reportBtn = container.querySelector('#download-report');
   if (reportBtn && selected?.type === 'report' && selected.data) {
     reportBtn.addEventListener('click', () => {
-      const bytes = toUint8Array(selected.data);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const frame = container.querySelector('#pdf-frame');
+      const url = frame?.src;
+      if (!url) return;
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = url;
       a.download = 'analysis-report.pdf';
       a.click();
-      URL.revokeObjectURL(a.href);
     });
   }
 }
