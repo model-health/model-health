@@ -10,7 +10,16 @@ export default defineConfig({
     }
   },
   build: {
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Suppress sourcemap warnings for node_modules
+        if (warning.code === 'SOURCEMAP_ERROR' && warning.message.includes('node_modules')) {
+          return;
+        }
+        warn(warning);
+      }
+    }
   },
   optimizeDeps: {
     exclude: ['@modelhealth/modelhealth']

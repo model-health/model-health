@@ -62,7 +62,7 @@ export function render(container, state, { setState, navigate }) {
       const sessionId = el.getAttribute('data-session-id');
       const session = sessions.find((s) => s.id === sessionId);
       const subject = (state.subjects || []).find((s) => s.id === session.subject);
-      if (session && subject) navigate('record-activity', { session, subject });
+      if (session && subject) navigate('record-activity', { session, subject, activities: [], activityStates: {} });
     });
   });
 }

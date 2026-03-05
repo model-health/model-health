@@ -18,12 +18,11 @@ export function render(container, state, { setState, navigate }) {
   const subject = state.subject;
   const activities = state.activities || [];
   const activityStates = state.activityStates || {};
+  const selectedAnalysisTypes = state.selectedAnalysisTypes || {};
   const currentRecording = state.currentRecording;
   const activityName = state.currentActivityName || '';
   const loading = state.loadingState === 'loading';
   const error = state.errorMessage;
-
-  const analysisOptions = ANALYSIS_TYPES.map((t) => `<option value="${t.value}">${t.label}</option>`).join('');
 
   container.innerHTML = `
     <div class="view-header">
@@ -52,6 +51,8 @@ export function render(container, state, { setState, navigate }) {
           const statusText = st.analysisStatus === 'completed' ? 'Analysis complete' : st.analysisStatus === 'processing' ? 'Analyzing...' : st.processingStatus === 'ready' ? 'Ready' : st.processingStatus === 'processing' ? 'Processing...' : st.processingStatus || '—';
           const canAnalyze = st.processingStatus === 'ready' && !st.analysisTask;
           const canViewResults = st.analysisStatus === 'completed';
+          const selectedType = selectedAnalysisTypes[a.id] || 'counter_movement_jump';
+          const analysisOptions = ANALYSIS_TYPES.map((t) => `<option value="${t.value}" ${t.value === selectedType ? 'selected' : ''}>${t.label}</option>`).join('');
           return `
             <li class="activity-item" data-activity-id="${escapeHtml(a.id)}">
               <div class="activity-info">
@@ -72,6 +73,16 @@ export function render(container, state, { setState, navigate }) {
   `;
 
   container.querySelector('#back-record')?.addEventListener('click', () => navigate('sessions'));
+
+  container.querySelectorAll('.analysis-type-select').forEach((select) => {
+    select.addEventListener('change', () => {
+      const id = select.getAttribute('data-activity-id');
+      const value = select.value;
+      setState({
+        selectedAnalysisTypes: { ...state.selectedAnalysisTypes, [id]: value },
+      });
+    });
+  });
 
   container.querySelector('#start-recording')?.addEventListener('click', async () => {
     const name = container.querySelector('#activity-name').value.trim() || 'Activity';
@@ -153,8 +164,7 @@ export function render(container, state, { setState, navigate }) {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-activity-id');
       const activity = activities.find((a) => a.id === id);
-      const select = container.querySelector(`.analysis-type-select[data-activity-id="${id}"]`);
-      const analysisType = select?.value || 'counter_movement_jump';
+      const analysisType = state.selectedAnalysisTypes?.[id] || 'counter_movement_jump';
       const client = getClient();
       if (!client || !activity || !session)
         return;
@@ -209,29 +219,27 @@ export async function onEnter(container, state, ctx) {
   const client = getClient();
   if (!client)
     return;
-  if ((state.activities?.length ?? 0) === 0 || state.session?.id !== session.id) {
-    ctx.setState({ loadingState: 'loading', errorMessage: null });
-    try {
-      const list = await client.activityList(session.id);
-      const activities = (list || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
-      const activityStates = {};
-      for (const a of activities) {
-        try {
-          const status = await client.activityStatus(a);
-          let analysisStatus = null;
-          let resultTags = [];
-          if (a.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
-            analysisStatus = 'completed';
-            resultTags = (a.results || []).map((r) => r.tag).filter(Boolean);
-          }
-          activityStates[a.id] = { processingStatus: status.type, analysisTask: null, analysisStatus, resultTags };
-        } catch (_) {
-          activityStates[a.id] = {};
+  ctx.setState({ loadingState: 'loading', errorMessage: null });
+  try {
+    const list = await client.activityList(session.id);
+    const activities = (list || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
+    const activityStates = {};
+    for (const a of activities) {
+      try {
+        const status = await client.activityStatus(a);
+        let analysisStatus = null;
+        let resultTags = [];
+        if (a.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
+          analysisStatus = 'completed';
+          resultTags = (a.results || []).map((r) => r.tag).filter(Boolean);
         }
+        activityStates[a.id] = { processingStatus: status.type, analysisTask: null, analysisStatus, resultTags };
+      } catch (_) {
+        activityStates[a.id] = {};
       }
-      ctx.setState({ activities, activityStates, loadingState: 'idle' });
-    } catch (err) {
-      ctx.setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to load activities' });
     }
+    ctx.setState({ activities, activityStates, loadingState: 'idle' });
+  } catch (err) {
+    ctx.setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to load activities' });
   }
 }
