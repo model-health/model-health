@@ -27,14 +27,14 @@ export function render(container, state, { setState, navigate }) {
   container.innerHTML = `
     <div class="view-header">
       <button type="button" class="btn back" id="back-record">← Back</button>
-      <h1>Record Activity</h1>
+      <h1>Record activity</h1>
       <p class="view-subtitle">${escapeHtml(session?.name || session?.id)} · ${escapeHtml(subject?.name)}</p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
       <div class="form-group">
         <label>Activity name</label>
-        <input type="text" id="activity-name" placeholder="e.g. CMJ Test 1" value="${escapeHtml(activityName)}" ${currentRecording ? 'disabled' : ''} />
+        <input type="text" id="activity-name" placeholder="e.g. CMJ" value="${escapeHtml(activityName)}" ${currentRecording ? 'disabled' : ''} />
       </div>
       ${currentRecording ? `
         <div class="status">⏺ Recording: ${escapeHtml(currentRecording.name || activityName)} — click Stop when done.</div>

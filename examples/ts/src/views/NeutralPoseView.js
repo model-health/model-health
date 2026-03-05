@@ -22,8 +22,8 @@ export function render(container, state, { setState, navigate }) {
   container.innerHTML = `
     <div class="view-header">
       <button type="button" class="btn back" id="back-neutral">← Back</button>
-      <h1>Neutral Pose</h1>
-      <p class="view-subtitle">Stand upright, face forward, arms slightly spread</p>
+      <h1>Calibrate subject</h1>
+      <p class="view-subtitle">Use a neutral standing pose to scale a 3D biomechanical model to the size of the subject. <a href="https://docs.modelhealth.io/docs/guides/subject-calibration" target="_blank">Learn more</a></p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
@@ -32,7 +32,7 @@ export function render(container, state, { setState, navigate }) {
         <strong>Height:</strong> ${heightCm} cm · <strong>Weight:</strong> ${weightKg} kg
       </div>
       <button type="button" class="btn primary" id="start-neutral" ${loading ? 'disabled' : ''}>
-        ${loading ? 'Calibrating...' : 'Start Neutral Pose Capture'}
+        ${loading ? 'Calibrating...' : 'Start calibration'}
       </button>
       <div id="neutral-status"></div>
     </div>
