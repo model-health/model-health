@@ -7,15 +7,14 @@ export class ModelHealthService {
     activitiesForSubject(subject_id: string, start_index: number, count: number, sort: any): Promise<any>;
     activityStatus(trial_json: any): Promise<any>;
     activityTags(): Promise<any>;
+    analysisDataForActivity(trial_json: any, data_types_json: any): Promise<any>;
     analysisStatus(task_json: any): Promise<any>;
     createSession(): Promise<any>;
     createSubject(parameters: any): Promise<any>;
     deleteActivity(activity_json: any): Promise<void>;
-    downloadTrialAnalysisMotionData(trial_json: any, data_types_json: any): Promise<any>;
-    downloadTrialMotionData(trial_json: any, data_types_json: any): Promise<any>;
-    downloadTrialVideos(trial_json: any, version_json: any): Promise<Array<any>>;
     fetchActivity(activity_id: string): Promise<any>;
     getSession(session_id: string): Promise<any>;
+    motionDataForActivity(trial_json: any, data_types_json: any): Promise<any>;
     constructor(api_key: string);
     sessionList(): Promise<any>;
     startAnalysis(analysis_type_json: any, trial_json: any, session_json: any): Promise<any>;
@@ -24,6 +23,7 @@ export class ModelHealthService {
     subjectList(): Promise<any>;
     trialList(session_id: string): Promise<any>;
     updateActivity(activity_json: any): Promise<any>;
+    videosForActivity(trial_json: any, version_json: any): Promise<Array<any>>;
 }
 
 export function calibrateCamera(api_key: string, session_json: any, checkerboard_json: any, _status_callback: Function): Promise<any>;
@@ -42,15 +42,14 @@ export interface InitOutput {
     readonly modelhealthservice_activitiesForSubject: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly modelhealthservice_activityStatus: (a: number, b: number) => number;
     readonly modelhealthservice_activityTags: (a: number) => number;
+    readonly modelhealthservice_analysisDataForActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_analysisStatus: (a: number, b: number) => number;
     readonly modelhealthservice_createSession: (a: number) => number;
     readonly modelhealthservice_createSubject: (a: number, b: number) => number;
     readonly modelhealthservice_deleteActivity: (a: number, b: number) => number;
-    readonly modelhealthservice_downloadTrialAnalysisMotionData: (a: number, b: number, c: number) => number;
-    readonly modelhealthservice_downloadTrialMotionData: (a: number, b: number, c: number) => number;
-    readonly modelhealthservice_downloadTrialVideos: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_fetchActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_getSession: (a: number, b: number, c: number) => number;
+    readonly modelhealthservice_motionDataForActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_new: (a: number, b: number, c: number) => void;
     readonly modelhealthservice_sessionList: (a: number) => number;
     readonly modelhealthservice_startAnalysis: (a: number, b: number, c: number, d: number) => number;
@@ -59,10 +58,11 @@ export interface InitOutput {
     readonly modelhealthservice_subjectList: (a: number) => number;
     readonly modelhealthservice_trialList: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_updateActivity: (a: number, b: number) => number;
+    readonly modelhealthservice_videosForActivity: (a: number, b: number, c: number) => number;
     readonly init: () => void;
-    readonly __wasm_bindgen_func_elem_861: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_1261: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_862: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_872: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1272: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_873: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

@@ -40,6 +40,15 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
+     * @param {any} trial_json
+     * @param {any} data_types_json
+     * @returns {Promise<any>}
+     */
+    analysisDataForActivity(trial_json, data_types_json) {
+        const ret = wasm.modelhealthservice_analysisDataForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
+        return takeObject(ret);
+    }
+    /**
      * @param {any} task_json
      * @returns {Promise<any>}
      */
@@ -71,33 +80,6 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
-     * @param {any} trial_json
-     * @param {any} data_types_json
-     * @returns {Promise<any>}
-     */
-    downloadTrialAnalysisMotionData(trial_json, data_types_json) {
-        const ret = wasm.modelhealthservice_downloadTrialAnalysisMotionData(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
-        return takeObject(ret);
-    }
-    /**
-     * @param {any} trial_json
-     * @param {any} data_types_json
-     * @returns {Promise<any>}
-     */
-    downloadTrialMotionData(trial_json, data_types_json) {
-        const ret = wasm.modelhealthservice_downloadTrialMotionData(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
-        return takeObject(ret);
-    }
-    /**
-     * @param {any} trial_json
-     * @param {any} version_json
-     * @returns {Promise<Array<any>>}
-     */
-    downloadTrialVideos(trial_json, version_json) {
-        const ret = wasm.modelhealthservice_downloadTrialVideos(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(version_json));
-        return takeObject(ret);
-    }
-    /**
      * @param {string} activity_id
      * @returns {Promise<any>}
      */
@@ -115,6 +97,15 @@ export class ModelHealthService {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.modelhealthservice_getSession(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+     * @param {any} trial_json
+     * @param {any} data_types_json
+     * @returns {Promise<any>}
+     */
+    motionDataForActivity(trial_json, data_types_json) {
+        const ret = wasm.modelhealthservice_motionDataForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
         return takeObject(ret);
     }
     /**
@@ -198,6 +189,15 @@ export class ModelHealthService {
      */
     updateActivity(activity_json) {
         const ret = wasm.modelhealthservice_updateActivity(this.__wbg_ptr, addHeapObject(activity_json));
+        return takeObject(ret);
+    }
+    /**
+     * @param {any} trial_json
+     * @param {any} version_json
+     * @returns {Promise<Array<any>>}
+     */
+    videosForActivity(trial_json, version_json) {
+        const ret = wasm.modelhealthservice_videosForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(version_json));
         return takeObject(ret);
     }
 }
@@ -473,7 +473,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1261(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1272(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -620,8 +620,8 @@ function __wbg_get_imports() {
             console.warn(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 384, function: Function { arguments: [Externref], shim_idx: 385, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_861, __wasm_bindgen_func_elem_862);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 385, function: Function { arguments: [Externref], shim_idx: 386, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_872, __wasm_bindgen_func_elem_873);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -648,12 +648,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_862(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_862(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_873(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_873(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1261(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1261(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1272(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1272(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 

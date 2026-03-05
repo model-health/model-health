@@ -52,7 +52,6 @@ export type Sex = "woman" | "man" | "intersex" | "not_listed" | "no_response";
  * @example
  * ```typescript
  * const subjects = await client.subjectList();
- * const filtered = subjects.filter((subject) => subject.subjectTags.includes("high-risk"));
  * ```
  */
 export interface Subject {
@@ -65,7 +64,6 @@ export interface Subject {
     gender: Gender;
     sexAtBirth: Sex;
     characteristics: string;
-    subjectTags: string[];
 }
 /**
  * Parameters for creating a new subject.
