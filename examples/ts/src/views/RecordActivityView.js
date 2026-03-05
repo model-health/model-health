@@ -80,7 +80,7 @@ export function render(container, state, { setState, navigate }) {
       return;
     setState({ loadingState: 'loading', errorMessage: null });
     try {
-      const trial = await client.record(name, session);
+      const trial = await client.startRecording(name, session);
       setState({
         currentRecording: trial,
         currentActivityName: name,
@@ -104,7 +104,7 @@ export function render(container, state, { setState, navigate }) {
       for (const a of filtered) {
         if (!newStates[a.id]) {
           try {
-            const status = await client.getStatus(a);
+            const status = await client.activityStatus(a);
             newStates[a.id] = { processingStatus: status.type, analysisTask: null, analysisStatus: null };
           } catch (_) {
             newStates[a.id] = {};
@@ -131,12 +131,12 @@ export function render(container, state, { setState, navigate }) {
         return;
       const client = getClient();
       try {
-        const status = await client.getStatus(activity);
+        const status = await client.activityStatus(activity);
         const st = state.activityStates[id] || {};
         let analysisStatus = st.analysisStatus;
         let resultTags = st.resultTags;
         if (st.analysisTask) {
-          const as = await client.getAnalysisStatus(st.analysisTask);
+          const as = await client.analysisStatus(st.analysisTask);
           analysisStatus = as.type;
         } else if (activity.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
           analysisStatus = 'completed';
@@ -162,11 +162,11 @@ export function render(container, state, { setState, navigate }) {
         const task = await client.startAnalysis(analysisType, activity, session);
         const st = state.activityStates[id] || {};
         setState({ activityStates: { ...state.activityStates, [id]: { ...st, analysisTask: task, analysisStatus: 'processing' } } });
-        let as = await client.getAnalysisStatus(task);
+        let as = await client.analysisStatus(task);
         let attempts = 0;
         while (as.type === 'processing' && attempts < 10) {
           await new Promise((r) => setTimeout(r, 3000));
-          as = await client.getAnalysisStatus(task);
+          as = await client.analysisStatus(task);
           attempts++;
         }
         setState({
@@ -217,7 +217,7 @@ export async function onEnter(container, state, ctx) {
       const activityStates = {};
       for (const a of activities) {
         try {
-          const status = await client.getStatus(a);
+          const status = await client.activityStatus(a);
           let analysisStatus = null;
           let resultTags = [];
           if (a.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {

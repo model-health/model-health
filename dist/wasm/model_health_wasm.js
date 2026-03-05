@@ -12,6 +12,51 @@ export class ModelHealthService {
         wasm.__wbg_modelhealthservice_free(ptr, 0);
     }
     /**
+     * @param {string} subject_id
+     * @param {number} start_index
+     * @param {number} count
+     * @param {any} sort
+     * @returns {Promise<any>}
+     */
+    activitiesForSubject(subject_id, start_index, count, sort) {
+        const ptr0 = passStringToWasm0(subject_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.modelhealthservice_activitiesForSubject(this.__wbg_ptr, ptr0, len0, start_index, count, addHeapObject(sort));
+        return takeObject(ret);
+    }
+    /**
+     * @param {any} trial_json
+     * @returns {Promise<any>}
+     */
+    activityStatus(trial_json) {
+        const ret = wasm.modelhealthservice_activityStatus(this.__wbg_ptr, addHeapObject(trial_json));
+        return takeObject(ret);
+    }
+    /**
+     * @returns {Promise<any>}
+     */
+    activityTags() {
+        const ret = wasm.modelhealthservice_activityTags(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+     * @param {any} trial_json
+     * @param {any} data_types_json
+     * @returns {Promise<any>}
+     */
+    analysisDataForActivity(trial_json, data_types_json) {
+        const ret = wasm.modelhealthservice_analysisDataForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
+        return takeObject(ret);
+    }
+    /**
+     * @param {any} task_json
+     * @returns {Promise<any>}
+     */
+    analysisStatus(task_json) {
+        const ret = wasm.modelhealthservice_analysisStatus(this.__wbg_ptr, addHeapObject(task_json));
+        return takeObject(ret);
+    }
+    /**
      * @returns {Promise<any>}
      */
     createSession() {
@@ -35,68 +80,13 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
-     * @param {any} trial_json
-     * @param {any} data_types_json
-     * @returns {Promise<any>}
-     */
-    downloadTrialAnalysisResultData(trial_json, data_types_json) {
-        const ret = wasm.modelhealthservice_downloadTrialAnalysisResultData(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
-        return takeObject(ret);
-    }
-    /**
-     * @param {any} trial_json
-     * @param {any} data_types_json
-     * @returns {Promise<any>}
-     */
-    downloadTrialResultData(trial_json, data_types_json) {
-        const ret = wasm.modelhealthservice_downloadTrialResultData(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
-        return takeObject(ret);
-    }
-    /**
-     * @param {any} trial_json
-     * @param {any} version_json
-     * @returns {Promise<Array<any>>}
-     */
-    downloadTrialVideos(trial_json, version_json) {
-        const ret = wasm.modelhealthservice_downloadTrialVideos(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(version_json));
-        return takeObject(ret);
-    }
-    /**
-     * @param {string} subject_id
-     * @param {number} start_index
-     * @param {number} count
-     * @param {any} sort
-     * @returns {Promise<any>}
-     */
-    getActivitiesForSubject(subject_id, start_index, count, sort) {
-        const ptr0 = passStringToWasm0(subject_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.modelhealthservice_getActivitiesForSubject(this.__wbg_ptr, ptr0, len0, start_index, count, addHeapObject(sort));
-        return takeObject(ret);
-    }
-    /**
      * @param {string} activity_id
      * @returns {Promise<any>}
      */
-    getActivity(activity_id) {
+    fetchActivity(activity_id) {
         const ptr0 = passStringToWasm0(activity_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.modelhealthservice_getActivity(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-     * @returns {Promise<any>}
-     */
-    getActivityTags() {
-        const ret = wasm.modelhealthservice_getActivityTags(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-    /**
-     * @param {any} task_json
-     * @returns {Promise<any>}
-     */
-    getAnalysisStatus(task_json) {
-        const ret = wasm.modelhealthservice_getAnalysisStatus(this.__wbg_ptr, addHeapObject(task_json));
+        const ret = wasm.modelhealthservice_fetchActivity(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
@@ -111,10 +101,11 @@ export class ModelHealthService {
     }
     /**
      * @param {any} trial_json
+     * @param {any} data_types_json
      * @returns {Promise<any>}
      */
-    getStatus(trial_json) {
-        const ret = wasm.modelhealthservice_getStatus(this.__wbg_ptr, addHeapObject(trial_json));
+    motionDataForActivity(trial_json, data_types_json) {
+        const ret = wasm.modelhealthservice_motionDataForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(data_types_json));
         return takeObject(ret);
     }
     /**
@@ -140,17 +131,6 @@ export class ModelHealthService {
         }
     }
     /**
-     * @param {string} trial_name
-     * @param {any} session_json
-     * @returns {Promise<any>}
-     */
-    record(trial_name, session_json) {
-        const ptr0 = passStringToWasm0(trial_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.modelhealthservice_record(this.__wbg_ptr, ptr0, len0, addHeapObject(session_json));
-        return takeObject(ret);
-    }
-    /**
      * @returns {Promise<any>}
      */
     sessionList() {
@@ -165,6 +145,17 @@ export class ModelHealthService {
      */
     startAnalysis(analysis_type_json, trial_json, session_json) {
         const ret = wasm.modelhealthservice_startAnalysis(this.__wbg_ptr, addHeapObject(analysis_type_json), addHeapObject(trial_json), addHeapObject(session_json));
+        return takeObject(ret);
+    }
+    /**
+     * @param {string} trial_name
+     * @param {any} session_json
+     * @returns {Promise<any>}
+     */
+    startRecording(trial_name, session_json) {
+        const ptr0 = passStringToWasm0(trial_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.modelhealthservice_startRecording(this.__wbg_ptr, ptr0, len0, addHeapObject(session_json));
         return takeObject(ret);
     }
     /**
@@ -200,6 +191,15 @@ export class ModelHealthService {
         const ret = wasm.modelhealthservice_updateActivity(this.__wbg_ptr, addHeapObject(activity_json));
         return takeObject(ret);
     }
+    /**
+     * @param {any} trial_json
+     * @param {any} version_json
+     * @returns {Promise<Array<any>>}
+     */
+    videosForActivity(trial_json, version_json) {
+        const ret = wasm.modelhealthservice_videosForActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(version_json));
+        return takeObject(ret);
+    }
 }
 if (Symbol.dispose) ModelHealthService.prototype[Symbol.dispose] = ModelHealthService.prototype.free;
 
@@ -224,10 +224,10 @@ export function calibrateCamera(api_key, session_json, checkerboard_json, _statu
  * @param {Function} _status_callback
  * @returns {Promise<any>}
  */
-export function calibrateNeutralPose(api_key, subject_json, session_json, _status_callback) {
+export function calibrateSubject(api_key, subject_json, session_json, _status_callback) {
     const ptr0 = passStringToWasm0(api_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.calibrateNeutralPose(ptr0, len0, addHeapObject(subject_json), addHeapObject(session_json), addHeapObject(_status_callback));
+    const ret = wasm.calibrateSubject(ptr0, len0, addHeapObject(subject_json), addHeapObject(session_json), addHeapObject(_status_callback));
     return takeObject(ret);
 }
 
@@ -473,7 +473,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1269(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1272(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -620,8 +620,8 @@ function __wbg_get_imports() {
             console.warn(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 384, function: Function { arguments: [Externref], shim_idx: 385, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_868, __wasm_bindgen_func_elem_869);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 385, function: Function { arguments: [Externref], shim_idx: 386, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_872, __wasm_bindgen_func_elem_873);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -648,12 +648,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_869(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_869(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_873(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_873(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1269(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1269(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1272(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1272(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 

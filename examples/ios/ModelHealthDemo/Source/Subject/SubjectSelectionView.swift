@@ -56,7 +56,7 @@ struct SubjectSelectionView: View {
             }
         }
         .navigationDestination(item: $subjectForNavigation) { subject in
-            NeutralPoseCalibrationView(subject: subject, session: session)
+            SubjectCalibrationView(subject: subject, session: session)
         }
         .sheet(isPresented: $showingCreateSubject) {
             CreateSubjectView { newSubject in

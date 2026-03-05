@@ -1,7 +1,7 @@
 import SwiftUI
 import ModelHealth
 
-struct NeutralPoseCalibrationView: View {
+struct SubjectCalibrationView: View {
     let subject: Subject
     let session: Session
 
@@ -60,8 +60,8 @@ struct NeutralPoseCalibrationView: View {
         calibrationComplete = false
 
         do {
-            try await modelHealth.calibrateNeutralPose(
-                for: subject,
+            try await modelHealth.calibrateSubject(
+                subject,
                 in: session
             ) { status in
                 print("Calibration status: \(status)")
@@ -81,7 +81,7 @@ struct NeutralPoseCalibrationView: View {
 #if DEBUG
 #Preview {
     NavigationStack {
-        NeutralPoseCalibrationView(subject: .forPreview(), session: .forPreview())
+        SubjectCalibrationView(subject: .forPreview(), session: .forPreview())
             .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
     }
 }

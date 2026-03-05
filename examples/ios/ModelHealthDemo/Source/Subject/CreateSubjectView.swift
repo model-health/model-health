@@ -283,11 +283,9 @@ struct CreateSubjectView: View {
                 weight: weightValue,
                 height: heightValue,
                 birthYear: birthYearValue,
-                subjectTags: subjectTags,
                 sexAtBirth: selectedSex,
                 gender: selectedGender,
-                characteristics: characteristics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines),
-                terms: agreedToTerms
+                characteristics: characteristics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             let subject = try await modelHealth.createSubject(parameters: params)

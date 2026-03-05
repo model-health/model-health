@@ -163,7 +163,7 @@ struct RecordActivityView: View {
             .padding()
             .navigationTitle("Record Activity")
             .navigationDestination(item: $selectedActivityForResults) { activity in
-                AnalysisResultDataView(activity: activity)
+                AnalysisDataView(activity: activity)
             }
             .navigationDestination(item: $selectedActivityForVideos) { activity in
                 ActivityVideoView(activity: activity)
@@ -209,17 +209,17 @@ struct RecordActivityView: View {
     }
 
     private func refreshAllActivityStatuses() async {
-        await withTaskGroup(of: (Int, ActivityProcessingStatus?, AnalysisTaskStatus?).self) { group in
+        await withTaskGroup(of: (Int, ActivityStatus?, AnalysisStatus?).self) { group in
             for (index, activityState) in completedActivities.enumerated() {
                 group.addTask {
                     do {
                         print("Getting status for activity \(activityState.activity.id)")
-                        let status = try await self.modelHealth.getStatus(forActivity: activityState.activity)
+                        let status = try await self.modelHealth.activityStatus(for: activityState.activity)
                         print("Got status \(String(describing: status)) for activity \(activityState.activity.id)")
 
                         var analysisStatus = activityState.analysisStatus
                         if let task = activityState.analysisTask {
-                            analysisStatus = try await self.modelHealth.getAnalysisStatus(for: task)
+                            analysisStatus = try await self.modelHealth.analysisStatus(for: task)
                         }
 
                         return (index, status, analysisStatus)
@@ -240,7 +240,7 @@ struct RecordActivityView: View {
         errorMessage = nil
 
         do {
-            currentActivity = try await modelHealth.record(
+            currentActivity = try await modelHealth.startRecording(
                 activityNamed: activityName,
                 in: session
             )
@@ -286,11 +286,11 @@ struct RecordActivityView: View {
         }
 
         do {
-            let status = try await modelHealth.getStatus(forActivity: activityState.wrappedValue.activity)
+            let status = try await modelHealth.activityStatus(for: activityState.wrappedValue.activity)
             activityState.wrappedValue.processingStatus = status
 
             if let task = activityState.wrappedValue.analysisTask {
-                let analysisStatus = try await modelHealth.getAnalysisStatus(for: task)
+                let analysisStatus = try await modelHealth.analysisStatus(for: task)
                 activityState.wrappedValue.analysisStatus = analysisStatus
             }
         } catch let error as ModelHealthError {
@@ -331,9 +331,9 @@ struct RecordActivityView: View {
 struct ActivityState: Identifiable {
     let activity: Activity
     let name: String
-    var processingStatus: ActivityProcessingStatus?
-    var analysisTask: AnalysisTask?
-    var analysisStatus: AnalysisTaskStatus?
+    var processingStatus: ActivityStatus?
+    var analysisTask: Analysis?
+    var analysisStatus: AnalysisStatus?
     var isRefreshing: Bool = false
     var isAnalyzing: Bool = false
 
@@ -472,8 +472,8 @@ private struct ActivityRow: View {
 // MARK: - Status Indicator
 
 struct StatusIndicator: View {
-    let processingStatus: ActivityProcessingStatus?
-    let analysisStatus: AnalysisTaskStatus?
+    let processingStatus: ActivityStatus?
+    let analysisStatus: AnalysisStatus?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -704,9 +704,9 @@ extension ActivityState {
     struct PreviewBuilder {
         public var activity: Activity = .forPreview()
         public var name: String = "Counter Movement Jump"
-        public var processingStatus: ActivityProcessingStatus? = .ready
-        public var analysisTask: AnalysisTask? = .forPreview()
-        public var analysisStatus: AnalysisTaskStatus? = .completed
+        public var processingStatus: ActivityStatus? = .ready
+        public var analysisTask: Analysis? = .forPreview()
+        public var analysisStatus: AnalysisStatus? = .completed
         public var isRefreshing: Bool = false
         public var isAnalyzing: Bool = false
 
@@ -726,7 +726,7 @@ extension ActivityState {
 
 #Preview("Results") {
     NavigationStack {
-        AnalysisResultDataView(
+        AnalysisDataView(
             activity: .forPreview()
         )
         .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))

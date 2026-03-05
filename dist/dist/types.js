@@ -7,10 +7,15 @@
  */
 // MARK: - Analysis
 /**
- * Represents available analysis functions for motion capture data.
+ * Available analysis types for motion capture activities.
  *
- * Each analysis type processes activity data to extract specific biomechanical metrics
- * and insights. Analysis can only be performed on activities that have completed processing.
+ * Analysis can only be performed on activities that have reached `ready` status.
+ *
+ * @example
+ * ```typescript
+ * const task = await client.startAnalysis("counter_movement_jump", activity, session);
+ * const status = await client.analysisStatus(task);
+ * ```
  *
  * @group Enumerations
  */
