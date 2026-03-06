@@ -13,7 +13,7 @@ export const ANALYSIS_TYPES = [
   { value: 'hop', label: 'Hop Test' },
   { value: 'treadmill_gait', label: 'Treadmill Walking' },
   { value: 'change_of_direction', label: '5-0-5 Test' },
-  { value: 'cut', label: 'Cutting Maneouver' },
+  { value: 'cut', label: 'Cutting Maneuver' },
 ];
 
 export const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? 'YOUR_API_KEY_HERE';

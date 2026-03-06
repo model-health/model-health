@@ -18,10 +18,17 @@ dependencies: [
 npm install @modelhealth/modelhealth@0.1.49
 ```
 
+## Examples
+
+| Example | Description |
+|---------|-------------|
+| [iOS demo app](examples/ios/) | Native SwiftUI app demonstrating the full session workflow using the Swift SDK|
+| [TypeScript demo app](examples/ts/) | Web app demonstrating the full session workflow using the TypeScript SDK |
+
 ## Documentation
 
-**Full API Documentation**: [docs.modelhealth.io](https://docs.modelhealth.io)
+Full API Documentation: [docs.modelhealth.io](https://docs.modelhealth.io)
 
 ## Latest Release
 
-**Version 0.1.49**
+Version 0.1.49

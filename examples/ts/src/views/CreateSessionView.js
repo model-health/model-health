@@ -26,7 +26,12 @@ export function render(container, state, { setState, navigate }) {
             <h3>Session QR Code</h3>
             <img src="${escapeHtml(session.qrcode)}" alt="Session QR Code"
               style="max-width: 300px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background: white;" />
-            <p style="font-size: 14px; color: #666; margin-top: 10px;">Scan this code to link devices to this session</p>
+            <p style="font-size: 14px; color: #666; margin-top: 10px;">
+              Scan this code on <strong>2 or more devices</strong> using the
+              <a href="https://apps.apple.com/nl/app/model-health/id6748835391" target="_blank">Model Health companion app</a>
+              to link them to this session.<br>
+              Supported on all iPhones and iPads from 2018 and newer.
+            </p>
           </div>
         ` : ''}
         <button type="button" class="btn primary" id="continue-to-subject">Continue</button>
@@ -42,16 +47,10 @@ export function render(container, state, { setState, navigate }) {
     <div class="view-header">
       <button type="button" class="btn back" id="back-from-create">← Back</button>
       <h1>New Session</h1>
-      <p class="view-subtitle">Create a session, then add a subject and run calibration</p>
+      <p class="view-subtitle">Each session walks you through camera setup, subject calibration, and activity recording and analysis</p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
-      <p>You will need to:</p>
-      <ol class="flow-list">
-        <li>Select or create a subject</li>
-        <li>Run camera calibration</li>
-        <li>Capture neutral pose</li>
-      </ol>
       <button type="button" class="btn primary" id="do-create-session" ${loading ? 'disabled' : ''}>
         ${loading ? 'Creating...' : 'Create Session'}
       </button>
