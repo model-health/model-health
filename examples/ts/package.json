@@ -1,6 +1,6 @@
 {
   "name": "modelhealth-typescript-sdk-demo",
-  "version": "1.0.0",
+  "version": "0.1.50",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -8,7 +8,7 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "^0.1.49"
+    "@modelhealth/modelhealth": "^0.1.50"
   },
   "devDependencies": {
     "vite": "^5.0.0"
