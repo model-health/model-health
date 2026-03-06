@@ -179,15 +179,33 @@ export function render(container, state, { setState, navigate }) {
           as = await client.analysisStatus(task);
           attempts++;
         }
-        setState({
-          activityStates: {
-            ...state.activityStates,
-            [id]: {
-              ...state.activityStates[id],
-              analysisStatus: as.type,
-            },
+        const nextActivityStates = {
+          ...state.activityStates,
+          [id]: {
+            ...state.activityStates[id],
+            analysisStatus: as.type,
           },
-        });
+        };
+
+        if (as.type === 'completed') {
+          const latestActivitiesList = await client.activityList(session.id);
+          const latestActivities = (latestActivitiesList || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
+          const refreshedActivity = latestActivities.find((a) => a.id === id);
+          if (refreshedActivity?.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
+            nextActivityStates[id] = {
+              ...nextActivityStates[id],
+              resultTags: (refreshedActivity.results || []).map((r) => r.tag).filter(Boolean),
+            };
+          }
+          setState({
+            activities: latestActivities,
+            activityStates: nextActivityStates,
+          });
+        } else {
+          setState({
+            activityStates: nextActivityStates,
+          });
+        }
       } catch (err) {
         setState({ errorMessage: err.message || 'Analysis failed' });
       }
