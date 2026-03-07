@@ -1,6 +1,6 @@
 {
   "name": "@modelhealth/modelhealth",
-  "version": "0.1.49",
+  "version": "0.2.0",
   "description": "Model Health SDK for TypeScript/JavaScript",
   "type": "module",
   "main": "./dist/index.js",

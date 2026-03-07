@@ -89,7 +89,7 @@ export function render(container, state, { setState, navigate }) {
     <div class="view-header">
       <button type="button" class="btn back" id="back-subject">← Back</button>
       <h1>Select Subject</h1>
-      <p class="view-subtitle">Choose a subject for this session, then run calibration</p>
+      <p class="view-subtitle">Select a subject to continue, or add a new one</p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">

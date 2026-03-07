@@ -12,7 +12,7 @@ export function render(container, state, { setState, navigate }) {
   container.innerHTML = `
     <div class="view-header">
       <h1>Sessions</h1>
-      <p class="view-subtitle">Create a session or open one to record activities</p>
+      <p class="view-subtitle">A session scopes a movement capture workflow. Create one or load an existing one to start recording activities.</p>
     </div>
     <div class="toolbar">
       <button type="button" class="btn primary" id="create-session-btn" ${loading ? 'disabled' : ''}>
@@ -42,8 +42,8 @@ export function render(container, state, { setState, navigate }) {
           return `
             <li class="session-item" data-session-id="${escapeHtml(s.id)}" data-can-open="${canOpen}">
               <div class="session-item-main">
-                <strong>${escapeHtml(s.name || s.session_name || s.id)}</strong>
-                <span class="session-meta">${s.activities_count ?? 0} activities${subject ? ' · Subject' : ' · No subject'}</span>
+                <strong>${escapeHtml(s.id)}</strong>
+                <span class="muted">${escapeHtml(s.name)}</span>
               </div>
               ${canOpen ? '<span class="session-arrow">→</span>' : ''}
             </li>
@@ -62,7 +62,7 @@ export function render(container, state, { setState, navigate }) {
       const sessionId = el.getAttribute('data-session-id');
       const session = sessions.find((s) => s.id === sessionId);
       const subject = (state.subjects || []).find((s) => s.id === session.subject);
-      if (session && subject) navigate('record-activity', { session, subject });
+      if (session && subject) navigate('record-activity', { session, subject, activities: [], activityStates: {} });
     });
   });
 }
