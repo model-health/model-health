@@ -8,11 +8,11 @@ An interactive CLI demo that walks through the post-capture analysis workflow:
 4. Choose an analysis type and run it
 5. Save results to local files (metrics JSON, report PDF, and/or data ZIP)
 
-Camera calibration, neutral pose capture, and activity recording require the Model Health mobile app and are not demonstrated here.
+Camera calibration, subject calibration and activity recording require the Model Health mobile app and are not demonstrated here.
 
 ## Requirements
 
-- Python 3.9 or later
+- Python 3.11 or later
 - `modelhealth` package: `pip install modelhealth`
 
 ## Run

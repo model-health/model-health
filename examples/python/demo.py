@@ -16,7 +16,13 @@ import os
 import sys
 import time
 
-from modelhealth import ModelHealthService
+from modelhealth import (
+    ModelHealthService,
+    ModelHealthError,
+    ActivityStatus,
+    ActivityStatusUploading,
+    AnalysisStatus,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -94,16 +100,13 @@ def _pick_multi(items, prompt, label_fn):
 def _poll_processing(service, activity, interval=10):
     """Block until the activity finishes uploading and processing.
 
-    Returns the final status dict (type == "ready" or "failed").
+    Returns the final status (ActivityStatus.ready or ActivityStatus.failed).
     """
     while True:
-        status = service.get_status(activity)
-        t = status.get("type", "")
-        if t == "uploading":
-            uploaded = status.get("uploaded", "?")
-            total = status.get("total", "?")
-            print(f"  Uploading ({uploaded}/{total} cameras)...  ", end="\r", flush=True)
-        elif t == "processing":
+        status = service.activity_status(activity)
+        if isinstance(status, ActivityStatusUploading):
+            print(f"  Uploading ({status.uploaded}/{status.total} cameras)...  ", end="\r", flush=True)
+        elif status == ActivityStatus.processing:
             print("  Processing...                              ", end="\r", flush=True)
         else:
             print()  # clear the \r line
@@ -114,11 +117,11 @@ def _poll_processing(service, activity, interval=10):
 def _poll_analysis(service, task, interval=10):
     """Block until the analysis task finishes.
 
-    Returns the final status dict (type == "completed" or "failed").
+    Returns the final status (AnalysisStatus.completed or AnalysisStatus.failed).
     """
     while True:
-        status = service.get_analysis_status(task)
-        if status.get("type") == "processing":
+        status = service.analysis_status(task)
+        if status == AnalysisStatus.processing:
             print("  Analysing...  ", end="\r", flush=True)
         else:
             print()  # clear the \r line
@@ -139,7 +142,7 @@ def main():
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
-    except RuntimeError as exc:
+    except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
     # --- Session -----------------------------------------------------------
@@ -154,16 +157,16 @@ def main():
     session = _pick_one(
         sessions,
         "Select session",
-        lambda s: s.get("name") or s.get("session_name") or s["id"],
+        lambda s: s.name or s.session_name or s.id,
     )
 
     # --- Activity ----------------------------------------------------------
-    session_label = session.get("name") or session["id"]
+    session_label = session.name or session.id
     print(f"\nFetching activities for '{session_label}'...")
-    all_trials = service.trial_list(session["id"])
+    all_activities = service.activity_list(session.id)
     activities = [
-        t for t in all_trials
-        if t.get("name") not in _INTERNAL_ACTIVITY_NAMES
+        a for a in all_activities
+        if a.name not in _INTERNAL_ACTIVITY_NAMES
     ]
     if not activities:
         sys.exit("No activities found in this session.")
@@ -172,21 +175,21 @@ def main():
     activity = _pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.get('name') or a['id']}  [{a.get('status', '?')}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]",
     )
 
     # --- Processing status -------------------------------------------------
-    activity_label = activity.get("name") or activity["id"]
+    activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
-    status = service.get_status(activity)
+    status = service.activity_status(activity)
 
-    if status["type"] in ("uploading", "processing"):
+    if isinstance(status, ActivityStatusUploading) or status == ActivityStatus.processing:
         print("Waiting for processing to complete...")
         status = _poll_processing(service, activity)
 
-    if status["type"] != "ready":
+    if status != ActivityStatus.ready:
         sys.exit(
-            f"Activity cannot be analysed (status: {status['type']}). "
+            f"Activity cannot be analysed (status: {status}). "
             "Wait for uploads to finish and try again."
         )
     print("Activity is ready.")
@@ -203,18 +206,18 @@ def main():
     print(f"\nStarting '{analysis_label}' analysis...")
     try:
         task = service.start_analysis(analysis_value, activity, session)
-    except RuntimeError as exc:
+    except ModelHealthError as exc:
         sys.exit(f"Failed to start analysis: {exc}")
 
     print("Waiting for analysis to complete...")
     result_status = _poll_analysis(service, task)
 
-    if result_status.get("type") != "completed":
-        sys.exit(f"Analysis did not complete (status: {result_status.get('type')}).")
+    if result_status != AnalysisStatus.completed:
+        sys.exit(f"Analysis did not complete (status: {result_status}).")
     print("Analysis complete.")
 
     # Re-fetch the activity so its results field contains the analysis URLs.
-    activity = service.get_activity(activity["id"])
+    activity = service.fetch_activity(activity.id)
 
     # --- Choose result files to save --------------------------------------
     print("\nWhich results would you like to save?\n")
@@ -227,17 +230,16 @@ def main():
 
     # --- Download and save ------------------------------------------------
     print("\nDownloading...")
-    results = service.download_trial_analysis_result_data(activity, data_types)
+    results = service.analysis_data_for_activity(activity, data_types)
 
     out_dir = os.path.join(os.path.dirname(__file__), "downloads")
     os.makedirs(out_dir, exist_ok=True)
-    slug = (activity.get("name") or activity["id"]).replace(" ", "_")
-    for result in results:
-        dtype = result["result_data_type"]
-        ext = EXTENSIONS.get(dtype, "bin")
-        filename = os.path.join(out_dir, f"{slug}_{dtype}.{ext}")
+    slug = (activity.name or activity.id).replace(" ", "_")
+    for r in results:
+        ext = EXTENSIONS.get(r.type, "bin")
+        filename = os.path.join(out_dir, f"{slug}_{r.type}.{ext}")
         with open(filename, "wb") as f:
-            f.write(result["data"])
+            f.write(r.data)
         print(f"  Saved {filename}")
 
     print("\nDone.")
