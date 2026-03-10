@@ -22,6 +22,8 @@ from modelhealth import (
     ActivityStatus,
     ActivityStatusUploading,
     AnalysisStatus,
+    AnalysisType,
+    AnalysisDataType,
 )
 
 # ---------------------------------------------------------------------------
@@ -29,30 +31,30 @@ from modelhealth import (
 # ---------------------------------------------------------------------------
 
 ANALYSIS_TYPES = [
-    ("counter_movement_jump", "Counter Movement Jump"),
-    ("gait", "Overground Walking"),
-    ("treadmill_gait", "Treadmill Walking"),
-    ("treadmill_running", "Treadmill Running"),
-    ("overground_running", "Overground Running"),
-    ("sit_to_stand", "Sit-to-Stand Transfer"),
-    ("squats", "Squats"),
-    ("range_of_motion", "Range of Motion"),
-    ("drop_jump", "Drop Vertical Jump"),
-    ("hop", "Hop Test"),
-    ("change_of_direction", "5-0-5 Test"),
-    ("cut", "Cutting Manoeuvre"),
+    (AnalysisType.counter_movement_jump, "Counter Movement Jump"),
+    (AnalysisType.gait,                  "Overground Walking"),
+    (AnalysisType.treadmill_gait,        "Treadmill Walking"),
+    (AnalysisType.treadmill_running,     "Treadmill Running"),
+    (AnalysisType.overground_running,    "Overground Running"),
+    (AnalysisType.sit_to_stand,          "Sit-to-Stand Transfer"),
+    (AnalysisType.squats,                "Squats"),
+    (AnalysisType.range_of_motion,       "Range of Motion"),
+    (AnalysisType.drop_jump,             "Drop Vertical Jump"),
+    (AnalysisType.hop,                   "Hop Test"),
+    (AnalysisType.change_of_direction,   "5-0-5 Test"),
+    (AnalysisType.cut,                   "Cutting Manoeuvre"),
 ]
 
 RESULT_TYPES = [
-    ("metrics", "Metrics  (JSON)"),
-    ("report",  "Report   (PDF) "),
-    ("data",    "Data     (ZIP) "),
+    (AnalysisDataType.metrics, "Metrics  (JSON)"),
+    (AnalysisDataType.report,  "Report   (PDF) "),
+    (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
 
 EXTENSIONS = {
-    "metrics": "json",
-    "report": "pdf",
-    "data": "zip",
+    AnalysisDataType.metrics: "json",
+    AnalysisDataType.report:  "pdf",
+    AnalysisDataType.data:    "zip",
 }
 
 # Activities created by the mobile app for internal use — exclude from lists.
