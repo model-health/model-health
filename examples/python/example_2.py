@@ -159,7 +159,7 @@ def main():
     session = _pick_one(
         sessions,
         "Select session",
-        lambda s: s.name or s.session_name or s.id,
+        lambda s: s.name or s.sessionName or s.id,
     )
 
     # --- Activity ----------------------------------------------------------

@@ -107,7 +107,7 @@ def main():
             print(f"\nSkipping OpenSim model: neutral activity status is '{status}' (expected 'ready').")
         else:
             print("\nDownloading OpenSim model for neutral activity...")
-            opensim_model_for_neutral_activity = service.opensim_model_for_activity(neutral_activity, ['opensim(.osim)'])
+            opensim_model_for_neutral_activity = service.motion_data_for_activity(neutral_activity, ['opensim(.osim)'])
             opensim_model_for_neutral_activity.download()
             print(f"  Saved: {opensim_model_for_neutral_activity.filename}  [{neutral_activity.name}]")
 
