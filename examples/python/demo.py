@@ -25,6 +25,7 @@ from modelhealth import (
     AnalysisType,
     AnalysisDataType,
 )
+from _prompts import pick_one, pick_multi
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -59,41 +60,6 @@ EXTENSIONS = {
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
-
-# ---------------------------------------------------------------------------
-# Prompt helpers
-# ---------------------------------------------------------------------------
-
-def _pick_one(items, prompt, label_fn):
-    """Display a numbered list and return the item the user selects."""
-    for i, item in enumerate(items, 1):
-        print(f"  {i}. {label_fn(item)}")
-    while True:
-        raw = input(f"{prompt} [1-{len(items)}]: ").strip()
-        try:
-            idx = int(raw) - 1
-            if 0 <= idx < len(items):
-                return items[idx]
-        except ValueError:
-            pass
-        print(f"  Please enter a number between 1 and {len(items)}.")
-
-
-def _pick_multi(items, prompt, label_fn):
-    """Display a numbered list and return the items the user selects (one or more)."""
-    for i, item in enumerate(items, 1):
-        print(f"  {i}. {label_fn(item)}")
-    while True:
-        raw = input(f"{prompt} (e.g. 1 2 3): ").strip()
-        try:
-            indices = [int(x) - 1 for x in raw.split()]
-            selected = [items[i] for i in indices if 0 <= i < len(items)]
-            if selected:
-                return selected
-        except (ValueError, IndexError):
-            pass
-        print(f"  Please enter one or more numbers between 1 and {len(items)}.")
-
 
 # ---------------------------------------------------------------------------
 # Polling helpers
@@ -156,7 +122,7 @@ def main():
         )
 
     print(f"\n{len(sessions)} session(s):\n")
-    session = _pick_one(
+    session = pick_one(
         sessions,
         "Select session",
         lambda s: s.name or s.session_name or s.id,
@@ -174,7 +140,7 @@ def main():
         sys.exit("No activities found in this session.")
 
     print(f"\n{len(activities)} activity/activities:\n")
-    activity = _pick_one(
+    activity = pick_one(
         activities,
         "Select activity",
         lambda a: f"{a.name or a.id}  [{a.status}]",
@@ -198,7 +164,7 @@ def main():
 
     # --- Analysis type -----------------------------------------------------
     print("\nAnalysis type:\n")
-    analysis_value, analysis_label = _pick_one(
+    analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
         "Select analysis type",
         lambda t: t[1],
@@ -223,7 +189,7 @@ def main():
 
     # --- Choose result files to save --------------------------------------
     print("\nWhich results would you like to save?\n")
-    selected = _pick_multi(
+    selected = pick_multi(
         RESULT_TYPES,
         "Select result types",
         lambda r: r[1],
