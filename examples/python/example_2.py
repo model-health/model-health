@@ -131,7 +131,7 @@ def main():
     # --- Activity ----------------------------------------------------------
     session_label = session.name or session.id
     print(f"\nFetching activities for '{session_label}'...")
-    all_activities = service.activity_list(session.id)
+    all_activities = service.activity_list(session)
     activities = [
         a for a in all_activities
         if a.name not in _INTERNAL_ACTIVITY_NAMES
