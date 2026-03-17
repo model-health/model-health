@@ -102,7 +102,7 @@ def _poll_analysis(service, task, interval=10):
 # ---------------------------------------------------------------------------
 
 def main():
-    # --- API key -----------------------------------------------------------
+    # API key
     if len(sys.argv) != 2:
         sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
     api_key = sys.argv[1]
@@ -113,7 +113,7 @@ def main():
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # --- Session -----------------------------------------------------------
+    # Session
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -128,7 +128,7 @@ def main():
         lambda s: s.name or s.sessionName or s.id,
     )
 
-    # --- Activity ----------------------------------------------------------
+    # Activity
     session_label = session.name or session.id
     print(f"\nFetching activities for '{session_label}'...")
     all_activities = service.activity_list(session)
@@ -146,7 +146,7 @@ def main():
         lambda a: f"{a.name or a.id}  [{a.status}]",
     )
 
-    # --- Processing status -------------------------------------------------
+    # Processing status
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
     status = service.activity_status(activity)
@@ -162,7 +162,7 @@ def main():
         )
     print("Activity is ready.")
 
-    # --- Analysis type -----------------------------------------------------
+    # Analysis type
     print("\nAnalysis type:\n")
     analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
@@ -170,7 +170,7 @@ def main():
         lambda t: t[1],
     )
 
-    # --- Run analysis ------------------------------------------------------
+    # Run analysis
     print(f"\nStarting '{analysis_label}' analysis...")
     try:
         task = service.start_analysis(analysis_value, activity, session)
@@ -187,7 +187,7 @@ def main():
     # Re-fetch the activity so its results field contains the analysis URLs.
     activity = service.fetch_activity(activity.id)
 
-    # --- Choose result files to save --------------------------------------
+    # Choose result files to save
     print("\nWhich results would you like to save?\n")
     selected = pick_multi(
         RESULT_TYPES,
@@ -196,7 +196,7 @@ def main():
     )
     data_types = [r[0] for r in selected]
 
-    # --- Download and save ------------------------------------------------
+    # Download and save
     print("\nDownloading...")
     results = service.analysis_data_for_activity(activity, data_types)
 
