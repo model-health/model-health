@@ -1,5 +1,4 @@
 import json
-from urllib.parse import urlparse
 
 from modelhealth import (
     ModelHealthService,
@@ -10,7 +9,8 @@ from modelhealth import (
     SessionCoreEngine,
     FilterFrequencyDefault,
     FilterFrequencyHz,
-    TransferStatusUploading,
+    ImportStatusCreatedSession,
+    ImportStatusUploading,
 )
 from _opencap_api import fetch_session, fetch_subject
 from _prompts import confirm, pick_one
@@ -52,31 +52,23 @@ def _pick_trial(trials, name_filter):
     return max(pool, key=lambda t: t.get("created_at", ""))
 
 
-def _short_id(uuid_str):
-    """Return the first two dash-separated segments of a UUID."""
-    parts = str(uuid_str).split("-")
-    return "-".join(parts[:2]) if len(parts) > 2 else uuid_str
-
 
 def copy_session(
     session_id_input,
     user_token_input,
-    user_token_output,
-    api_url_output="https://api.modelhealth.io/",
+    api_key,
     api_url_input="https://api.opencap.ai/",
     meta_overrides=None,
 ):
     """Copy an OpenCap session into a ModelHealth account.
 
     Downloads all trials from the given OpenCap session and re-uploads them to
-    a new ModelHealth session. Calibration and neutral trials are processed first
-    and waited on before dynamic trials are submitted.
+    a new ModelHealth session via :meth:`ModelHealthService.import_session`.
 
     Args:
         session_id_input: UUID of the OpenCap session to copy from.
         user_token_input: OpenCap authentication token.
-        user_token_output: ModelHealth authentication token.
-        api_url_output: Base URL of the ModelHealth API.
+        api_key: ModelHealth API key.
         api_url_input: Base URL of the OpenCap API.
         meta_overrides: Optional dict of settings to set under meta["settings"] on the new
             session, overriding or extending what is copied from the source session. Supported keys:
@@ -85,16 +77,12 @@ def copy_session(
                 - "coreengine": "v0.2" | "v0.3" | "v1.0"
                 - "filterfrequency": "default" | <integer>
     """
-    mh_service = ModelHealthService(user_token_output)
+    mh_service = ModelHealthService(api_key)
 
     # Fetch source session
     session_input = fetch_session(session_id_input, api_url=api_url_input, api_token=user_token_input)
 
-    # Step 1: Create session
-    session_output = mh_service.create_session()
-    print(f"Created new session: {session_output.id}")
-
-    # Step 2: Build session config from source settings, applying any overrides
+    # Step 1: Build session config from source settings, applying any overrides
     meta = session_input.get("meta") or {}
     if isinstance(meta, str):
         meta = json.loads(meta) if meta else {}
@@ -111,7 +99,7 @@ def copy_session(
     )
     print("Session settings configured.")
 
-    # Step 3: Select or create subject
+    # Step 2: Select or create subject
     subjects = mh_service.subject_list()
     if subjects and confirm(f"Found {len(subjects)} subject(s). Select an existing one?", default=True):
         print()
@@ -130,9 +118,8 @@ def copy_session(
         subject = mh_service.create_subject(params)
         print("Subject created successfully.")
 
-    # Step 4: Resolve calibration — prefer parent session referenced in meta, fall back to current session
+    # Step 3: Resolve calibration — prefer parent session referenced in meta, fall back to current session
     calibration_trial = None
-    calibration_source_session_id = None
     parent_calibration_id = (meta.get("sessionWithCalibration") or {}).get("id")
 
     if parent_calibration_id:
@@ -141,7 +128,6 @@ def copy_session(
             cal = _pick_trial(parent_session["trials"], lambda n: n == "calibration")
             if cal is not None:
                 calibration_trial = cal
-                calibration_source_session_id = parent_calibration_id
                 print(f"Using calibration from parent session {parent_calibration_id}.")
         except Exception as e:
             print(f"Could not load calibration from parent session: {e}")
@@ -150,43 +136,57 @@ def copy_session(
         cal = _pick_trial(session_input["trials"], lambda n: n == "calibration")
         if cal is not None:
             calibration_trial = cal
-            calibration_source_session_id = session_id_input
 
     # Build ordered trial list: calibration -> neutral -> dynamic
+    # Skip setup trials that aren't done on the source side.
     neutral_trial = _pick_trial(session_input["trials"], lambda n: "neutral" in n)
     dynamic_trials = [
         t for t in session_input["trials"]
         if t["name"].lower() not in ("calibration", "neutral")
     ]
-    ordered = []
-    if calibration_trial is not None:
-        ordered.append((calibration_trial, calibration_source_session_id))
-    if neutral_trial is not None:
-        ordered.append((neutral_trial, session_id_input))
-    ordered.extend((t, session_id_input) for t in dynamic_trials)
+    if calibration_trial is None:
+        print("No calibration trial found, cannot proceed.")
+        return
+    if calibration_trial.get("status") != "done":
+        print("Calibration trial is not done, cannot proceed.")
+        return
+    if neutral_trial is None:
+        print("No neutral trial found, cannot proceed.")
+        return
+    if neutral_trial.get("status") != "done":
+        print("Neutral trial is not done, cannot proceed.")
+        return
 
-    # Step 5: Transfer trials
-    for trial, _source_session_id in ordered:
-        trial_name = trial["name"]
-        is_setup_trial = trial_name.lower() in ("calibration", "neutral")
+    # Step 4: Transfer all trials in one call
+    # Build the full source session meta with settings overrides applied so the
+    # backend has all the context it needs (e.g. sessionWithCalibration).
+    session_meta = dict(meta)
+    session_meta.setdefault("settings", {}).update(meta_overrides or {})
 
-        if is_setup_trial and trial.get("status") != "done":
-            print(f"Trial '{trial_name}' is not done, skipping.")
-            continue
+    _seen_uploads = {}
+    _current_trial = [None]
+    def on_status(status):
+        if status == "creating_session":
+            print("  Creating session...")
+        elif isinstance(status, ImportStatusCreatedSession):
+            print(f"  Session created: {status.session_id}")
+        elif isinstance(status, ImportStatusUploading) and status.uploaded < status.total:
+            _current_trial[0] = status.trial
+            if _seen_uploads.get(status.trial) != status.uploaded:
+                _seen_uploads[status.trial] = status.uploaded
+                print(f"  [{status.trial}] Uploading video {status.uploaded + 1}/{status.total}...")
+        elif status == "processing":
+            trial = _current_trial[0] or "activity"
+            print(f"  [{trial}] Processing...")
 
-        def on_status(status, _name=trial_name):
-            if isinstance(status, TransferStatusUploading):
-                print(f"  [{_name}] Uploading video {status.uploaded + 1}/{status.total}...")
-
-        print(f"Transferring trial '{trial_name}'...")
-        mh_service.transfer_trial(
-            json.dumps(trial),
-            subject,
-            session=session_output,
-            session_config=session_config,
-            status_callback=on_status,
-        )
-        print(f"Trial '{trial_name}' transferred successfully.")
+    session = mh_service.import_session(
+        json.dumps([calibration_trial, neutral_trial, *dynamic_trials]),
+        subject,
+        session_config=session_config,
+        session_meta_json=json.dumps(session_meta),
+        status_callback=on_status,
+    )
+    print("All trials transferred successfully to session: ", session.id)
 
 
 # %% User input
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     session_id_input = "YOUR_OPENCAP_SESSION_ID"
     user_token_input = "YOUR_OPENCAP_TOKEN"
 
-    user_token_output = "YOUR_MODELHEALTH_TOKEN"
+    api_key = "YOUR_MODELHEALTH_API_KEY"
 
     # Optional: override or extend session metadata with ModelHealth-specific settings.
     # Leave as None to keep the values from the source session.
@@ -210,7 +210,6 @@ if __name__ == "__main__":
     copy_session(
         session_id_input=session_id_input,
         user_token_input=user_token_input,
-        user_token_output=user_token_output,
-
+        api_key=api_key,
         meta_overrides=meta_overrides,
     )
