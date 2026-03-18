@@ -18,7 +18,7 @@ export function render(container, state, { setState, navigate }) {
   const subject = state.subject;
   const activities = state.activities || [];
   const activityStates = state.activityStates || {};
-  const selectedAnalysisTypes = state.selectedAnalysisTypes || {};
+  const selectedActivityTypes = state.selectedActivityTypes || {};
   const currentRecording = state.currentRecording;
   const activityName = state.currentActivityName || '';
   const loading = state.loadingState === 'loading';
@@ -51,7 +51,7 @@ export function render(container, state, { setState, navigate }) {
           const statusText = st.analysisStatus === 'completed' ? 'Analysis complete' : st.analysisStatus === 'processing' ? 'Analyzing...' : st.processingStatus === 'ready' ? 'Ready' : st.processingStatus === 'processing' ? 'Processing...' : st.processingStatus || '—';
           const canAnalyze = st.processingStatus === 'ready' && !st.analysisTask;
           const canViewResults = st.analysisStatus === 'completed';
-          const selectedType = selectedAnalysisTypes[a.id] || 'counter_movement_jump';
+          const selectedType = selectedActivityTypes[a.id] || 'counter_movement_jump';
           const analysisOptions = ANALYSIS_TYPES.map((t) => `<option value="${t.value}" ${t.value === selectedType ? 'selected' : ''}>${t.label}</option>`).join('');
           return `
             <li class="activity-item" data-activity-id="${escapeHtml(a.id)}">
@@ -79,7 +79,7 @@ export function render(container, state, { setState, navigate }) {
       const id = select.getAttribute('data-activity-id');
       const value = select.value;
       setState({
-        selectedAnalysisTypes: { ...state.selectedAnalysisTypes, [id]: value },
+        selectedActivityTypes: { ...state.selectedActivityTypes, [id]: value },
       });
     });
   });
@@ -164,12 +164,12 @@ export function render(container, state, { setState, navigate }) {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-activity-id');
       const activity = activities.find((a) => a.id === id);
-      const analysisType = state.selectedAnalysisTypes?.[id] || 'counter_movement_jump';
+      const activityType = state.selectedActivityTypes?.[id] || 'counter_movement_jump';
       const client = getClient();
       if (!client || !activity || !session)
         return;
       try {
-        const task = await client.startAnalysis(analysisType, activity, session);
+        const task = await client.startAnalysis(activityType, activity, session);
         const st = state.activityStates[id] || {};
         setState({ activityStates: { ...state.activityStates, [id]: { ...st, analysisTask: task, analysisStatus: 'processing' } } });
         let as = await client.analysisStatus(task);

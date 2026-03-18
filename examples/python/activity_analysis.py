@@ -9,12 +9,14 @@ Walks through the post-capture workflow:
   5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
 
 Usage:
-    python3 demo.py <api_key>
+    activity_analysis.py <api_key>
 """
 
 import os
 import sys
 import time
+
+from docopt import docopt
 
 from modelhealth import (
     ModelHealthService,
@@ -22,7 +24,7 @@ from modelhealth import (
     ActivityStatus,
     ActivityStatusUploading,
     AnalysisStatus,
-    AnalysisType,
+    ActivityType,
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
@@ -32,18 +34,18 @@ from _prompts import pick_one, pick_multi
 # ---------------------------------------------------------------------------
 
 ANALYSIS_TYPES = [
-    (AnalysisType.counter_movement_jump, "Counter Movement Jump"),
-    (AnalysisType.gait,                  "Overground Walking"),
-    (AnalysisType.treadmill_gait,        "Treadmill Walking"),
-    (AnalysisType.treadmill_running,     "Treadmill Running"),
-    (AnalysisType.overground_running,    "Overground Running"),
-    (AnalysisType.sit_to_stand,          "Sit-to-Stand Transfer"),
-    (AnalysisType.squats,                "Squats"),
-    (AnalysisType.range_of_motion,       "Range of Motion"),
-    (AnalysisType.drop_jump,             "Drop Vertical Jump"),
-    (AnalysisType.hop,                   "Hop Test"),
-    (AnalysisType.change_of_direction,   "5-0-5 Test"),
-    (AnalysisType.cut,                   "Cutting Manoeuvre"),
+    (ActivityType.counter_movement_jump, "Counter Movement Jump"),
+    (ActivityType.gait,                  "Overground Walking"),
+    (ActivityType.treadmill_gait,        "Treadmill Walking"),
+    (ActivityType.treadmill_running,     "Treadmill Running"),
+    (ActivityType.overground_running,    "Overground Running"),
+    (ActivityType.sit_to_stand,          "Sit-to-Stand Transfer"),
+    (ActivityType.squats,                "Squats"),
+    (ActivityType.range_of_motion,       "Range of Motion"),
+    (ActivityType.drop_jump,             "Drop Vertical Jump"),
+    (ActivityType.hop,                   "Hop Test"),
+    (ActivityType.change_of_direction,   "5-0-5 Test"),
+    (ActivityType.cut,                   "Cutting Manoeuvre"),
 ]
 
 RESULT_TYPES = [
@@ -101,12 +103,7 @@ def _poll_analysis(service, task, interval=10):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # API key
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
@@ -214,4 +211,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])

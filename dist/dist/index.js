@@ -640,19 +640,20 @@ export class ModelHealthService {
      *
      * @param activityName A descriptive name for this activity (e.g., `"cmj"`, `"squat"`).
      * @param session The session this activity is associated with.
+     * @param config Optional recording configuration.
      * @returns The newly created `Activity`.
      * @throws If recording cannot start (e.g., missing calibration).
      *
      * @example
      * ```typescript
-     * const activity = await client.startRecording("cmj", session);
+     * const activity = await client.startRecording("cmj", session, { activityType: ActivityType.CounterMovementJump });
      * // Subject performs movement...
      * await client.stopRecording(session);
      * ```
      */
-    async startRecording(activityName, session) {
+    async startRecording(activityName, session, config) {
         this.ensureInitialized();
-        const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session));
+        const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session), config?.activityType ?? null);
         return this.parseResponse(result);
     }
     /**
@@ -714,7 +715,7 @@ export class ModelHealthService {
      * Call this after `activityStatus` returns `ready`. Use the
      * returned `Analysis` with `analysisStatus` to poll progress.
      *
-     * @param analysisType The type of analysis to run (for example, `"gait"`, `"counter_movement_jump"`).
+     * @param activityType The type of analysis to run (for example, `"gait"`, `"counter_movement_jump"`).
      * @param activity The activity to analyze.
      * @param session The session context containing the activity.
      * @returns An `Analysis` for tracking analysis progress.
@@ -726,9 +727,9 @@ export class ModelHealthService {
      * const status = await client.analysisStatus(task);
      * ```
      */
-    async startAnalysis(analysisType, activity, session) {
+    async startAnalysis(activityType, activity, session) {
         this.ensureInitialized();
-        const result = await this.wasmClient.startAnalysis(analysisType, decamelizeKeys(activity), decamelizeKeys(session));
+        const result = await this.wasmClient.startAnalysis(activityType, decamelizeKeys(activity), decamelizeKeys(session));
         return this.parseResponse(result);
     }
     /**

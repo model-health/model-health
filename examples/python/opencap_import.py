@@ -1,4 +1,12 @@
+"""Import an OpenCap session into Model Health.
+
+Usage:
+    opencap_import.py <api_key> <opencap_token> <opencap_session_id>
+"""
+
 import json
+
+from docopt import docopt
 
 from modelhealth import (
     ModelHealthService,
@@ -189,12 +197,8 @@ def copy_session(
     print("All trials transferred successfully to session: ", session.id)
 
 
-# %% User input
 if __name__ == "__main__":
-    session_id_input = "YOUR_OPENCAP_SESSION_ID"
-    user_token_input = "YOUR_OPENCAP_TOKEN"
-
-    api_key = "YOUR_MODELHEALTH_API_KEY"
+    args = docopt(__doc__)
 
     # Optional: override or extend session metadata with ModelHealth-specific settings.
     # Leave as None to keep the values from the source session.
@@ -208,8 +212,8 @@ if __name__ == "__main__":
     }
 
     copy_session(
-        session_id_input=session_id_input,
-        user_token_input=user_token_input,
-        api_key=api_key,
+        session_id_input=args["<opencap_session_id>"],
+        user_token_input=args["<opencap_token>"],
+        api_key=args["<api_key>"],
         meta_overrides=meta_overrides,
     )

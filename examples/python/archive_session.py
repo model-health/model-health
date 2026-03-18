@@ -9,12 +9,14 @@ Walks through the archive workflow:
   5. Download and save the ZIP file
 
 Usage:
-    python3 archive_demo.py <api_key>
+    archive_session.py <api_key>
 """
 
 import os
 import sys
 import time
+
+from docopt import docopt
 
 from modelhealth import (
     ModelHealthService,
@@ -46,12 +48,7 @@ def _poll_archive(service, archive, interval=2):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # --- API key -----------------------------------------------------------
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
@@ -112,4 +109,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Example 1 — Download data from existing session.
 
+Usage:
+    session_data.py <api_key> <session_id>
+
 Scenario
 --------
 You collected data using the Model Health app and want to download data
@@ -17,15 +20,9 @@ What this example does
 6. Download analysis data for each activity.
 """
 
+from docopt import docopt
+
 from modelhealth import ModelHealthService, ModelHealthError, ActivityStatus, AnalysisStatus
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-API_KEY = "your-api-key-here"
-
-SESSION_ID = "your-session-id-here"
 
 # Names of the activities to download.
 ACTIVITY_NAMES = ["squat", "cmj"]
@@ -37,23 +34,23 @@ WITH_VIDEOS = False
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def main(api_key, session_id):
     # --- Connect -----------------------------------------------------------
     print("Connecting to Model Health...")
-    service = ModelHealthService(api_key=API_KEY)
+    service = ModelHealthService(api_key=api_key)
 
     # --- Download the whole session archive --------------------------------
     # Downloads everything in the session as a single archive file.
     # TODO - Warren: placeholder for session archive download example
-    print(f"\nDownloading session archive for '{SESSION_ID}'...")
-    download_session_archive = service.download_session_archive(SESSION_ID, with_videos=WITH_VIDEOS)
+    print(f"\nDownloading session archive for '{session_id}'...")
+    download_session_archive = service.download_session_archive(session_id, with_videos=WITH_VIDEOS)
     download_session_archive.download()
     print(f"  Saved: {download_session_archive.filename}")
 
     # --- Resolve activity names to objects ---------------------------------
     # TODO - Warren: placeholder for accesssing activities by name
-    print(f"\nFetching activities for session '{SESSION_ID}'...")
-    session_activities = service.activity_list(SESSION_ID)
+    print(f"\nFetching activities for session '{session_id}'...")
+    session_activities = service.activity_list(session_id)
 
     user_activities = {
         a.name: a
@@ -127,7 +124,8 @@ def main():
 
 
 if __name__ == "__main__":
+    args = docopt(__doc__)
     try:
-        main()
+        main(args["<api_key>"], args["<session_id>"])
     except ModelHealthError as e:
         print(f"Error: {e}")

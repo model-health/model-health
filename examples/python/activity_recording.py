@@ -12,13 +12,15 @@ Walks through the full capture workflow:
 Requires cameras to be connected and ready via the Model Health mobile app.
 
 Usage:
-    python3 capture_demo.py <api_key>
+    activity_recording.py <api_key>
 """
 
 import os
 import sys
 import time
 import urllib.request
+
+from docopt import docopt
 
 from modelhealth import (
     ActivityStatus,
@@ -90,12 +92,7 @@ def _poll_activity(service, activity, interval=5):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # API key
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
@@ -231,4 +228,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])
