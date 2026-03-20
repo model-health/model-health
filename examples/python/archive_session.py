@@ -75,7 +75,7 @@ def main(api_key):
     with_videos = confirm("Include raw video files in the archive?", default=False)
 
     # Request archive
-    print(f"\nRequesting archive for '{session.id}'...")
+    print(f"\nRequesting archive for session '{session.id}'...")
     try:
         archive = service.prepare_archive(session, with_videos=with_videos)
     except ModelHealthError as exc:
