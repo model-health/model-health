@@ -72,27 +72,3 @@ def fetch_subject(subject_id, api_url="https://api.opencap.ai/", api_token=None,
             else:
                 raise
 
-
-def download_file(url, file_path, max_retries=3, retry_delay=5):
-    """Download a file from a URL and save it to a local path.
-
-    Args:
-        url: URL of the file to download.
-        file_path: Local path where the file will be saved.
-        max_retries: Number of attempts before raising on connection error.
-        retry_delay: Seconds to wait between retries.
-
-    Raises:
-        Exception: If all download attempts fail.
-    """
-    for attempt in range(max_retries):
-        try:
-            with urllib.request.urlopen(url) as response, open(file_path, "wb") as out_file:
-                shutil.copyfileobj(response, out_file)
-            return
-        except Exception as e:
-            if attempt < max_retries - 1:
-                print(f"Connection error downloading file, retrying in {retry_delay}s: {e}")
-                time.sleep(retry_delay)
-            else:
-                raise
