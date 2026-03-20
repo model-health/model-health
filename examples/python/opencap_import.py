@@ -1,4 +1,4 @@
-"""Import an OpenCap session into Model Health.
+"""Model Health Python SDK — Import an OpenCap session into Model Health.
 
 Usage:
     opencap_import.py <api_key> <opencap_token> <opencap_session_id>

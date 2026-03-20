@@ -35,6 +35,7 @@ from modelhealth import (
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
+from _utils import DOWNLOADS_DIR
 
 # ---------------------------------------------------------------------------
 # Checkerboard presets
@@ -110,12 +111,11 @@ def main(api_key):
     if not session.qrcode:
         sys.exit("Session has no QR code — cannot pair cameras.")
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
-    qr_path = os.path.join(out_dir, "qr-code.png")
+    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+    qr_path = os.path.join(DOWNLOADS_DIR, "qr-code.png")
     try:
         urllib.request.urlretrieve(session.qrcode, qr_path)
-        print(f"  QR code saved to: downloads/qr-code.png")
+        print(f"  QR code saved to: {qr_path}")
     except Exception as exc:
         sys.exit(f"Failed to download QR code: {exc}")
 

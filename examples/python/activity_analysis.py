@@ -12,7 +12,6 @@ Usage:
     activity_analysis.py <api_key>
 """
 
-import os
 import sys
 import time
 
@@ -28,6 +27,7 @@ from modelhealth import (
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
+from _utils import save_file, ANALYSIS_DATA_EXT
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -54,11 +54,6 @@ RESULT_TYPES = [
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
 
-EXTENSIONS = {
-    AnalysisDataType.metrics: "json",
-    AnalysisDataType.report:  "pdf",
-    AnalysisDataType.data:    "zip",
-}
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
@@ -197,15 +192,11 @@ def main(api_key):
     print("\nDownloading...")
     results = service.analysis_data_for_activity(activity, data_types)
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
     slug = (activity.name or activity.id).replace(" ", "_")
     for r in results:
-        ext = EXTENSIONS.get(r.type, "bin")
-        filename = os.path.join(out_dir, f"{slug}_{r.type}.{ext}")
-        with open(filename, "wb") as f:
-            f.write(r.data)
-        print(f"  Saved {filename}")
+        ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+        path = save_file(f"{slug}_{r.type}.{ext}", r.data)
+        print(f"  Saved {path}")
 
     print("\nDone.")
 

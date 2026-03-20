@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Example 1 — Download data from existing session.
+"""Model Health Python SDK — Download data from existing session.
 
 Usage:
     session_data.py <api_key> <session_id>
@@ -7,55 +7,84 @@ Usage:
 Scenario
 --------
 You collected data using the Model Health app and want to download data
-at different levels of granularity: the full session archive, per-activity
-archives, OpenSim model, raw motion data, and analysis results.
+at different levels of granularity: the full session archive, raw motion
+data, and analysis results.
 
 What this example does
 ----------------------
 1. Connect to the Model Health service.
 2. Download the complete session archive.
-3. Download a combined archive for specific activities (squat, cmj).
-4. Download OpenSim model for neutral activity.
-5. Download raw motion data for each activity (kinematic and marker data).
-6. Download analysis data for each activity.
+3. Download raw motion data for specific activities (squat, cmj).
+4. Download OpenSim model for the neutral activity.
+5. Download analysis data for each activity.
 """
+
+import sys
+import time
 
 from docopt import docopt
 
-from modelhealth import ModelHealthService, ModelHealthError, ActivityStatus, AnalysisStatus
+from modelhealth import (
+    ModelHealthService,
+    ModelHealthError,
+    ActivityStatus,
+    ArchiveStatus,
+    MotionDataType,
+    AnalysisDataType,
+)
+from _utils import save_file, MOTION_DATA_EXT, ANALYSIS_DATA_EXT
 
 # Names of the activities to download.
 ACTIVITY_NAMES = ["squat", "cmj"]
 
-# Set to True to include video files in the session per-activity archive.
+# Set to True to include video files in the session archive.
 WITH_VIDEOS = False
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _poll_archive(service, archive, interval=2):
+    while True:
+        status = service.archive_status(archive)
+        if status == ArchiveStatus.processing:
+            print("  Preparing archive...", end="\r", flush=True)
+        else:
+            print()
+            return status
+        time.sleep(interval)
+
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main(api_key, session_id):
-    # --- Connect -----------------------------------------------------------
+    # Connect
     print("Connecting to Model Health...")
     service = ModelHealthService(api_key=api_key)
 
-    # --- Download the whole session archive --------------------------------
-    # Downloads everything in the session as a single archive file.
-    # TODO - Warren: placeholder for session archive download example
-    print(f"\nDownloading session archive for '{session_id}'...")
-    download_session_archive = service.download_session_archive(session_id, with_videos=WITH_VIDEOS)
-    download_session_archive.download()
-    print(f"  Saved: {download_session_archive.filename}")
+    # Fetch session
+    print(f"\nFetching session '{session_id}'...")
+    session = service.get_session(session_id)
+    session_label = (session.name or session.session_name or session.id).replace(" ", "_")
 
-    # --- Resolve activity names to objects ---------------------------------
-    # TODO - Warren: placeholder for accesssing activities by name
+    # Download the whole session archive
+    print(f"\nRequesting session archive...")
+    archive = service.prepare_archive(session, with_videos=WITH_VIDEOS)
+    status = _poll_archive(service, archive)
+    if status != ArchiveStatus.ready:
+        print(f"  Archive preparation did not complete (status: {status}) — skipping.")
+    else:
+        data = service.archive_data(archive)
+        path = save_file(f"{session_label}.zip", data)
+        print(f"  Saved: {path}  ({len(data):,} bytes)")
+
+    # Resolve activity names to objects
     print(f"\nFetching activities for session '{session_id}'...")
-    session_activities = service.activity_list(session_id)
+    session_activities = service.activity_list(session)
 
-    user_activities = {
-        a.name: a
-        for a in session_activities
-    }
+    user_activities = {a.name: a for a in session_activities}
 
     activities = []
     for name in ACTIVITY_NAMES:
@@ -68,57 +97,54 @@ def main(api_key, session_id):
     if not activities:
         print("No matching activities found. Check your session ID and activity names.")
         return
-    
-    # Get neutral activity.
-    neutral_activities = [a for a in session_activities if a.name == "NEUTRAL"]
-    if neutral_activities:
-        neutral_activity = sorted(neutral_activities, key=lambda a: a.created_at)[-1]
-        print(f"  Found neutral activity: '{neutral_activity.name}' (id: {neutral_activity.id})")
 
-    # --- Download a combined archive for all activities --------------------
-    # Downloads all files for the selected activities in one archive.
-    # TODO - Warren: placeholder for activities archive download example
-    # We need to wait for API code to be merged before we can implement this example, as it depends on the new "download for multiple activities" endpoint.
-    print("\nDownloading activities archive...")
-    download_activities_archive = service.download_activities_archive(activities, with_videos=WITH_VIDEOS)
-    download_activities_archive.download()
-    print(f"  Saved: {download_activities_archive.filename}")
-
-    # --- Download motion data for each activity ----------------------------
-    # TODO - Warren: placeholder for motion data download example
+    # Download motion data for each activity
     print("\nDownloading motion data...")
     for activity in activities:
         status = service.activity_status(activity)
         if status != ActivityStatus.ready:
             print(f"  Skipping '{activity.name}': status is '{status}' (expected 'ready').")
             continue
-        motion_data_for_activity = service.motion_data_for_activity(activity, ['kinematics(.mot)', 'kinematics(.csv)', 'markers(.trc)', 'markers(.csv)'])
-        motion_data_for_activity.download()
-        print(f"  Saved: {motion_data_for_activity.filename}  [{activity.name}]")
+        results = service.motion_data_for_activity(
+            activity,
+            [MotionDataType.kinematics_mot, MotionDataType.kinematics_csv,
+             MotionDataType.markers_trc, MotionDataType.markers_csv],
+        )
+        for r in results:
+            ext = MOTION_DATA_EXT.get(r.type, "bin")
+            path = save_file(f"{activity.name}_{r.type}.{ext}", r.data)
+            print(f"  Saved: {path}")
 
-    # --- Download OpenSim model for neutral activity ----------------------------
-    # TODO - Warren: placeholder for OpenSim model download example    
+    # Download OpenSim model for neutral activity
+    neutral_activities = [a for a in session_activities if a.name == "neutral"]
     if neutral_activities:
+        neutral_activity = neutral_activities[-1]
+        print(f"\nDownloading OpenSim model for neutral activity (id: {neutral_activity.id})...")
         status = service.activity_status(neutral_activity)
         if status != ActivityStatus.ready:
-            print(f"\nSkipping OpenSim model: neutral activity status is '{status}' (expected 'ready').")
+            print(f"  Skipping: neutral activity status is '{status}' (expected 'ready').")
         else:
-            print("\nDownloading OpenSim model for neutral activity...")
-            opensim_model_for_neutral_activity = service.motion_data_for_activity(neutral_activity, ['opensim(.osim)'])
-            opensim_model_for_neutral_activity.download()
-            print(f"  Saved: {opensim_model_for_neutral_activity.filename}  [{neutral_activity.name}]")
+            results = service.motion_data_for_activity(neutral_activity, [MotionDataType.model])
+            for r in results:
+                ext = MOTION_DATA_EXT.get(r.type, "bin")
+                path = save_file(f"neutral_{r.type}.{ext}", r.data)
+                print(f"  Saved: {path}")
 
-    # --- Download analysis data for each activity -------------------------
-    # TODO - Warren: placeholder for analysis data download example
+    # Download analysis data for each activity
     print("\nDownloading analysis data...")
     for activity in activities:
         status = service.activity_status(activity)
-        if status != AnalysisStatus.ready:
+        if status != ActivityStatus.ready:
             print(f"  Skipping '{activity.name}': status is '{status}' (expected 'ready').")
             continue
-        analysis_data_for_activity = service.analysis_data_for_activity(activity, ["metrics", "report", "data"])
-        analysis_data_for_activity.download()
-        print(f"  Saved: {analysis_data_for_activity.filename}  [{activity.name}]")
+        results = service.analysis_data_for_activity(
+            activity,
+            [AnalysisDataType.metrics, AnalysisDataType.report, AnalysisDataType.data],
+        )
+        for r in results:
+            ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+            path = save_file(f"{activity.name}_{r.type}.{ext}", r.data)
+            print(f"  Saved: {path}")
 
     print("\nDone.")
 
@@ -129,3 +155,4 @@ if __name__ == "__main__":
         main(args["<api_key>"], args["<session_id>"])
     except ModelHealthError as e:
         print(f"Error: {e}")
+        sys.exit(1)

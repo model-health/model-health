@@ -12,7 +12,6 @@ Usage:
     archive_session.py <api_key>
 """
 
-import os
 import sys
 import time
 
@@ -24,6 +23,7 @@ from modelhealth import (
     ArchiveStatus,
 )
 from _prompts import pick_one, confirm
+from _utils import save_file
 
 # ---------------------------------------------------------------------------
 # Polling helper
@@ -55,7 +55,7 @@ def main(api_key):
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # --- Session -----------------------------------------------------------
+    # Session
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -70,11 +70,11 @@ def main(api_key):
         lambda s: f"{s.name or s.session_name or s.id}  ({s.activities_count} {'activity' if s.activities_count == 1 else 'activities'})",
     )
 
-    # --- Options -----------------------------------------------------------
+    # Options
     print()
     with_videos = confirm("Include raw video files in the archive?", default=False)
 
-    # --- Request archive ---------------------------------------------------
+    # Request archive
     session_label = session.name or session.id
     print(f"\nRequesting archive for '{session_label}'...")
     try:
@@ -82,7 +82,7 @@ def main(api_key):
     except ModelHealthError as exc:
         sys.exit(f"Failed to start archive preparation: {exc}")
 
-    # --- Poll for completion -----------------------------------------------
+    # Poll for completion
     print("Waiting for archive to be ready...")
     status = _poll_archive(service, archive)
 
@@ -90,21 +90,16 @@ def main(api_key):
         sys.exit(f"Archive preparation did not complete (status: {status}).")
     print("Archive is ready.")
 
-    # --- Download and save -------------------------------------------------
+    # Download and save
     print("\nDownloading...")
     try:
         data = service.archive_data(archive)
     except ModelHealthError as exc:
         sys.exit(f"Failed to download archive: {exc}")
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
     slug = (session.name or session.id).replace(" ", "_")
-    filename = os.path.join(out_dir, f"{slug}.zip")
-    with open(filename, "wb") as f:
-        f.write(data)
-
-    print(f"  Saved {filename}  ({len(data):,} bytes)")
+    path = save_file(f"{slug}.zip", data)
+    print(f"  Saved {path}  ({len(data):,} bytes)")
     print("\nDone.")
 
 
