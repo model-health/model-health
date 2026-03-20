@@ -24,6 +24,8 @@ npm install @modelhealth/modelhealth@0.2.0
 |---------|-------------|
 | [iOS demo app](examples/ios/) | SwiftUI app demonstrating the full session workflow using the Swift SDK |
 | [TypeScript demo app](examples/ts/) | Web app demonstrating the full session workflow using the TypeScript SDK |
+| [Python examples](examples/python/) | A collection of example scripts demonstrating the Python SDK |
+
 
 ## Documentation
 
