@@ -16,14 +16,14 @@ DerivedData/
 .vscode/
 .idea/
 Package.resolved
-examples/ts/node_modules
+node_modules/
+package-lock.json
 
 # iOS example app — private config (real values live in model-health-internal)
 examples/ios/LocalConfig.xcconfig
 
 # TypeScript example app — private config
 examples/ts/.env.local
-examples/ts/package-lock.json
 
 # SDK Documentation
 sdk-docs/

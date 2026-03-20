@@ -12,13 +12,15 @@ Walks through the full capture workflow:
 Requires cameras to be connected and ready via the Model Health mobile app.
 
 Usage:
-    python3 capture_demo.py <api_key>
+    activity_recording.py <api_key>
 """
 
 import os
 import sys
 import time
 import urllib.request
+
+from docopt import docopt
 
 from modelhealth import (
     ActivityStatus,
@@ -33,6 +35,7 @@ from modelhealth import (
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
+from _utils import DOWNLOADS_DIR
 
 # ---------------------------------------------------------------------------
 # Checkerboard presets
@@ -90,12 +93,7 @@ def _poll_activity(service, activity, interval=5):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # API key
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
@@ -113,12 +111,11 @@ def main():
     if not session.qrcode:
         sys.exit("Session has no QR code — cannot pair cameras.")
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
-    qr_path = os.path.join(out_dir, "qr-code.png")
+    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+    qr_path = os.path.join(DOWNLOADS_DIR, "qr-code.png")
     try:
         urllib.request.urlretrieve(session.qrcode, qr_path)
-        print(f"  QR code saved to: downloads/qr-code.png")
+        print(f"  QR code saved to: {qr_path}")
     except Exception as exc:
         sys.exit(f"Failed to download QR code: {exc}")
 
@@ -231,4 +228,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])

@@ -19,7 +19,7 @@
  *
  * @group Enumerations
  */
-export const AnalysisType = {
+export const ActivityType = {
     /** Counter Movement Jump */
     CounterMovementJump: "counter_movement_jump",
     /** Overground Walking */

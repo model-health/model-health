@@ -16,7 +16,7 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, AnalysisType, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus } from "./types.js";
+import type { CheckerboardDetails, Session, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus } from "./types.js";
 /**
  * Configuration options for the Model Health client.
  */
@@ -484,17 +484,18 @@ export declare class ModelHealthService {
      *
      * @param activityName A descriptive name for this activity (e.g., `"cmj"`, `"squat"`).
      * @param session The session this activity is associated with.
+     * @param config Optional recording configuration.
      * @returns The newly created `Activity`.
      * @throws If recording cannot start (e.g., missing calibration).
      *
      * @example
      * ```typescript
-     * const activity = await client.startRecording("cmj", session);
+     * const activity = await client.startRecording("cmj", session, { activityType: ActivityType.CounterMovementJump });
      * // Subject performs movement...
      * await client.stopRecording(session);
      * ```
      */
-    startRecording(activityName: string, session: Session): Promise<Activity>;
+    startRecording(activityName: string, session: Session, config?: ActivityConfig): Promise<Activity>;
     /**
      * Stops the active recording for a movement trial.
      *
@@ -547,7 +548,7 @@ export declare class ModelHealthService {
      * Call this after `activityStatus` returns `ready`. Use the
      * returned `Analysis` with `analysisStatus` to poll progress.
      *
-     * @param analysisType The type of analysis to run (for example, `"gait"`, `"counter_movement_jump"`).
+     * @param activityType The type of analysis to run (for example, `"gait"`, `"counter_movement_jump"`).
      * @param activity The activity to analyze.
      * @param session The session context containing the activity.
      * @returns An `Analysis` for tracking analysis progress.
@@ -559,7 +560,7 @@ export declare class ModelHealthService {
      * const status = await client.analysisStatus(task);
      * ```
      */
-    startAnalysis(analysisType: AnalysisType, activity: Activity, session: Session): Promise<Analysis>;
+    startAnalysis(activityType: ActivityType, activity: Activity, session: Session): Promise<Analysis>;
     /**
      * Retrieves the current status of an analysis task.
      *

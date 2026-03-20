@@ -9,12 +9,13 @@ Walks through the post-capture workflow:
   5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
 
 Usage:
-    python3 demo.py <api_key>
+    activity_analysis.py <api_key>
 """
 
-import os
 import sys
 import time
+
+from docopt import docopt
 
 from modelhealth import (
     ModelHealthService,
@@ -22,28 +23,29 @@ from modelhealth import (
     ActivityStatus,
     ActivityStatusUploading,
     AnalysisStatus,
-    AnalysisType,
+    ActivityType,
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
+from _utils import save_file, ANALYSIS_DATA_EXT
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 ANALYSIS_TYPES = [
-    (AnalysisType.counter_movement_jump, "Counter Movement Jump"),
-    (AnalysisType.gait,                  "Overground Walking"),
-    (AnalysisType.treadmill_gait,        "Treadmill Walking"),
-    (AnalysisType.treadmill_running,     "Treadmill Running"),
-    (AnalysisType.overground_running,    "Overground Running"),
-    (AnalysisType.sit_to_stand,          "Sit-to-Stand Transfer"),
-    (AnalysisType.squats,                "Squats"),
-    (AnalysisType.range_of_motion,       "Range of Motion"),
-    (AnalysisType.drop_jump,             "Drop Vertical Jump"),
-    (AnalysisType.hop,                   "Hop Test"),
-    (AnalysisType.change_of_direction,   "5-0-5 Test"),
-    (AnalysisType.cut,                   "Cutting Manoeuvre"),
+    (ActivityType.counter_movement_jump, "Counter Movement Jump"),
+    (ActivityType.gait,                  "Overground Walking"),
+    (ActivityType.treadmill_gait,        "Treadmill Walking"),
+    (ActivityType.treadmill_running,     "Treadmill Running"),
+    (ActivityType.overground_running,    "Overground Running"),
+    (ActivityType.sit_to_stand,          "Sit-to-Stand Transfer"),
+    (ActivityType.squats,                "Squats"),
+    (ActivityType.range_of_motion,       "Range of Motion"),
+    (ActivityType.drop_jump,             "Drop Vertical Jump"),
+    (ActivityType.hop,                   "Hop Test"),
+    (ActivityType.change_of_direction,   "5-0-5 Test"),
+    (ActivityType.cut,                   "Cutting Manoeuvre"),
 ]
 
 RESULT_TYPES = [
@@ -52,11 +54,6 @@ RESULT_TYPES = [
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
 
-EXTENSIONS = {
-    AnalysisDataType.metrics: "json",
-    AnalysisDataType.report:  "pdf",
-    AnalysisDataType.data:    "zip",
-}
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
@@ -101,19 +98,14 @@ def _poll_analysis(service, task, interval=10):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # --- API key -----------------------------------------------------------
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # --- Session -----------------------------------------------------------
+    # Session
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -125,10 +117,10 @@ def main():
     session = pick_one(
         sessions,
         "Select session",
-        lambda s: s.name or s.session_name or s.id,
+        lambda s: s.name or s.sessionName or s.id,
     )
 
-    # --- Activity ----------------------------------------------------------
+    # Activity
     session_label = session.name or session.id
     print(f"\nFetching activities for '{session_label}'...")
     all_activities = service.activity_list(session)
@@ -146,7 +138,7 @@ def main():
         lambda a: f"{a.name or a.id}  [{a.status}]",
     )
 
-    # --- Processing status -------------------------------------------------
+    # Processing status
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
     status = service.activity_status(activity)
@@ -162,7 +154,7 @@ def main():
         )
     print("Activity is ready.")
 
-    # --- Analysis type -----------------------------------------------------
+    # Analysis type
     print("\nAnalysis type:\n")
     analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
@@ -170,7 +162,7 @@ def main():
         lambda t: t[1],
     )
 
-    # --- Run analysis ------------------------------------------------------
+    # Run analysis
     print(f"\nStarting '{analysis_label}' analysis...")
     try:
         task = service.start_analysis(analysis_value, activity, session)
@@ -187,7 +179,7 @@ def main():
     # Re-fetch the activity so its results field contains the analysis URLs.
     activity = service.fetch_activity(activity.id)
 
-    # --- Choose result files to save --------------------------------------
+    # Choose result files to save
     print("\nWhich results would you like to save?\n")
     selected = pick_multi(
         RESULT_TYPES,
@@ -196,22 +188,19 @@ def main():
     )
     data_types = [r[0] for r in selected]
 
-    # --- Download and save ------------------------------------------------
+    # Download and save
     print("\nDownloading...")
     results = service.analysis_data_for_activity(activity, data_types)
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
     slug = (activity.name or activity.id).replace(" ", "_")
     for r in results:
-        ext = EXTENSIONS.get(r.type, "bin")
-        filename = os.path.join(out_dir, f"{slug}_{r.type}.{ext}")
-        with open(filename, "wb") as f:
-            f.write(r.data)
-        print(f"  Saved {filename}")
+        ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+        path = save_file(f"{slug}_{r.type}.{ext}", r.data)
+        print(f"  Saved {path}")
 
     print("\nDone.")
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])

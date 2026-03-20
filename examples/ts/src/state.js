@@ -16,7 +16,7 @@ const initialState = {
   // Record activity
   activities: [],
   activityStates: {}, // id -> { processingStatus, analysisTask, analysisStatus, resultTags?: string[] }
-  selectedAnalysisTypes: {}, // id -> selected analysis type for each activity
+  selectedActivityTypes: {}, // id -> selected analysis type for each activity
   currentRecording: null,
   currentActivityName: '',
   // Selected activity for results/data views

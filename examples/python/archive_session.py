@@ -9,12 +9,13 @@ Walks through the archive workflow:
   5. Download and save the ZIP file
 
 Usage:
-    python3 archive_demo.py <api_key>
+    archive_session.py <api_key>
 """
 
-import os
 import sys
 import time
+
+from docopt import docopt
 
 from modelhealth import (
     ModelHealthService,
@@ -22,6 +23,7 @@ from modelhealth import (
     ArchiveStatus,
 )
 from _prompts import pick_one, confirm
+from _utils import save_file
 
 # ---------------------------------------------------------------------------
 # Polling helper
@@ -46,19 +48,14 @@ def _poll_archive(service, archive, interval=2):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # --- API key -----------------------------------------------------------
-    if len(sys.argv) != 2:
-        sys.exit(f"Usage: python3 {sys.argv[0]} <api_key>")
-    api_key = sys.argv[1]
-
+def main(api_key):
     print("Connecting...")
     try:
         service = ModelHealthService(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # --- Session -----------------------------------------------------------
+    # Session
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -73,11 +70,11 @@ def main():
         lambda s: f"{s.name or s.session_name or s.id}  ({s.activities_count} {'activity' if s.activities_count == 1 else 'activities'})",
     )
 
-    # --- Options -----------------------------------------------------------
+    # Options
     print()
     with_videos = confirm("Include raw video files in the archive?", default=False)
 
-    # --- Request archive ---------------------------------------------------
+    # Request archive
     session_label = session.name or session.id
     print(f"\nRequesting archive for '{session_label}'...")
     try:
@@ -85,7 +82,7 @@ def main():
     except ModelHealthError as exc:
         sys.exit(f"Failed to start archive preparation: {exc}")
 
-    # --- Poll for completion -----------------------------------------------
+    # Poll for completion
     print("Waiting for archive to be ready...")
     status = _poll_archive(service, archive)
 
@@ -93,23 +90,19 @@ def main():
         sys.exit(f"Archive preparation did not complete (status: {status}).")
     print("Archive is ready.")
 
-    # --- Download and save -------------------------------------------------
+    # Download and save
     print("\nDownloading...")
     try:
         data = service.archive_data(archive)
     except ModelHealthError as exc:
         sys.exit(f"Failed to download archive: {exc}")
 
-    out_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    os.makedirs(out_dir, exist_ok=True)
     slug = (session.name or session.id).replace(" ", "_")
-    filename = os.path.join(out_dir, f"{slug}.zip")
-    with open(filename, "wb") as f:
-        f.write(data)
-
-    print(f"  Saved {filename}  ({len(data):,} bytes)")
+    path = save_file(f"{slug}.zip", data)
+    print(f"  Saved {path}  ({len(data):,} bytes)")
     print("\nDone.")
 
 
 if __name__ == "__main__":
-    main()
+    args = docopt(__doc__)
+    main(args["<api_key>"])

@@ -124,6 +124,8 @@ export interface Activity {
     status: string;
     videos: Video[];
     results: ActivityResult[];
+    /** The activity type associated with this recording, if one was set. */
+    activityType?: ActivityType;
 }
 /**
  * Sort order for activity lists.
@@ -175,7 +177,7 @@ export interface ActivityResult {
  *
  * Activities must reach `ready` before analysis can begin.
  */
-export type ActivityStatus = 
+export type ActivityStatus =
 /** Videos are being uploaded. `uploaded` and `total` track progress. */
 {
     type: "uploading";
@@ -189,6 +191,11 @@ export type ActivityStatus =
 /** Processing is complete. The activity is ready for analysis. */
  | {
     type: "ready";
+}
+/** Analysis has been triggered automatically and is in progress. Pass `taskId` to `analysisStatus`. */
+ | {
+    type: "analyzing";
+    taskId: string;
 }
 /** Processing failed. */
  | {
@@ -416,7 +423,7 @@ export type CalibrationStatus =
  *
  * @group Enumerations
  */
-export declare const AnalysisType: {
+export declare const ActivityType: {
     /** Counter Movement Jump */
     readonly CounterMovementJump: "counter_movement_jump";
     /** Overground Walking */
@@ -443,7 +450,19 @@ export declare const AnalysisType: {
     readonly Cut: "cut";
 };
 /** @hidden */
-export type AnalysisType = (typeof AnalysisType)[keyof typeof AnalysisType];
+export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];
+/**
+ * Configuration for starting a recording.
+ *
+ * @group Configuration
+ */
+export interface ActivityConfig {
+    /**
+     * The type of activity being recorded. When set, the corresponding
+     * analysis starts automatically once recording is processed.
+     */
+    activityType?: ActivityType;
+}
 /**
  * An active analysis returned by `startAnalysis`.
  *

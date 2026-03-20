@@ -132,10 +132,10 @@ struct RecordActivityView: View {
                                 onRefreshStatus: {
                                     await refreshActivityStatus($activityState)
                                 },
-                                onStartAnalysis: { analysisType in
+                                onStartAnalysis: { activityType in
                                     await startAnalysis(
                                         $activityState,
-                                        analysisType: analysisType
+                                        activityType: activityType
                                     )
                                 },
                                 onViewResults: {
@@ -302,7 +302,7 @@ struct RecordActivityView: View {
 
     private func startAnalysis(
         _ activityState: Binding<ActivityState>,
-        analysisType: AnalysisType
+        activityType: ActivityType
     ) async {
         activityState.wrappedValue.isAnalyzing = true
         defer {
@@ -311,7 +311,7 @@ struct RecordActivityView: View {
 
         do {
             let task = try await modelHealth.startAnalysis(
-                analysisType,
+                activityType,
                 for: activityState.wrappedValue.activity,
                 in: session
             )
@@ -362,10 +362,10 @@ struct ActivityState: Identifiable {
 
 private struct ActivityRow: View {
     @Binding var activityState: ActivityState
-    @State var analysisType: AnalysisType = .cut
+    @State var activityType: ActivityType = .cut
 
     let onRefreshStatus: () async -> Void
-    let onStartAnalysis: (AnalysisType) async -> Void
+    let onStartAnalysis: (ActivityType) async -> Void
     let onViewResults: () -> Void
     let onViewVideos: () -> Void
     let onViewData: () -> Void
@@ -398,8 +398,8 @@ private struct ActivityRow: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(activityState.isRefreshing)
 
-                Picker("Analysis Type", selection: $analysisType) {
-                    ForEach(AnalysisType.allCases, id: \.rawValue) { type in
+                Picker("Analysis Type", selection: $activityType) {
+                    ForEach(ActivityType.allCases, id: \.rawValue) { type in
                         Text(type.rawValue).tag(type)
                     }
                 }
@@ -442,7 +442,7 @@ private struct ActivityRow: View {
             HStack(spacing: 8) {
                 Button {
                     Task {
-                        await onStartAnalysis(analysisType)
+                        await onStartAnalysis(activityType)
                     }
                 } label: {
                     if activityState.isAnalyzing {

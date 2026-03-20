@@ -203,7 +203,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         statusUpdate(.done)
     }
 
-    func startRecording(activityNamed name: String, in session: Session) async throws -> Activity {
+    func startRecording(activityNamed name: String, in session: Session, config: ActivityConfig?) async throws -> Activity {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview { builder in
             builder.id = "activity-\(UUID().uuidString.prefix(8))"
@@ -226,7 +226,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     }
 
     func startAnalysis(
-        _ analysisType: AnalysisType,
+        _ activityType: ActivityType,
         for activity: Activity,
         in session: Session
     ) async throws -> Analysis {
