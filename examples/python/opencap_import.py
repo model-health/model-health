@@ -1,7 +1,12 @@
-"""Model Health Python SDK — Import an OpenCap session into Model Health.
+"""Model Health Python SDK — Import an OpenCap session into Model Health for processing and analysis.
 
 Usage:
     opencap_import.py <api_key> <opencap_token> <opencap_session_id>
+
+Additional options (edit directly in the script — not available as command-line arguments):
+    meta_overrides        Override session settings (OpenSim model, scaling setup, core engine, filter frequency).
+    trials_to_import      Limit which trials are imported. Set to None to import all.
+    trial_meta_overrides  Per-trial settings, e.g. assign an activity type to trigger automatic analysis.
 """
 
 import json
