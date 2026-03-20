@@ -1,6 +1,6 @@
 # Model Health iOS Example
 
-A native SwiftUI app implementing the complete SDK workflow: session management, camera calibration, subject calibration, activity recording, and analysis retrieval.
+A native SwiftUI app implementing the complete SDK workflow: session management, camera calibration, subject calibration, activity recording and analysis retrieval.
 
 ## Requirements
 

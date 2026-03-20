@@ -21,8 +21,8 @@ python3 activity_analysis.py <api_key>
 
 ### `activity_recording.py` — Full capture workflow
 
-Walks through creating a session, calibrating cameras and subject, recording a
-trial and waiting for processing. Requires cameras connected via the Model
+Walks through creating a session, calibrating cameras and subject, recording an
+activity and waiting for processing. Requires cameras connected via the Model
 Health mobile app.
 
 ```bash
@@ -47,7 +47,7 @@ python3 session_data.py <api_key> <session_id>
 
 ### `opencap_import.py` — Import an OpenCap session
 
-Copies all trials from an OpenCap session into a new Model Health session and processes them.
+Copies all activities from an OpenCap session into a new Model Health session and processes them.
 
 ```bash
 python3 opencap_import.py <api_key> <opencap_token> <opencap_session_id>

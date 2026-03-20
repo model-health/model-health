@@ -1,6 +1,6 @@
 # Model Health TypeScript Example
 
-A Vite web app implementing the complete SDK workflow in the browser: session management, camera calibration, subject calibration, activity recording, and analysis retrieval.
+A Vite web app implementing the complete SDK workflow in the browser: session management, camera calibration, subject calibration, activity recording and analysis retrieval.
 
 ## Requirements
 

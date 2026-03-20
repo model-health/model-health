@@ -225,12 +225,12 @@ def copy_session(
         session_meta_json=json.dumps(session_meta),
         status_callback=on_status,
     )
-    print("All trials transferred successfully to session: ", session.id)
+    print("All activities imported successfully to session: ", session.id)
     return session
 
 
 def wait_for_activities(mh_service, session, poll_interval=5):
-    """Poll activity status for all dynamic trials until each is ready or failed.
+    """Poll activity status for all dynamic activities until each is ready or failed.
 
     Args:
         mh_service: An active :class:`ModelHealthService` instance.

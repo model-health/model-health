@@ -265,7 +265,7 @@ struct CreateSubjectView: View {
         guard let weightValue = Double(weight),
               let heightValue = Double(height),
               let birthYearValue = Int(birthYear) else {
-            errorMessage = "Please enter valid numbers for weight, height, and birth year"
+            errorMessage = "Please enter valid numbers for weight, height and birth year"
             return
         }
 

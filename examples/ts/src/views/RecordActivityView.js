@@ -91,9 +91,9 @@ export function render(container, state, { setState, navigate }) {
       return;
     setState({ loadingState: 'loading', errorMessage: null });
     try {
-      const trial = await client.startRecording(name, session);
+      const activity = await client.startRecording(name, session);
       setState({
-        currentRecording: trial,
+        currentRecording: activity,
         currentActivityName: name,
         loadingState: 'idle',
       });

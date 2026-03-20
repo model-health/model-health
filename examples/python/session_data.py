@@ -8,7 +8,7 @@ Scenario
 --------
 You collected data using the Model Health app and want to download data
 at different levels of granularity: the full session archive, raw motion
-data, and analysis results.
+data and analysis results.
 
 What this example does
 ----------------------

@@ -6,7 +6,7 @@ Walks through the full capture workflow:
   2. Select an existing subject or create a new one
   3. Calibrate cameras using a checkerboard pattern
   4. Calibrate the subject (neutral standing pose)
-  5. Record a movement trial
+  5. Record a movement activity
   6. Wait for activity upload and processing
 
 Requires cameras to be connected and ready via the Model Health mobile app.
@@ -200,12 +200,12 @@ def main(api_key):
     print("Subject calibration complete.")
 
     # Recording
-    trial_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "trial"
+    activity_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "activity"
 
     input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
     print("Recording...")
     try:
-        activity = service.start_recording(trial_name, session)
+        activity = service.start_recording(activity_name, session)
     except ModelHealthError as exc:
         sys.exit(f"Failed to start recording: {exc}")
     print(f"  Recording started (activity {activity.id}).")
