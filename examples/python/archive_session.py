@@ -67,7 +67,7 @@ def main(api_key):
     session = pick_one(
         sessions,
         "Select session to archive",
-        lambda s: f"{s.name or s.session_name or s.id}  ({s.activities_count} {'activity' if s.activities_count == 1 else 'activities'})",
+        lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}  {s.activities_count} {'activity' if s.activities_count == 1 else 'activities'}",
     )
 
     # Options
@@ -75,8 +75,7 @@ def main(api_key):
     with_videos = confirm("Include raw video files in the archive?", default=False)
 
     # Request archive
-    session_label = session.name or session.id
-    print(f"\nRequesting archive for '{session_label}'...")
+    print(f"\nRequesting archive for session '{session.id}'...")
     try:
         archive = service.prepare_archive(session, with_videos=with_videos)
     except ModelHealthError as exc:
@@ -97,8 +96,7 @@ def main(api_key):
     except ModelHealthError as exc:
         sys.exit(f"Failed to download archive: {exc}")
 
-    slug = (session.name or session.id).replace(" ", "_")
-    path = save_file(f"{slug}.zip", data)
+    path = save_file(f"ModelHealth_Session_{session.id}.zip", data)
     print(f"  Saved {path}  ({len(data):,} bytes)")
     print("\nDone.")
 

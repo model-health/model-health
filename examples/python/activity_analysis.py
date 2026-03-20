@@ -45,7 +45,7 @@ ANALYSIS_TYPES = [
     (ActivityType.drop_jump,             "Drop Vertical Jump"),
     (ActivityType.hop,                   "Hop Test"),
     (ActivityType.change_of_direction,   "5-0-5 Test"),
-    (ActivityType.cut,                   "Cutting Manoeuvre"),
+    (ActivityType.cut,                   "Cutting Maneuver"),
 ]
 
 RESULT_TYPES = [
@@ -117,12 +117,11 @@ def main(api_key):
     session = pick_one(
         sessions,
         "Select session",
-        lambda s: s.name or s.sessionName or s.id,
+        lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}",
     )
 
     # Activity
-    session_label = session.name or session.id
-    print(f"\nFetching activities for '{session_label}'...")
+    print(f"\nFetching activities for session ID: {session.id},  session name: {session.session_name or '(unnamed)'}, subject: {session.name or '(unnamed)'}...")
     all_activities = service.activity_list(session)
     activities = [
         a for a in all_activities

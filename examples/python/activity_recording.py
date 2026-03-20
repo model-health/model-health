@@ -9,7 +9,7 @@ Walks through the full capture workflow:
   5. Record a movement activity
   6. Wait for activity upload and processing
 
-Requires cameras to be connected and ready via the Model Health mobile app.
+Requires cameras to be connected and ready via the Model Health companion iOS app.
 
 Usage:
     activity_recording.py <api_key>
@@ -119,7 +119,7 @@ def main(api_key):
     except Exception as exc:
         sys.exit(f"Failed to download QR code: {exc}")
 
-    print("  Pair your cameras using the Model Health app before continuing.")
+    print("  Pair your cameras using the Model Health companion iOS app before continuing.")
     input("\nPress Enter when cameras are ready...")
 
     # Camera calibration
@@ -177,7 +177,7 @@ def main(api_key):
         )
         print(f"  Using: {subject.name}")
     else:
-        print("\nNew subject details (required for biomechanical scaling):")
+        print("\nNew subject details:")
         name   = input("  Name: ").strip() or "Anonymous"
         weight = float(input("  Weight (kg): ").strip())
         height = float(input("  Height (cm): ").strip())
@@ -224,7 +224,7 @@ def main(api_key):
     if status != ActivityStatus.ready:
         sys.exit(f"Activity did not reach ready state (status: {status}).")
     print(f"Activity is ready. ID: {activity.id}")
-    print("\nDone. Run demo.py to analyse this activity.")
+    print("\nDone. Run activity_analysis.py to analyze this activity.")
 
 
 if __name__ == "__main__":
