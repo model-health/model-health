@@ -2,7 +2,7 @@
 """Model Health Python SDK — Download data from existing session.
 
 Usage:
-    session_data.py <api_key> <session_id>
+    session_data.py [<api_key>] <session_id>
 
 Scenario
 --------
@@ -32,7 +32,7 @@ from modelhealth import (
     MotionDataType,
     AnalysisDataType,
 )
-from _utils import save_file, MOTION_DATA_EXT, ANALYSIS_DATA_EXT
+from _utils import save_file, MOTION_DATA_EXT, ANALYSIS_DATA_EXT, load_api_key
 
 # Names of the activities to download.
 ACTIVITY_NAMES = ["squat", "cmj"]
@@ -152,7 +152,7 @@ def main(api_key, session_id):
 if __name__ == "__main__":
     args = docopt(__doc__)
     try:
-        main(args["<api_key>"], args["<session_id>"])
+        main(load_api_key(args["<api_key>"]), args["<session_id>"])
     except ModelHealthError as e:
         print(f"Error: {e}")
         sys.exit(1)

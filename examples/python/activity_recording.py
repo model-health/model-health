@@ -12,7 +12,7 @@ Walks through the full capture workflow:
 Requires cameras to be connected and ready via the Model Health companion iOS app.
 
 Usage:
-    activity_recording.py <api_key>
+    activity_recording.py [<api_key>]
 """
 
 import os
@@ -35,7 +35,7 @@ from modelhealth import (
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
-from _utils import DOWNLOADS_DIR
+from _utils import DOWNLOADS_DIR, load_api_key
 
 # ---------------------------------------------------------------------------
 # Checkerboard presets
@@ -229,4 +229,4 @@ def main(api_key):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    main(args["<api_key>"])
+    main(load_api_key(args["<api_key>"]))

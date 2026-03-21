@@ -9,7 +9,7 @@ Walks through the archive workflow:
   5. Download and save the ZIP file
 
 Usage:
-    archive_session.py <api_key>
+    archive_session.py [<api_key>]
 """
 
 import sys
@@ -23,7 +23,7 @@ from modelhealth import (
     ArchiveStatus,
 )
 from _prompts import pick_one, confirm
-from _utils import save_file
+from _utils import save_file, load_api_key
 
 # ---------------------------------------------------------------------------
 # Polling helper
@@ -103,4 +103,4 @@ def main(api_key):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    main(args["<api_key>"])
+    main(load_api_key(args["<api_key>"]))

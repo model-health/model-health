@@ -9,7 +9,7 @@ Walks through the post-capture workflow:
   5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
 
 Usage:
-    activity_analysis.py <api_key>
+    activity_analysis.py [<api_key>]
 """
 
 import sys
@@ -27,7 +27,7 @@ from modelhealth import (
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
-from _utils import save_file, ANALYSIS_DATA_EXT
+from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -202,4 +202,4 @@ def main(api_key):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
-    main(args["<api_key>"])
+    main(load_api_key(args["<api_key>"]))
