@@ -7,6 +7,8 @@ A collection of example scripts demonstrating the Model Health Python SDK.
 - Python 3.11 or later
 - `modelhealth` package: `pip install modelhealth`
 - `docopt` package: `pip install docopt`
+- `pandas` package: `pip install pandas` (required by `plot_kinematics.py`)
+- `matplotlib` package: `pip install matplotlib` (required by `plot_kinematics.py`)
 
 ## Configuration
 
@@ -60,6 +62,16 @@ Downloads motion data, analysis results and archives for a specific session.
 
 ```bash
 python3 session_data.py [<api_key>] <session_id>
+```
+
+### `plot_kinematics.py` — Download and plot kinematics for an activity
+
+Selects a session (your own or a built-in demo session), picks a single
+activity, downloads its kinematics CSV, and plots selected joint angle
+columns against time. The plot is saved as a PNG in the `downloads/` folder.
+
+```bash
+python3 plot_kinematics.py [<api_key>]
 ```
 
 ### `opencap_import.py` — Import an OpenCap session
