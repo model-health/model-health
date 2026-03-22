@@ -1,7 +1,7 @@
 """Model Health Python SDK — Import an OpenCap session into Model Health for processing and analysis.
 
 Usage:
-    opencap_import.py [<api_key>] [<opencap_token>] <opencap_session_id>
+    opencap_import.py [--api-key=<key>] [--opencap-token=<token>] <opencap_session_id>
 
 Additional options (edit directly in the script — not available as command-line arguments):
     meta_overrides        Override session settings (OpenSim model, scaling setup, core engine, filter frequency).
@@ -319,11 +319,11 @@ if __name__ == "__main__":
         "test":     {"activity_type": ActivityType.range_of_motion},
     }
 
-    mh_service = ModelHealthService(load_api_key(args["<api_key>"]))
+    mh_service = ModelHealthService(load_api_key(args["--api-key"]))
     session = copy_session(
         mh_service,
         session_id_input=args["<opencap_session_id>"],
-        user_token_input=load_opencap_token(args["<opencap_token>"]),
+        user_token_input=load_opencap_token(args["--opencap-token"]),
         meta_overrides=meta_overrides,
         trials_to_import=trials_to_import,
         trial_meta_overrides=trial_meta_overrides,

@@ -27,6 +27,10 @@ Each script reads credentials in this order:
 2. `.env` file in this directory
 3. Environment variable (`MODEL_HEALTH_API_KEY` / `OPENCAP_TOKEN`)
 
+If `OPENCAP_TOKEN` is not found by any of the above, `opencap_import.py` will
+prompt you to log in with your OpenCap
+credentials and will save the token to `.env` automatically.
+
 ## Scripts
 
 ### `activity_analysis.py` — Post-capture analysis workflow
@@ -58,10 +62,13 @@ python3 archive_session.py [<api_key>]
 
 ### `session_data.py` — Download data from an existing session
 
-Downloads motion data, analysis results and archives for a specific session.
+Selects a session and activity interactively, then lets you download videos
+(raw, synced), motion data (kinematics, markers) and analysis results
+(metrics, report, data ZIP). Also downloads the OpenSim model from the
+neutral activity if one is present in the session.
 
 ```bash
-python3 session_data.py [<api_key>] <session_id>
+python3 session_data.py [<api_key>]
 ```
 
 ### `plot_kinematics.py` — Download and plot kinematics for an activity
@@ -79,5 +86,5 @@ python3 plot_kinematics.py [<api_key>]
 Copies all activities from an OpenCap session into a new Model Health session and processes them.
 
 ```bash
-python3 opencap_import.py [<api_key>] [<opencap_token>] <opencap_session_id>
+python3 opencap_import.py [--api-key=<key>] [--opencap-token=<token>] <opencap_session_id>
 ```
