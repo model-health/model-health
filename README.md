@@ -8,14 +8,20 @@ SDK for biomechanical analysis from smartphone videos.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/model-health/model-health-swift.git", from: "0.2.0")
+    .package(url: "https://github.com/model-health/model-health-swift.git", from: "0.3.0")
 ]
 ```
 
 ### npm
 
 ```bash
-npm install @modelhealth/modelhealth@0.2.0
+npm install @modelhealth/modelhealth@0.3.0
+```
+
+### pip
+
+```bash
+pip install modelhealth==0.3.0
 ```
 
 ## Examples
@@ -24,8 +30,7 @@ npm install @modelhealth/modelhealth@0.2.0
 |---------|-------------|
 | [iOS demo app](examples/ios/) | SwiftUI app demonstrating the full session workflow using the Swift SDK |
 | [TypeScript demo app](examples/ts/) | Web app demonstrating the full session workflow using the TypeScript SDK |
-| [Python examples](examples/python/) | A collection of example scripts demonstrating the Python SDK |
-
+| [Python scripts](examples/python/) | CLI scripts covering recording, analysis, archive download and OpenCap import |
 
 ## Documentation
 
@@ -33,4 +38,4 @@ Full API Documentation: [docs.modelhealth.io](https://docs.modelhealth.io)
 
 ## Latest Release
 
-Version 0.2.0
+Version 0.3.0

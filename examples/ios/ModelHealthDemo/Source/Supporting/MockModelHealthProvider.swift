@@ -96,7 +96,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
     }
 
     func activities(
-        forSubject subjectId: String,
+        forSubject subjectId: Int,
         startIndex: Int,
         count: Int,
         sortedBy sort: ActivitySort
@@ -247,5 +247,17 @@ final class MockModelHealthProvider: ModelHealthProvider {
     ) async -> [AnalysisData] {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return [.forPreview()]
+    }
+
+    func prepareArchive(for session: Session, withVideos: Bool) async throws -> Archive {
+        .forPreview()
+    }
+
+    func archiveStatus(for archive: Archive) async throws -> ArchiveStatus {
+        .ready
+    }
+
+    func archiveData(for archive: Archive) async throws -> Data {
+        Data()
     }
 }

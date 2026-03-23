@@ -236,7 +236,7 @@ export class ModelHealthService {
      * Creates a session.
      *
      * A session is the parent container for a movement capture workflow. It links
-     * related entities such as activities and subjects, and provides the context
+     * related entities such as activities and subjects and provides the context
      * used by subsequent operations.
      *
      * @returns A new `Session` with a unique identifier.
@@ -251,6 +251,34 @@ export class ModelHealthService {
         this.ensureInitialized();
         const result = await this.wasmClient.createSession();
         return this.parseResponse(result);
+    }
+    /**
+     * Applies settings to an existing session.
+     *
+     * Call this after `createSession` and before calibration to override any
+     * default settings. If not called, the session retains the defaults applied
+     * during creation.
+     *
+     * All fields in `config` are optional — omit any field to keep its default.
+     *
+     * @param session The session to configure.
+     * @param config The settings to apply. Pass `{}` to keep all defaults.
+     * @throws On network failure or authentication error.
+     *
+     * @example
+     * ```typescript
+     * const session = await client.createSession();
+     *
+     * // Override frame rate and data sharing only
+     * await client.configureSession(session, {
+     *   framerate: 60,
+     *   dataSharing: "Share no data"
+     * });
+     * ```
+     */
+    async configureSession(session, config = {}) {
+        this.ensureInitialized();
+        await this.wasmClient.configureSession(decamelizeKeys(session), decamelizeKeys(config));
     }
     /**
      * Calibrates cameras using a checkerboard pattern.
@@ -323,7 +351,7 @@ export class ModelHealthService {
      * Retrieves all subjects associated with the API key.
      *
      * Subjects represent individuals being monitored or assessed. Each subject may
-     * contain demographic information, physical measurements, and categorization tags.
+     * contain demographic information, physical measurements and categorization tags.
      *
      * @returns An array of `Subject` objects, or an empty array if none exist.
      * @throws If the request fails due to network or authentication issues.
@@ -391,7 +419,7 @@ export class ModelHealthService {
      * ```typescript
      * // First page
      * const page1 = await client.activitiesForSubject(
-     *   "subject-123",
+     *   subject.id,
      *   0,
      *   20,
      *   "updated_at"
@@ -399,7 +427,7 @@ export class ModelHealthService {
      *
      * // Next page
      * const page2 = await client.activitiesForSubject(
-     *   "subject-123",
+     *   subject.id,
      *   20,
      *   20,
      *   "updated_at"
@@ -459,7 +487,7 @@ export class ModelHealthService {
     /**
      * Deletes an activity.
      *
-     * Permanently removes the activity and all associated videos, results, and metadata.
+     * Permanently removes the activity and all associated videos, results and metadata.
      *
      * @param activity The activity to delete.
      * @throws If the deletion fails or the request fails.
@@ -470,7 +498,7 @@ export class ModelHealthService {
      * await client.deleteActivity(activity);
      * ```
      *
-     * @warning This operation is irreversible.
+     * **Warning:** This operation is irreversible.
      */
     async deleteActivity(activity) {
         this.ensureInitialized();
@@ -548,7 +576,7 @@ export class ModelHealthService {
      * }
      * ```
      *
-     * @note Downloads run concurrently. Individual download failures do not affect other requests.
+     * Downloads run concurrently. Individual download failures do not affect other requests.
      */
     async videosForActivity(activity, version = "synced") {
         this.ensureInitialized();
@@ -566,8 +594,8 @@ export class ModelHealthService {
      * such as kinematics, marker data, or an OpenSim model. Downloads run concurrently and
      * failed downloads are silently excluded from results.
      *
-     * @param dataTypes The motion data types to download (for example, `"kinematics_mot"`, `"markers"`, `"animation"`).
      * @param activity The activity to download data from. Must have completed processing.
+     * @param dataTypes The motion data types to download (for example, `"kinematics_mot"`, `"markers"`, `"animation"`).
      * @returns An array of `MotionData`, one entry per successfully downloaded type. May be empty
      *   if no results are available or all downloads fail.
      *
@@ -577,7 +605,7 @@ export class ModelHealthService {
      * const results = await client.motionDataForActivity(activity, ["kinematics_mot"]);
      *
      * for (const result of results) {
-     *   switch (result.resultDataType) {
+     *   switch (result.type) {
      *     case "kinematics_mot":
      *       // Use result.data directly as a .mot file
      *       break;
@@ -598,8 +626,8 @@ export class ModelHealthService {
      * a report, or raw data. Downloads run concurrently and failed downloads are silently
      * excluded from results.
      *
-     * @param dataTypes The analysis result data types to download (for example, `"metrics"`, `"report"`, `"data"`).
      * @param activity The activity to download analysis results from. Must have a completed analysis.
+     * @param dataTypes The analysis result data types to download (for example, `"metrics"`, `"report"`, `"data"`).
      * @returns An array of `AnalysisData`, one entry per successfully downloaded type.
      *   May be empty if no results are available or all downloads fail.
      *
@@ -611,7 +639,7 @@ export class ModelHealthService {
      * );
      *
      * for (const result of results) {
-     *   switch (result.resultDataType) {
+     *   switch (result.type) {
      *     case "metrics":
      *       const json = JSON.parse(new TextDecoder().decode(result.data));
      *       break;
@@ -763,6 +791,159 @@ export class ModelHealthService {
         this.ensureInitialized();
         const result = await this.wasmClient.analysisStatus(decamelizeKeys(task));
         return this.parseResponse(result);
+    }
+    // MARK: - Import
+    /**
+     * Imports a set of trials into a new session.
+     *
+     * Performs the full import workflow: session creation, configuration,
+     * subject association, trial creation, video download and upload, processing
+     * trigger and polling until complete for each trial.
+     *
+     * Progress is reported via `statusCallback` with `ImportStatus` values.
+     *
+     * @param activitiesJson A JSON array of trial objects to import.
+     * @param subject The subject to associate with the session.
+     * @param config Session configuration. Pass `{}` for defaults.
+     * @param statusCallback Callback called with progress updates. Defaults to no-op.
+     * @returns The `Session` containing all imported trials.
+     * @throws If any step of the import fails.
+     *
+     * @example
+     * ```typescript
+     * const session = await client.importSession(
+     *   activitiesJson,
+     *   subject,
+     *   null,
+     *   { framerate: 60 },
+     *   (status) => {
+     *     switch (status.type) {
+     *       case "creating_session":
+     *         console.log("Creating session...");
+     *         break;
+     *       case "uploading_video":
+     *         console.log(`[${status.trial}] ${status.uploaded}/${status.total}`);
+     *         break;
+     *       case "processing":
+     *         console.log("Processing...");
+     *         break;
+     *     }
+     *   }
+     * );
+     * ```
+     */
+    async importSession(activitiesJson, subject, config = {}, statusCallback = () => { }) {
+        this.ensureInitialized();
+        const jsCallback = (statusJson) => {
+            let status;
+            if (typeof statusJson === "string") {
+                // Unit variants serialise as plain strings via serde external tagging
+                status = { type: statusJson };
+            }
+            else if (statusJson !== null && typeof statusJson === "object") {
+                const obj = statusJson;
+                if ("created_session" in obj) {
+                    const payload = obj["created_session"];
+                    status = { type: "created_session", session_id: payload.session_id };
+                }
+                else if ("uploading_video" in obj) {
+                    const payload = obj["uploading_video"];
+                    status = { type: "uploading_video", trial: payload.trial, uploaded: payload.uploaded, total: payload.total };
+                }
+                else {
+                    return;
+                }
+            }
+            else {
+                return;
+            }
+            statusCallback(status);
+        };
+        const result = await this.wasmClient.importSession(activitiesJson, decamelizeKeys(subject), decamelizeKeys(config), jsCallback);
+        return this.parseResponse(result);
+    }
+    // MARK: - Archive
+    /**
+     * Begins preparing a session archive.
+     *
+     * Kicks off a server-side task that packages the session data into a ZIP file.
+     * Poll `archiveStatus` until the status is `ready`, then download the archive
+     * with `archiveData`.
+     *
+     * @param session The session to archive.
+     * @param withVideos Whether to include raw videos in the archive. Defaults to `false`.
+     * @returns An `Archive` for tracking archive preparation progress.
+     * @throws If the request fails.
+     *
+     * @example
+     * ```typescript
+     * const archive = await client.prepareArchive(session);
+     *
+     * let status: ArchiveStatus;
+     * do {
+     *   status = await client.archiveStatus(archive);
+     * } while (status.type === "processing");
+     *
+     * const zipData = await client.archiveData(archive);
+     * ```
+     */
+    async prepareArchive(session, withVideos = false) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.prepareArchive(decamelizeKeys(session), withVideos);
+        return this.parseResponse(result);
+    }
+    /**
+     * Retrieves the current status of an archive preparation task.
+     *
+     * Poll this method after `prepareArchive` until the status is `ready`,
+     * then download the archive with `archiveData`.
+     *
+     * @param archive The archive returned from `prepareArchive`.
+     * @returns The current `ArchiveStatus`.
+     * @throws If the request fails.
+     *
+     * @example
+     * ```typescript
+     * const status = await client.archiveStatus(archive);
+     *
+     * switch (status.type) {
+     *   case "processing":
+     *     console.log("Archive being prepared...");
+     *     break;
+     *   case "ready":
+     *     console.log("Archive ready to download");
+     *     break;
+     *   case "failed":
+     *     console.log("Archive preparation failed");
+     *     break;
+     * }
+     * ```
+     */
+    async archiveStatus(archive) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.archiveStatus(decamelizeKeys(archive));
+        return this.parseResponse(result);
+    }
+    /**
+     * Downloads the prepared archive as raw ZIP data.
+     *
+     * Call this after `archiveStatus` returns `ready`. The download URL is
+     * managed internally and cached for the lifetime of the WASM instance.
+     *
+     * @param archive The archive returned from `prepareArchive`.
+     * @returns The raw ZIP file bytes as a `Uint8Array`.
+     * @throws If the archive is not yet ready or the download fails.
+     *
+     * @example
+     * ```typescript
+     * const zipData = await client.archiveData(archive);
+     * // Write zipData to a file or process it in memory
+     * ```
+     */
+    async archiveData(archive) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.archiveData(decamelizeKeys(archive));
+        return new Uint8Array(result);
     }
     // MARK: - Utilities
     /**

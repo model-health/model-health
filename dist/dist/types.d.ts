@@ -8,7 +8,7 @@
 /**
  * A parent container for a movement capture workflow.
  *
- * Sessions link related entities such as activities and subjects, and provide
+ * Sessions link related entities such as activities and subjects and provide
  * the context used by subsequent operations.
  *
  * Create a session with `createSession()` before performing
@@ -177,7 +177,7 @@ export interface ActivityResult {
  *
  * Activities must reach `ready` before analysis can begin.
  */
-export type ActivityStatus =
+export type ActivityStatus = 
 /** Videos are being uploaded. `uploaded` and `total` track progress. */
 {
     type: "uploading";
@@ -192,7 +192,10 @@ export type ActivityStatus =
  | {
     type: "ready";
 }
-/** Analysis has been triggered automatically and is in progress. Pass `taskId` to `analysisStatus`. */
+/**
+ * Analysis has been triggered automatically and is in progress.
+ * Pass `taskId` to `analysisStatus` to track progress.
+ */
  | {
     type: "analyzing";
     taskId: string;
@@ -368,7 +371,7 @@ export interface CheckerboardDetails {
  * The current status of a calibration process.
  *
  * Reported during both camera calibration and subject calibration,
- * tracking recording, uploading, and processing stages.
+ * tracking recording, uploading and processing stages.
  *
  * @example
  * ```typescript
@@ -458,8 +461,8 @@ export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];
  */
 export interface ActivityConfig {
     /**
-     * The type of activity being recorded. When set, the corresponding
-     * analysis starts automatically once recording is processed.
+     * The type of activity being recorded. When set, the corresponding analysis
+     * starts automatically once recording is processed.
      */
     activityType?: ActivityType;
 }
@@ -488,4 +491,198 @@ export type AnalysisStatus =
  | {
     type: "failed";
 };
+/**
+ * An active archive preparation task returned by `prepareArchive`.
+ *
+ * Pass this value to `archiveStatus` to poll for readiness, then to
+ * `archiveData` to download the ZIP file.
+ */
+export interface Archive {
+    /** Opaque identifier for the archive preparation task. */
+    archiveId: string;
+}
+/**
+ * The current state of an archive preparation task.
+ */
+export type ArchiveStatus = 
+/** The archive is being prepared. */
+{
+    type: "processing";
+}
+/** The archive is ready to download. */
+ | {
+    type: "ready";
+}
+/** The archive preparation failed. */
+ | {
+    type: "failed";
+};
+/**
+ * The current status of a session import.
+ *
+ * Reported during `importSession`, tracking session creation, video upload
+ * and processing stages.
+ *
+ * @example
+ * ```typescript
+ * await client.importSession(activitiesJson, subject, null, {}, (status) => {
+ *   switch (status.type) {
+ *     case "creating_session":
+ *       console.log("Creating session...");
+ *       break;
+ *     case "uploading_video":
+ *       console.log(`[${status.trial}] Uploading: ${status.uploaded}/${status.total}`);
+ *       break;
+ *     case "processing":
+ *       console.log("Processing...");
+ *       break;
+ *   }
+ * });
+ * ```
+ */
+export type ImportStatus = 
+/** A new session is being created on the server. */
+{
+    type: "creating_session";
+}
+/** The session was created successfully. */
+ | {
+    type: "created_session";
+    session_id: string;
+}
+/** A video is being uploaded. `trial` names the current trial. */
+ | {
+    type: "uploading_video";
+    trial: string;
+    uploaded: number;
+    total: number;
+}
+/** Videos have been uploaded and the server is processing the trial. */
+ | {
+    type: "processing";
+};
+/**
+ * Camera frame rate for a recording session.
+ *
+ * Higher framerates capture fast movements more accurately but increase
+ * processing time proportionally. Collect only as much footage as needed
+ * and keep recordings under the suggested durations:
+ * - `60` fps — suggested maximum: 60 s
+ * - `120` fps — suggested maximum: 30 s (default)
+ * - `240` fps — suggested maximum: 15 s
+ *
+ * @group Enumerations
+ */
+export type SessionFramerate = 60 | 120 | 240;
+/**
+ * OpenSim musculoskeletal model used for biomechanical analysis.
+ *
+ * - `"LaiUhlrich2022_shoulder"` (default) — Full-body model with 33 degrees of freedom
+ *   plus a 6-DoF shoulder complex with a scapulothoracic body and a glenohumeral joint
+ *   using the ISB-recommended Y-X-Y rotation sequence.
+ * - `"LaiUhlrich2022"` — Same full-body model without the ISB shoulder complex.
+ *
+ * @group Enumerations
+ */
+export type SessionOpenSimModel = "LaiUhlrich2022_shoulder" | "LaiUhlrich2022";
+/**
+ * Pose used for subject scaling during calibration.
+ *
+ * - `"upright_standing_pose"` (default) — Subject stands straight with feet pointing
+ *   forward and no bending or rotation at the hips, knees, or ankles.
+ * - `"any_pose"` — No posture assumptions. Use when the subject cannot adopt the upright
+ *   standing pose. Requires all body segments to be visible by at least two cameras.
+ *
+ * @group Enumerations
+ */
+export type SessionScalingSetup = "upright_standing_pose" | "any_pose";
+/**
+ * Core processing engine version.
+ *
+ * `"v1.0"` is currently in beta.
+ *
+ * @group Enumerations
+ */
+export type SessionCoreEngine = "v0.2" | "v0.3" | "v1.0";
+/**
+ * Frequency of the low-pass Butterworth filter applied to 2D video keypoints.
+ *
+ * Use `{ type: "default" }` to let the server choose the optimal frequency
+ * (20 Hz by default), or `{ type: "hz", value: N }` to specify a frequency in Hz.
+ * A custom value applies to all motion trials in the session. Per the Nyquist
+ * theorem the value must be less than half the session framerate; if it exceeds
+ * that the server clamps it automatically.
+ *
+ * @example
+ * ```typescript
+ * // Server-chosen frequency
+ * const freq: FilterFrequency = { type: "default" };
+ *
+ * // Explicit 6 Hz
+ * const freq: FilterFrequency = { type: "hz", value: 6 };
+ * ```
+ *
+ * @group Enumerations
+ */
+export type FilterFrequency = 
+/** Let the server choose the optimal filter frequency. The server uses 20 Hz by default. */
+{
+    type: "default";
+}
+/** A specific frequency in Hz. */
+ | {
+    type: "hz";
+    value: number;
+};
+/**
+ * Data-sharing preference for a session.
+ *
+ * Session data and videos are uploaded to a secure cloud server for processing.
+ * This setting controls what Model Health can use for internal development.
+ * Identified videos contain original footage with faces unblurred; de-identified
+ * videos have faces blurred. Processed data (e.g. joint angles) is always
+ * de-identified.
+ *
+ * @group Enumerations
+ */
+export type SessionDataSharing = 
+/** Share processed data and identified videos (default). */
+"Share processed data and identified videos"
+/** Share processed data and de-identified videos (faces blurred). */
+ | "Share processed data and de-identified videos"
+/** Share processed data only. No videos are shared. */
+ | "Share processed data"
+/** Share no data for internal development. */
+ | "Share no data";
+/**
+ * Settings applied to a session before calibration and recording.
+ *
+ * All fields are optional — omit any field to use its default value.
+ *
+ * @example
+ * ```typescript
+ * // All defaults
+ * await service.configureSession(session, {});
+ *
+ * // Override frame rate and data sharing only
+ * await service.configureSession(session, {
+ *   framerate: 60,
+ *   dataSharing: "Share no data"
+ * });
+ * ```
+ */
+export interface SessionConfig {
+    /** Camera frame rate in fps. Default: `120`. */
+    framerate?: SessionFramerate;
+    /** OpenSim musculoskeletal model. Default: `"LaiUhlrich2022_shoulder"`. */
+    opensimModel?: SessionOpenSimModel;
+    /** Pose used for subject scaling. Default: `"upright_standing_pose"`. */
+    scalingSetup?: SessionScalingSetup;
+    /** Core processing engine version. Default: `"v0.3"`. */
+    coreEngine?: SessionCoreEngine;
+    /** Low-pass filter frequency. Default: `{ type: "default" }`. */
+    filterFrequency?: FilterFrequency;
+    /** Data-sharing preference. Default: `"Share processed data and identified videos"`. */
+    dataSharing?: SessionDataSharing;
+}
 //# sourceMappingURL=types.d.ts.map
