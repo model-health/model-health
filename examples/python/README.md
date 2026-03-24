@@ -74,7 +74,7 @@ python3 session_data.py [<api_key>]
 ### `plot_kinematics.py` — Download and plot kinematics for an activity
 
 Selects a session (your own or a built-in demo session), picks a single
-activity, downloads its kinematics CSV, and plots selected joint angle
+activity, downloads its kinematics CSV and plots selected joint angle
 columns against time. The plot is saved as a PNG in the `downloads/` folder.
 
 ```bash
