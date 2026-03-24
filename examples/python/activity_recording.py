@@ -6,8 +6,9 @@ Walks through the full capture workflow:
   2. Select an existing subject or create a new one
   3. Calibrate cameras using a checkerboard pattern
   4. Calibrate the subject (neutral standing pose)
-  5. Record a movement activity
+  5. Record a movement activity (optionally with automatic analysis)
   6. Wait for activity upload and processing
+  7. If an activity type was chosen, wait for analysis and save the report
 
 Requires cameras to be connected and ready via the Model Health companion iOS app.
 
@@ -23,8 +24,13 @@ import urllib.request
 from docopt import docopt
 
 from modelhealth import (
+    ActivityConfig,
     ActivityStatus,
+    ActivityStatusAnalyzing,
     ActivityStatusUploading,
+    ActivityType,
+    AnalysisDataType,
+    AnalysisStatus,
     CalibrationStatus,
     CalibrationStatusProcessing,
     CalibrationStatusUploading,
@@ -35,7 +41,27 @@ from modelhealth import (
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
-from _utils import DOWNLOADS_DIR, load_api_key
+from _utils import ANALYSIS_DATA_EXT, DOWNLOADS_DIR, load_api_key, poll_analysis, save_file
+
+# ---------------------------------------------------------------------------
+# Activity type options for automatic analysis after recording
+# ---------------------------------------------------------------------------
+
+_ACTIVITY_TYPES = [
+    (None,                               "None — skip automatic analysis"),
+    (ActivityType.counter_movement_jump, "Counter Movement Jump"),
+    (ActivityType.gait,                  "Overground Walking"),
+    (ActivityType.treadmill_gait,        "Treadmill Walking"),
+    (ActivityType.treadmill_running,     "Treadmill Running"),
+    (ActivityType.overground_running,    "Overground Running"),
+    (ActivityType.sit_to_stand,          "Sit-to-Stand Transfer"),
+    (ActivityType.squats,                "Squats"),
+    (ActivityType.range_of_motion,       "Range of Motion"),
+    (ActivityType.drop_jump,             "Drop Vertical Jump"),
+    (ActivityType.hop,                   "Hop Test"),
+    (ActivityType.change_of_direction,   "5-0-5 Test"),
+    (ActivityType.cut,                   "Cutting Maneuver"),
+]
 
 # ---------------------------------------------------------------------------
 # Checkerboard presets
@@ -202,10 +228,21 @@ def main(api_key):
     # Recording
     activity_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "activity"
 
+    print("\nAutomatic analysis (optional):\n")
+    activity_type_value, activity_type_label = pick_one(
+        _ACTIVITY_TYPES,
+        "Select activity type",
+        lambda t: t[1],
+    )
+
     input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
     print("Recording...")
     try:
-        activity = service.start_recording(activity_name, session)
+        activity = service.start_recording(
+            activity_name,
+            session,
+            ActivityConfig(activity_type=activity_type_value)
+        )
     except ModelHealthError as exc:
         sys.exit(f"Failed to start recording: {exc}")
     print(f"  Recording started (activity {activity.id}).")
@@ -221,10 +258,29 @@ def main(api_key):
     # Wait for processing
     print("\nWaiting for upload and processing...")
     status = _poll_activity(service, activity)
-    if status != ActivityStatus.ready:
+
+    if isinstance(status, ActivityStatusAnalyzing):
+        print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
+        print("\nWaiting for analysis to complete...")
+        result_status = poll_analysis(service, status.task)
+        if result_status != AnalysisStatus.completed:
+            sys.exit(f"Analysis did not complete (status: {result_status}).")
+        print("Analysis complete.")
+
+        activity = service.fetch_activity(activity.id)
+        results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
+        slug = (activity.name or activity.id).replace(" ", "_")
+        print("\nDownloading report...")
+        for r in results:
+            ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+            path = save_file(f"{slug}_{r.type}.{ext}", r.data)
+            print(f"  Saved {path}")
+        print("\nDone.")
+    elif status == ActivityStatus.ready:
+        print(f"Activity is ready. ID: {activity.id}")
+        print("\nDone. Run activity_analysis.py to analyze this activity.")
+    else:
         sys.exit(f"Activity did not reach ready state (status: {status}).")
-    print(f"Activity is ready. ID: {activity.id}")
-    print("\nDone. Run activity_analysis.py to analyze this activity.")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ from modelhealth import (
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
-from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key
+from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key, poll_analysis
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -73,21 +73,6 @@ def _poll_processing(service, activity, interval=10):
             print(f"  Uploading ({status.uploaded}/{status.total} cameras)...  ", end="\r", flush=True)
         elif status == ActivityStatus.processing:
             print("  Processing...                              ", end="\r", flush=True)
-        else:
-            print()  # clear the \r line
-            return status
-        time.sleep(interval)
-
-
-def _poll_analysis(service, task, interval=10):
-    """Block until the analysis task finishes.
-
-    Returns the final status (AnalysisStatus.completed or AnalysisStatus.failed).
-    """
-    while True:
-        status = service.analysis_status(task)
-        if status == AnalysisStatus.processing:
-            print("  Analysing...  ", end="\r", flush=True)
         else:
             print()  # clear the \r line
             return status
@@ -169,7 +154,7 @@ def main(api_key):
         sys.exit(f"Failed to start analysis: {exc}")
 
     print("Waiting for analysis to complete...")
-    result_status = _poll_analysis(service, task)
+    result_status = poll_analysis(service, task)
 
     if result_status != AnalysisStatus.completed:
         sys.exit(f"Analysis did not complete (status: {result_status}).")

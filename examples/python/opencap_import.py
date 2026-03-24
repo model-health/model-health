@@ -32,9 +32,9 @@ from modelhealth import (
     ActivityStatusAnalyzing,
     AnalysisStatus,
 )
-from _opencap_api import fetch_session, fetch_subject
+from _opencap_api import fetch_session, fetch_subject, load_opencap_token
 from _prompts import confirm, pick_one
-from _utils import load_api_key, load_opencap_token
+from _utils import load_api_key
 
 
 _OPENSIM_MODEL_MAP = {
