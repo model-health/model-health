@@ -74,7 +74,7 @@ python3 session_data.py [<api_key>]
 ### `plot_kinematics.py` — Download and plot kinematics for an activity
 
 Selects a session (your own or a built-in demo session), picks a single
-activity, downloads its kinematics CSV, and plots selected joint angle
+activity, downloads its kinematics CSV and plots selected joint angle
 columns against time.
 
 ```bash
@@ -83,7 +83,7 @@ python3 plot_kinematics.py [<api_key>]
 
 ### `opencap_import.py` — Import an OpenCap session
 
-Copies data from an OpenCap session into a new Model Health session and processes them. The new session can be configured to leverage the latest settings (e.g. core engine v1.0), and activities are automatically analyzed when an activity type is set. See the example for details.
+Copies data from an OpenCap session into a new Model Health session and processes them. The new session can be configured to leverage the latest settings (e.g. core engine v1.0) and activities are automatically analyzed when an activity type is set. See the example for details.
 
 ```bash
 python3 opencap_import.py [--api-key=<key>] [--opencap-token=<token>] <opencap_session_id>

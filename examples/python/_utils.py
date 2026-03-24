@@ -68,7 +68,7 @@ def load_opencap_token(cli_arg=None):
 
 
 def _opencap_login_and_save():
-    """Prompt for OpenCap credentials, authenticate, save token to .env, and return it."""
+    """Prompt for OpenCap credentials, authenticate, save token to .env and return it."""
     import requests
 
     print(

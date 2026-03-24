@@ -2,7 +2,7 @@
 """Model Health Python SDK — Download and plot kinematics for an activity.
 
 Walks through selecting a session (your own or a public demo session),
-picking an activity, downloading its kinematics CSV, and plotting selected
+picking an activity, downloading its kinematics CSV and plotting selected
 joint angle columns against time.
 
 Usage:
