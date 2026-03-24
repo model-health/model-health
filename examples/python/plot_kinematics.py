@@ -131,8 +131,8 @@ def main(api_key):
     for col in selected_cols:
         ax.plot(df[time_col], df[col], label=col)
 
-    ax.set_xlabel(time_col)
-    ax.set_ylabel("Value")
+    ax.set_xlabel(f"{time_col} (s)")
+    ax.set_ylabel("Joint angle or position (deg or m)")
     ax.set_title(f"Kinematics — {activity_label}")
     ax.legend()
     fig.tight_layout()
