@@ -29,7 +29,7 @@ from _utils import save_file, MOTION_DATA_EXT, load_api_key
 # Constants
 # ---------------------------------------------------------------------------
 
-DEMO_SESSION_ID = "63f3faaf-712d-4cef-845e-e2eb904ca5b4"
+DEMO_SESSION_ID = "1f32961c-d2b5-4aae-bc23-3f3db6b31540"
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
