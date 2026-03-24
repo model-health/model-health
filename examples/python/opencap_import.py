@@ -26,7 +26,7 @@ from modelhealth import (
     FilterFrequencyHz,
     ImportStatusCreatedSession,
     ImportStatusUploading,
-    ActivityType,
+    ActivityType,  # used in trial_meta_overrides example below
     ActivityStatus,
     ActivityStatusUploading,
     ActivityStatusAnalyzing,
@@ -311,13 +311,16 @@ if __name__ == "__main__":
 
     # Trials to import. Setup trials (calibration, neutral) are always included.
     # Set to None to import all trials.
-    trials_to_import = ["test"]
+    trials_to_import = None
+    # trials_to_import = ["trial1", "trial2"]  # example: import specific trials
 
     # Optional per-trial overrides keyed by trial name.
     # Setting "activity_type" will auto-launch analysis after processing.
-    trial_meta_overrides = {
-        "test":     {"activity_type": ActivityType.range_of_motion},
-    }
+    trial_meta_overrides = {}
+    # trial_meta_overrides = {
+    #     "trial1": {"activity_type": ActivityType.range_of_motion},
+    #     "trial2": {"activity_type": ActivityType.counter_movement_jump},
+    # }
 
     mh_service = ModelHealthService(load_api_key(args["--api-key"]))
     session = copy_session(

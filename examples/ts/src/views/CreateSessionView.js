@@ -47,7 +47,7 @@ export function render(container, state, { setState, navigate }) {
     <div class="view-header">
       <button type="button" class="btn back" id="back-from-create">← Back</button>
       <h1>New Session</h1>
-      <p class="view-subtitle">Each session walks you through camera setup, subject calibration, and activity recording and analysis</p>
+      <p class="view-subtitle">Each session walks you through camera setup, subject calibration and activity recording and analysis</p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
