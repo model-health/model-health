@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+### Changed: Default Core Engine
+
+In `SessionConfig` the default core engine is now 1.0.
+
+
 ## 0.3.0
 
 ### New: Python SDK
@@ -24,9 +31,9 @@ See the [Python documentation](https://docs.modelhealth.io/getting-started/insta
 
 ### New: Session Import
 
-Sessions can now be imported from a JSON activity export. The import workflow handles session creation, subject association, video transfer and processing for each activity, and reports progress via a status callback.
+Sessions can now be imported from a JSON activity export. The import workflow handles session creation, subject association, video transfer and processing for each activity and reports progress via a status callback.
 
-Progress is delivered as `ImportStatus` values: `CreatingSession`, `CreatedSession`, `UploadingVideo` (with trial name and upload count), and `Processing`.
+Progress is delivered as `ImportStatus` values: `CreatingSession`, `CreatedSession`, `UploadingVideo` (with trial name and upload count) and `Processing`.
 
 ---
 

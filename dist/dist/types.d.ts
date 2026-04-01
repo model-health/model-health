@@ -599,7 +599,7 @@ export type SessionScalingSetup = "upright_standing_pose" | "any_pose";
 /**
  * Core processing engine version.
  *
- * `"v1.0"` is currently in beta.
+ * `"v1.0"` is the default.
  *
  * @group Enumerations
  */
@@ -678,7 +678,7 @@ export interface SessionConfig {
     opensimModel?: SessionOpenSimModel;
     /** Pose used for subject scaling. Default: `"upright_standing_pose"`. */
     scalingSetup?: SessionScalingSetup;
-    /** Core processing engine version. Default: `"v0.3"`. */
+    /** Core processing engine version. Default: `"v1.0"`. */
     coreEngine?: SessionCoreEngine;
     /** Low-pass filter frequency. Default: `{ type: "default" }`. */
     filterFrequency?: FilterFrequency;
