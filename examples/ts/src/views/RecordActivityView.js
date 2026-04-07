@@ -48,7 +48,12 @@ export function render(container, state, { setState, navigate }) {
       <ul class="activity-list">
         ${activities.map((a) => {
           const st = activityStates[a.id] || {};
-          const statusText = st.analysisStatus === 'completed' ? 'Analysis complete' : st.analysisStatus === 'processing' ? 'Analyzing...' : st.processingStatus === 'ready' ? 'Ready' : st.processingStatus === 'processing' ? 'Processing...' : st.processingStatus || '—';
+          let statusText;
+          if (st.analysisStatus === 'completed') statusText = 'Analysis complete';
+          else if (st.analysisStatus === 'processing' || st.processingStatus === 'analyzing') statusText = 'Analyzing...';
+          else if (st.processingStatus === 'ready') statusText = 'Ready';
+          else if (st.processingStatus === 'processing') statusText = 'Processing...';
+          else statusText = st.processingStatus || '—';
           const canAnalyze = st.processingStatus === 'ready' && !st.analysisTask;
           const canViewResults = st.analysisStatus === 'completed';
           const selectedType = selectedActivityTypes[a.id] || 'counter_movement_jump';
@@ -116,7 +121,8 @@ export function render(container, state, { setState, navigate }) {
         if (!newStates[a.id]) {
           try {
             const status = await client.activityStatus(a);
-            newStates[a.id] = { processingStatus: status.type, analysisTask: null, analysisStatus: null };
+            const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : null;
+            newStates[a.id] = { processingStatus: status.type, analysisTask, analysisStatus: analysisTask ? 'processing' : null };
           } catch (_) {
             newStates[a.id] = {};
           }
@@ -146,15 +152,16 @@ export function render(container, state, { setState, navigate }) {
         const st = state.activityStates[id] || {};
         let analysisStatus = st.analysisStatus;
         let resultTags = st.resultTags;
-        if (st.analysisTask) {
-          const as = await client.analysisStatus(st.analysisTask);
+        const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : st.analysisTask;
+        if (analysisTask) {
+          const as = await client.analysisStatus(analysisTask);
           analysisStatus = as.type;
         } else if (activity.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
           analysisStatus = 'completed';
           if (!resultTags?.length && activity.results?.length) resultTags = activity.results.map((r) => r.tag).filter(Boolean);
         }
         setState({
-          activityStates: { ...state.activityStates, [id]: { ...st, processingStatus: status.type, analysisStatus, resultTags } },
+          activityStates: { ...state.activityStates, [id]: { ...st, processingStatus: status.type, analysisTask, analysisStatus, resultTags } },
         });
       } catch (_) {}
     });
@@ -251,7 +258,8 @@ export async function onEnter(container, state, ctx) {
           analysisStatus = 'completed';
           resultTags = (a.results || []).map((r) => r.tag).filter(Boolean);
         }
-        activityStates[a.id] = { processingStatus: status.type, analysisTask: null, analysisStatus, resultTags };
+        const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : null;
+        activityStates[a.id] = { processingStatus: status.type, analysisTask, analysisStatus: analysisTask ? 'processing' : analysisStatus, resultTags };
       } catch (_) {
         activityStates[a.id] = {};
       }
