@@ -30,7 +30,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         }
     ]
 
-    func sessionList() async throws -> [ModelHealth.Session] {
+    func sessionList() async throws -> [Session] {
         try? await Task.sleep(nanoseconds: 400_000_000)
         return [
             .forPreview { builder in
@@ -112,7 +112,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         activity
     }
 
-    func delete(activity: ModelHealth.Activity) async throws {
+    func delete(activity: Activity) async throws {
     }
 
     func activityTags() async throws -> [ActivityTag] {
@@ -128,8 +128,20 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func motionData(ofType types: Set<MotionDataType>, for activity: Activity) async -> [MotionData] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return types.map { type in
-            ModelHealth.MotionData.forPreview(resultDataType: type)
+            MotionData.forPreview(resultDataType: type)
         }
+    }
+
+    func configure(session: Session, config: SessionConfig) async throws {
+    }
+
+    func importSession(
+        _ activitiesJson: String,
+        subject: Subject,
+        config: SessionConfig,
+        statusUpdate: @escaping @Sendable (ImportStatus) -> Void
+    ) async throws -> Session {
+        .forPreview()
     }
 
     func createSession() async throws -> Session {

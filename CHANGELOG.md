@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed: iOS example app had build issues
+
+Added missing `ActivityStatus` to example in recording flow.
 ## 0.4.0
 
 ### Changed: Default Core Engine

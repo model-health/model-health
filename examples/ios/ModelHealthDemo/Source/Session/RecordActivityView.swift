@@ -512,6 +512,9 @@ struct StatusIndicator: View {
             case .ready:
                 return .blue
 
+            case .analyzing:
+                return .mint
+
             case .failed:
                 return .red
             }
@@ -544,6 +547,9 @@ struct StatusIndicator: View {
 
             case .ready:
                 return "Ready for analysis"
+
+            case .analyzing:
+                return "Analyzing..."
 
             case .failed:
                 return "Processing failed"
