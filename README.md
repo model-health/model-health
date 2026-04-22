@@ -8,20 +8,20 @@ SDK for biomechanical analysis from smartphone videos.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/model-health/model-health-swift.git", from: "0.4.1")
+    .package(url: "https://github.com/model-health/model-health-swift.git", from: "0.4.2")
 ]
 ```
 
 ### npm
 
 ```bash
-npm install @modelhealth/modelhealth@0.4.1
+npm install @modelhealth/modelhealth@0.4.2
 ```
 
 ### pip
 
 ```bash
-pip install modelhealth==0.4.1
+pip install modelhealth==0.4.2
 ```
 
 ## Examples
@@ -38,4 +38,4 @@ Full API Documentation: [docs.modelhealth.io](https://docs.modelhealth.io)
 
 ## Latest Release
 
-Version 0.4.1
+Version 0.4.2

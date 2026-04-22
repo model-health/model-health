@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+### Fixed: SPM issues
+
+`Package.swift` was missing supported iOS and macOS versions.
+
 ## 0.4.1
 
 ### Fixed: iOS example app had build issues
