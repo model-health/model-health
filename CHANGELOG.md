@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+### Fixed: Calibration decoding for Swift and TypeScript
+
+Both Swift and TypeScript failed to return valid calibration status values for camera and subject calibration.
+
+
 ## 0.4.2
 
 ### Fixed: SPM issues
