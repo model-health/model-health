@@ -34,7 +34,7 @@ pip install modelhealth==0.4.3
 
 ## Documentation
 
-Full API Documentation: [docs.modelhealth.io](https://docs.modelhealth.io)
+Full API Documentation: [docs.modelhealth.io](https://sdk.modelhealth.io)
 
 ## Latest Release
 

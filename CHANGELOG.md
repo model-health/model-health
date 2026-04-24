@@ -43,7 +43,7 @@ service = ModelHealthService(api_key="...")
 sessions = service.list_sessions()
 ```
 
-See the [Python documentation](https://docs.modelhealth.io/getting-started/installation) for the full API reference.
+See the [Python documentation](https://sdk.modelhealth.io/getting-started/installation) for the full API reference.
 
 ---
 

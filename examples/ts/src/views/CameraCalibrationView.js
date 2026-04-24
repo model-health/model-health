@@ -21,7 +21,7 @@ export function render(container, state, { setState, navigate }) {
     <div class="view-header">
       <button type="button" class="btn back" id="back-cal">← Back</button>
       <h1>Calibrate cameras</h1>
-      <p class="view-subtitle">Use a checkerboard pattern. <a href="https://docs.modelhealth.io/docs/guides/camera-calibration" target="_blank">Learn more</a></p>
+      <p class="view-subtitle">Use a checkerboard pattern. <a href="https://sdk.modelhealth.io/sdk/guides/camera-calibration" target="_blank">Learn more</a></p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">

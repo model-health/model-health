@@ -23,7 +23,7 @@ export function render(container, state, { setState, navigate }) {
     <div class="view-header">
       <button type="button" class="btn back" id="back-neutral">← Back</button>
       <h1>Calibrate subject</h1>
-      <p class="view-subtitle">Use a neutral standing pose to scale a 3D biomechanical model to the size of the subject. <a href="https://docs.modelhealth.io/docs/guides/subject-calibration" target="_blank">Learn more</a></p>
+      <p class="view-subtitle">Use a neutral standing pose to scale a 3D biomechanical model to the size of the subject. <a href="https://sdk.modelhealth.io/sdk/guides/subject-calibration" target="_blank">Learn more</a></p>
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
