@@ -52,6 +52,27 @@ Health companion iOS app](https://apps.apple.com/nl/app/model-health/id674883539
 python3 activity_recording.py [<api_key>]
 ```
 
+### `external_data.py` — Attach and download external files
+
+Two subcommands for working with external files (e.g. sensor data CSVs,
+audio recordings) attached to an activity.
+
+**`upload`** — selects an activity in the `ready` state and attaches one or
+more local files to it using `add_motion_data_to_activity`.
+
+**`download`** — selects an activity and downloads a file that was previously
+attached, identified by its tag string. Saves the raw bytes to the
+`downloads/` directory.
+
+> **Note:** activities that will receive external data must be recorded
+> *without* an activity type. See the script's docstring for the correct
+> workflow.
+
+```bash
+python3 external_data.py upload   [<api_key>]
+python3 external_data.py download [<api_key>]
+```
+
 ### `archive_session.py` — Session archive download
 
 Requests preparation of a session archive and downloads the resulting ZIP file.
