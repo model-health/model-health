@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""Model Health Python SDK — external data demo.
+"""Model Health Python SDK — external data upload demo.
 
 Demonstrates attaching external files (e.g. sensor data CSVs)
-to an existing activity and downloading them back by tag.
-
-Commands:
-  upload    Select a ready activity and attach one or more local files.
-  download  Select an activity and download a previously attached file by tag.
+to an existing activity.
 
 Usage:
-    external_data.py upload   [<api_key>]
-    external_data.py download [<api_key>]
+    add_external_data.py [<api_key>]
 """
 
 import os
@@ -22,17 +17,13 @@ from modelhealth import (
     ExternalResultFile,
     ModelHealthError,
     ModelHealthService,
-    MotionDataType,
 )
 from _prompts import pick_one
-from _utils import load_api_key, save_file
+from _utils import load_api_key
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
 
 def _connect(api_key):
     try:
@@ -69,14 +60,12 @@ def _pick_activity(service):
         sys.exit("No activities found in this session.")
 
     print(f"\n{len(activities)} activity/activities:\n")
-    return session, pick_one(
+    return pick_one(
         activities,
         "Select activity",
         lambda a: f"{a.name or a.id}  [{a.status}]",
     )
 
-
-# Upload
 
 def _prompt_files():
     files = []
@@ -109,82 +98,30 @@ def _prompt_files():
             print(f"  Could not read file: {exc}")
             continue
 
-        fmt = pick_one(
-            [("csv", "CSV"), ("json", "JSON"), ("binary", "Binary")],
-            "  Format",
-            lambda f: f[1],
-        )[0]
-        files.append(ExternalResultFile.tagged(tag, fmt, data))
-        print(f"  Added: {os.path.basename(path)} (tag={tag!r}, format={fmt})")
+        _, dot_ext = os.path.splitext(path)
+        extension = dot_ext.lstrip(".") if dot_ext else input("  File extension (e.g. csv, bin): ").strip()
+        if not extension:
+            print("  Extension must not be empty.")
+            continue
+
+        files.append(ExternalResultFile(tag, extension, data))
+        print(f"  Added: {os.path.basename(path)} (tag={tag!r}, extension={extension!r})")
 
     return files
 
 
-def cmd_upload(api_key):
-    service = _connect(api_key)
-    _, activity = _pick_activity(service)
+if __name__ == "__main__":
+    args = docopt(__doc__)
+    api_key = load_api_key(args["<api_key>"])
 
+    service = _connect(api_key)
+    activity = _pick_activity(service)
     files = _prompt_files()
 
     print(f"\nUploading {len(files)} file(s)...")
     try:
-        activity = service.add_motion_data_to_activity(activity, files)
+        service.add_motion_data_to_activity(activity, files)
     except ModelHealthError as exc:
         sys.exit(f"Upload failed: {exc}")
-    
+
     print("\nDone.")
-
-
-# Download
-
-def cmd_download(api_key):
-    service = _connect(api_key)
-    _, activity = _pick_activity(service)
-
-    try:
-        activity = service.fetch_activity(activity.id)
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to fetch activity: {exc}")
-
-    tagged_results = [r for r in activity.results if r.tag]
-    if not tagged_results:
-        sys.exit(
-            "This activity has no tagged results.\n"
-            "Use the 'upload' command to attach external files first."
-        )
-
-    print(f"\n{len(tagged_results)} tagged result(s):\n")
-    result = pick_one(
-        tagged_results,
-        "Select result to download",
-        lambda r: f"tag={r.tag!r}  id={r.id}",
-    )
-
-    tag = result.tag
-    print(f"\nDownloading '{tag}'...")
-    try:
-        results = service.motion_data_for_activity(activity, [MotionDataType.tagged(tag)])
-    except ModelHealthError as exc:
-        sys.exit(f"Download failed: {exc}")
-
-    if not results:
-        sys.exit(f"No data found for tag '{tag}'.")
-    data = results[0].data
-
-    slug = (activity.name or activity.id).replace(" ", "_")
-    path = save_file(f"{slug}_{tag}", data)
-    print(f"Saved {len(data):,} bytes → {path}")
-    print("\nDone.")
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    args = docopt(__doc__)
-    api_key = load_api_key(args["<api_key>"])
-    if args["upload"]:
-        cmd_upload(api_key)
-    else:
-        cmd_download(api_key)
