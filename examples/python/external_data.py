@@ -8,13 +8,6 @@ Commands:
   upload    Select a ready activity and attach one or more local files.
   download  Select an activity and download a previously attached file by tag.
 
-Key constraint: when an activity will receive external data, it must
-have been recorded *without* an activity type.  Passing an activity
-type to start_recording causes the server to auto-trigger analysis as
-soon as the videos finish processing, before you have a chance to
-attach the external files.  Record with no activity type, wait for
-'ready', upload, then call start_analysis yourself.
-
 Usage:
     external_data.py upload   [<api_key>]
     external_data.py download [<api_key>]
@@ -22,13 +15,10 @@ Usage:
 
 import os
 import sys
-import time
 
 from docopt import docopt
 
 from modelhealth import (
-    ActivityStatus,
-    ActivityStatusUploading,
     ExternalResultFile,
     ModelHealthError,
     ModelHealthService,
@@ -86,28 +76,12 @@ def _pick_activity(service):
     )
 
 
-def _poll_processing(service, activity, interval=5):
-    while True:
-        status = service.activity_status(activity)
-        if isinstance(status, ActivityStatusUploading):
-            print(
-                f"  Uploading ({status.uploaded}/{status.total} cameras)...  ",
-                end="\r", flush=True,
-            )
-        elif status == ActivityStatus.processing:
-            print("  Processing...                              ", end="\r", flush=True)
-        else:
-            print()
-            return status
-        time.sleep(interval)
-
-
 # Upload
 
 def _prompt_files():
     files = []
     print("\nEnter the files to attach (leave path blank to finish).")
-    print("Tag:  a short identifier for the data source, e.g. 'acme-sensor'.")
+    print("Tag:  a short identifier for the data source, e.g. 'my-force-plate'.")
     print()
 
     while True:
@@ -148,25 +122,7 @@ def _prompt_files():
 
 def cmd_upload(api_key):
     service = _connect(api_key)
-    _session, activity = _pick_activity(service)
-
-    print(f"\nChecking status of '{activity.name or activity.id}'...")
-    try:
-        status = service.activity_status(activity)
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to check activity status: {exc}")
-
-    if isinstance(status, ActivityStatusUploading) or status == ActivityStatus.processing:
-        print("Activity is still uploading/processing. Waiting...")
-        status = _poll_processing(service, activity)
-
-    if status != ActivityStatus.ready:
-        sys.exit(
-            f"Activity is not ready for upload (status: {status}).\n"
-            "Ensure the activity has finished uploading and processing."
-        )
-
-    print("Activity is ready.")
+    _, activity = _pick_activity(service)
 
     files = _prompt_files()
 
@@ -175,20 +131,15 @@ def cmd_upload(api_key):
         activity = service.add_motion_data_to_activity(activity, files)
     except ModelHealthError as exc:
         sys.exit(f"Upload failed: {exc}")
-
-    attached = [r for r in activity.results if r.tag not in (None, "")]
-    print(f"Upload complete. Activity now has {len(attached)} result(s):")
-    for r in attached:
-        print(f"  [{r.id}]  tag={r.tag!r}")
-
-    print("\nDone. Run activity_analysis.py to analyse this activity.")
+    
+    print("\nDone.")
 
 
 # Download
 
 def cmd_download(api_key):
     service = _connect(api_key)
-    _session, activity = _pick_activity(service)
+    _, activity = _pick_activity(service)
 
     try:
         activity = service.fetch_activity(activity.id)
