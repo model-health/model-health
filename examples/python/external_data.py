@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Model Health Python SDK — external data demo.
 
-Demonstrates attaching external files (e.g. sensor data CSVs, audio
-recordings) to an existing activity and downloading them back by tag.
+Demonstrates attaching external files (e.g. sensor data CSVs)
+to an existing activity and downloading them back by tag.
 
 Commands:
   upload    Select a ready activity and attach one or more local files.
@@ -102,15 +102,12 @@ def _poll_processing(service, activity, interval=5):
         time.sleep(interval)
 
 
-# ---------------------------------------------------------------------------
 # Upload
-# ---------------------------------------------------------------------------
 
 def _prompt_files():
     files = []
     print("\nEnter the files to attach (leave path blank to finish).")
-    print("Tag:  a short identifier for the data source, e.g. 'acme-force-plate'.")
-    print("      Audio files: enter tag 'audio'.")
+    print("Tag:  a short identifier for the data source, e.g. 'acme-sensor'.")
     print()
 
     while True:
@@ -138,17 +135,13 @@ def _prompt_files():
             print(f"  Could not read file: {exc}")
             continue
 
-        if tag == "audio":
-            files.append(ExternalResultFile.audio(data))
-            print(f"  Added: {os.path.basename(path)} (audio)")
-        else:
-            fmt = pick_one(
-                [("csv", "CSV"), ("json", "JSON"), ("binary", "Binary")],
-                "  Format",
-                lambda f: f[1],
-            )[0]
-            files.append(ExternalResultFile.tagged(tag, fmt, data))
-            print(f"  Added: {os.path.basename(path)} (tag={tag!r}, format={fmt})")
+        fmt = pick_one(
+            [("csv", "CSV"), ("json", "JSON"), ("binary", "Binary")],
+            "  Format",
+            lambda f: f[1],
+        )[0]
+        files.append(ExternalResultFile.tagged(tag, fmt, data))
+        print(f"  Added: {os.path.basename(path)} (tag={tag!r}, format={fmt})")
 
     return files
 
@@ -191,9 +184,7 @@ def cmd_upload(api_key):
     print("\nDone. Run activity_analysis.py to analyse this activity.")
 
 
-# ---------------------------------------------------------------------------
 # Download
-# ---------------------------------------------------------------------------
 
 def cmd_download(api_key):
     service = _connect(api_key)
@@ -236,7 +227,7 @@ def cmd_download(api_key):
 
 
 # ---------------------------------------------------------------------------
-# Entry point
+# Main
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":

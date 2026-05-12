@@ -10,7 +10,6 @@ Usage:
 """
 
 import sys
-import time
 
 from docopt import docopt
 
@@ -49,26 +48,6 @@ ANALYSIS_DATA_TYPES = [
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _download(fn, *args, retries=3, delay=2):
-    """Call fn(*args) and retry up to *retries* times if the result is empty.
-
-    The SDK silently drops failed downloads, so an empty result may indicate
-    a transient network error rather than genuinely absent data.
-    """
-    for attempt in range(retries):
-        results = fn(*args)
-        if results:
-            return results
-        if attempt < retries - 1:
-            print(f"  No data returned, retrying ({attempt + 1}/{retries - 1})...")
-            time.sleep(delay)
-    return []
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +115,7 @@ def main(api_key):
     for version_value, version_label in selected_versions:
         version_slug = "raw" if version_value == VideoVersion.raw else "synced"
         print(f"  {version_label.strip()}...")
-        videos = _download(service.videos_for_activity, activity, version_value)
+        videos = service.videos_for_activity(activity, version_value)
         if not videos:
             print("  No videos available for this activity.")
         else:
@@ -154,7 +133,7 @@ def main(api_key):
     motion_types = [t[0] for t in selected_motion]
 
     print("\nDownloading motion data...")
-    results = _download(service.motion_data_for_activity, activity, motion_types)
+    results = service.motion_data_for_activity(activity, motion_types)
     if not results:
         print("  No motion data available.")
     else:
@@ -173,7 +152,7 @@ def main(api_key):
     analysis_types = [t[0] for t in selected_analysis]
 
     print("\nDownloading analysis data...")
-    results = _download(service.analysis_data_for_activity, activity, analysis_types)
+    results = service.analysis_data_for_activity(activity, analysis_types)
     if not results:
         print("  No analysis data available.")
     else:
@@ -191,7 +170,7 @@ def main(api_key):
         if status != ActivityStatus.ready:
             print(f"  Skipping: neutral activity status is '{status}' (expected 'ready').")
         else:
-            results = _download(service.motion_data_for_activity, neutral, [MotionDataType.model])
+            results = service.motion_data_for_activity(neutral, [MotionDataType.model])
             for r in results:
                 ext = MOTION_DATA_EXT.get(r.type, "bin")
                 path = save_file(f"neutral_{r.type}.{ext}", r.data)
