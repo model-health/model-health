@@ -9,6 +9,7 @@
 
 import Foundation
 import ModelHealth
+import Shared
 
 // MARK: - Entry point
 
@@ -43,8 +44,6 @@ private func connect(apiKey: String) -> ModelHealthService {
 }
 
 // MARK: - Session / activity selection
-
-private let internalActivityNames: Set<String> = ["calibration", "neutral"]
 
 private func pickActivity(service: ModelHealthService) async -> Activity {
     print("\nFetching sessions...")
@@ -157,60 +156,4 @@ private func promptFiles() -> [ExternalResultFile] {
     }
 
     return files
-}
-
-// MARK: - CLI helpers
-
-private func pickOne<T>(from items: [T], prompt: String, label: (T) -> String) -> T {
-    for (i, item) in items.enumerated() {
-        print("  \(i + 1). \(label(item))")
-    }
-    while true {
-        print("\n\(prompt) (1–\(items.count)): ", terminator: "")
-        if let line = readLine(), let n = Int(line.trimmingCharacters(in: .whitespaces)), (1...items.count).contains(n) {
-            return items[n - 1]
-        }
-        print("  Please enter a number between 1 and \(items.count).")
-    }
-}
-
-// MARK: - API key loading
-
-private func loadAPIKey() -> String {
-    let args = CommandLine.arguments
-    if args.count > 1, !args[1].isEmpty {
-        return args[1]
-    }
-    if let key = dotEnvValue(for: "MODEL_HEALTH_API_KEY") {
-        return key
-    }
-    if let key = ProcessInfo.processInfo.environment["MODEL_HEALTH_API_KEY"] {
-        return key
-    }
-    fputs(
-        "Model Health API key not found.\n"
-        + "Provide it as a CLI argument or set MODEL_HEALTH_API_KEY in .env or your environment.\n",
-        stderr
-    )
-    exit(1)
-}
-
-/// Reads a key from a `.env` file in the current working directory.
-private func dotEnvValue(for key: String) -> String? {
-    let envURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent(".env")
-    guard let contents = try? String(contentsOf: envURL, encoding: .utf8) else { return nil }
-    for line in contents.components(separatedBy: .newlines) {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
-        let parts = trimmed.components(separatedBy: "=")
-        guard parts.count >= 2, parts[0].trimmingCharacters(in: .whitespaces) == key else { continue }
-        var value = parts.dropFirst().joined(separator: "=").trimmingCharacters(in: .whitespaces)
-        if value.count >= 2,
-           (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
-            value = String(value.dropFirst().dropLast())
-        }
-        return value.isEmpty ? nil : value
-    }
-    return nil
 }

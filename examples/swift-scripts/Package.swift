@@ -1,6 +1,21 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
+let modelHealth: Target.Dependency = .product(name: "ModelHealth", package: "model-health-swift")
+let shared: Target.Dependency = .target(name: "Shared")
+let linkerSettings: [LinkerSetting] = [
+    .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+    .linkedFramework("Security", .when(platforms: [.macOS])),
+]
+
+func script(_ name: String) -> Target {
+    .executableTarget(
+        name: name,
+        dependencies: [modelHealth, shared],
+        linkerSettings: linkerSettings
+    )
+}
+
 let package = Package(
     name: "ModelHealthExamples",
     platforms: [.macOS(.v14)],
@@ -8,15 +23,17 @@ let package = Package(
         .package(url: "https://github.com/model-health/model-health-swift", from: "0.5.0"),
     ],
     targets: [
-        .executableTarget(
-            name: "AddExternalData",
-            dependencies: [
-                .product(name: "ModelHealth", package: "model-health-swift"),
-            ],
-            linkerSettings: [
-                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
-                .linkedFramework("Security", .when(platforms: [.macOS])),
-            ]
+        .target(
+            name: "Shared",
+            dependencies: [modelHealth],
+            linkerSettings: linkerSettings
         ),
+        script("AddExternalData"),
+        script("SessionData"),
+        script("ActivityRecording"),
+        script("ActivityAnalysis"),
+        script("ArchiveSession"),
+        script("OpenCapImport"),
+        script("PlotKinematics"),
     ]
 )
