@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+## Added
+
+- `addMotionData(_:to:)` (Swift), `addMotionDataToActivity()` (TypeScript), `add_motion_data_to_activity()` (Python) — attach external files (CSV, JSON, binary) to an activity after recording. Accepts one or more `ExternalResultFile` values constructed via `.tagged()` factory method.
+- `ExternalResultFile` type in all bindings, with `tagged` factory method.
+- `ExternalDataFormat` enum (Swift) / format string (Python/TypeScript) for specifying the encoding of tagged files (`csv`, `json`, `binary`).
+
+## Fixed
+
+- Network requests now retry automatically on transient failures (server 5xx errors and connection-level errors).  Client errors (4xx) and authentication failures are not retried.
+
 ## 0.4.4
 
 ### Fixed: MOT file parsing issues
@@ -64,7 +76,7 @@ service = ModelHealthService(api_key="...")
 sessions = service.list_sessions()
 ```
 
-See the [Python documentation](https://docs.modelhealth.io/getting-started/installation) for the full API reference.
+See the [Python documentation](https://sdk.modelhealth.io/getting-started/installation) for the full API reference.
 
 ---
 

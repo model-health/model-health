@@ -190,6 +190,6 @@ Apache-2.0 © Model Health
 
 ## Support
 
-- Documentation: https://docs.modelhealth.io
+- Documentation: https://sdk.modelhealth.io
 - Issues: https://github.com/model-health/model-health/issues
 - Email: support@modelhealth.io

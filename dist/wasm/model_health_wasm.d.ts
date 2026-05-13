@@ -23,6 +23,17 @@ export class ModelHealthService {
      */
     activityTags(): Promise<any>;
     /**
+     * Upload external data files to an activity and return the refreshed activity.
+     *
+     * `files_json` is an array of `{ tag: string, extension: string, data: Uint8Array }` objects.
+     *
+     * # Errors
+     *
+     * Returns an error if any input fails validation (reserved tag, empty data, size exceeded)
+     * or if any network request fails.
+     */
+    addMotionDataToActivity(trial_json: any, files_json: any): Promise<any>;
+    /**
      * # Errors
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
@@ -179,6 +190,7 @@ export interface InitOutput {
     readonly modelhealthservice_activitiesForSubject: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly modelhealthservice_activityStatus: (a: number, b: number) => number;
     readonly modelhealthservice_activityTags: (a: number) => number;
+    readonly modelhealthservice_addMotionDataToActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_analysisDataForActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_analysisStatus: (a: number, b: number) => number;
     readonly modelhealthservice_archiveData: (a: number, b: number) => number;
@@ -202,9 +214,9 @@ export interface InitOutput {
     readonly modelhealthservice_updateActivity: (a: number, b: number) => number;
     readonly modelhealthservice_videosForActivity: (a: number, b: number, c: number) => number;
     readonly init: () => void;
-    readonly __wasm_bindgen_func_elem_1059: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_1483: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_1060: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_1120: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1544: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_1121: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

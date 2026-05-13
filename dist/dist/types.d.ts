@@ -267,6 +267,29 @@ export interface MotionData {
     data: Uint8Array;
 }
 /**
+ * An external file to attach to an activity via `addMotionDataToActivity`.
+ *
+ * The `tag` must not conflict with reserved tags used by Model Health internally.
+ *
+ * @example
+ * ```typescript
+ * const file: ExternalResultFile = {
+ *   tag: "force_plate",
+ *   extension: "csv",
+ *   data: new TextEncoder().encode("time,fx,fy,fz\n0.0,0,0,650\n"),
+ * };
+ * const updated = await client.addMotionDataToActivity(activity, [file]);
+ * ```
+ */
+export interface ExternalResultFile {
+    /** Identifies the data source on the server. */
+    tag: string;
+    /** Bare file extension without a leading dot (e.g. `"csv"`, `"bin"`, `"json"`). */
+    extension: string;
+    /** The raw file bytes to upload. */
+    data: Uint8Array;
+}
+/**
  * Type of analysis result data to download from an activity with a completed analysis.
  *
  * @example
