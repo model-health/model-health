@@ -800,7 +800,7 @@ export class ModelHealthService {
      * (e.g. measurements from another source) before running analysis.
      *
      * @param activity The activity to attach files to.
-     * @param files The external files to attach. Each must have a unique, non-reserved `tag`.
+     * @param files The external files to attach, with tag, file extension and data.
      * @returns The refreshed `Activity` containing the newly created result entries.
      * @throws If any upload fails, a tag is reserved or duplicated, or the server is unreachable.
      *

@@ -1,10 +1,16 @@
 # Changelog
 
+## 0.5.1
+
+## Fixed
+
+Minor documentation updates.
+
 ## 0.5.0
 
 ## Added
 
-- `addMotionData(_:to:)` (Swift), `addMotionDataToActivity()` (TypeScript), `add_motion_data_to_activity()` (Python) — attach external files (CSV, JSON, binary) to an activity after recording. Accepts one or more `ExternalResultFile` values constructed via `.tagged()` factory method.
+- `addMotionData(_:to:)` (Swift), `addMotionDataToActivity()` (TypeScript), `add_motion_data_to_activity()` (Python) — attach external files (CSV, JSON, binary) to an activity after recording. Accepts one or more `ExternalResultFile` values.
 - `ExternalResultFile` type in all bindings, with `tagged` factory method.
 - `ExternalDataFormat` enum (Swift) / format string (Python/TypeScript) for specifying the encoding of tagged files (`csv`, `json`, `binary`).
 
