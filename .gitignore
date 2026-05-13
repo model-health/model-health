@@ -29,3 +29,4 @@ examples/ts/.env.local
 sdk-docs/
 ModelHealthFFI.xcframework
 *.zip
+.env.local
