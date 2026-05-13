@@ -52,6 +52,15 @@ Health companion iOS app](https://apps.apple.com/nl/app/model-health/id674883539
 python3 activity_recording.py [<api_key>]
 ```
 
+### `add_external_data.py` — Attach external files
+
+Selects an activity and attaches one or more local files
+to it using `add_motion_data_to_activity`.
+
+```bash
+python3 add_external_data.py [<api_key>]
+```
+
 ### `archive_session.py` — Session archive download
 
 Requests preparation of a session archive and downloads the resulting ZIP file.
