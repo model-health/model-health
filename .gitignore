@@ -29,3 +29,6 @@ examples/ts/.env.local
 sdk-docs/
 ModelHealthFFI.xcframework
 *.zip
+
+# Claude
+CLAUDE.md
