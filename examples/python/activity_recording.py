@@ -66,6 +66,9 @@ _ACTIVITY_TYPES = [
     (ActivityType.hop,                   "Hop Test"),
     (ActivityType.change_of_direction,   "5-0-5 Test"),
     (ActivityType.cut,                   "Cutting Maneuver"),
+    (ActivityType.sprint,                "Sprint"),
+    (ActivityType.lateral_stepdown,      "Lateral Step Down"),
+    (ActivityType.lunge,                 "Lunge"),
 ]
 
 # ---------------------------------------------------------------------------
