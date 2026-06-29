@@ -37,7 +37,6 @@ from modelhealth import (
     CalibrationStatusUploading,
     CheckerboardDetails,
     CheckerboardPlacement,
-    FilterFrequencyDefault,
     FilterFrequencyHz,
     ModelHealthError,
     ModelHealthService,
@@ -76,15 +75,14 @@ _ACTIVITY_TYPES = [
 # ---------------------------------------------------------------------------
 
 _FRAMERATES = [
-    (None,                    "Session default"),
+    (None,                     "Default"),
     (SessionFramerate.fps_60,  "60 fps"),
     (SessionFramerate.fps_120, "120 fps"),
     (SessionFramerate.fps_240, "240 fps"),
 ]
 
 _FILTER_FREQUENCIES = [
-    (None,                   "Session default"),
-    (FilterFrequencyDefault(), "Default (auto)"),
+    (None,                   "Default"),
     (FilterFrequencyHz(6),   "6 Hz"),
     (FilterFrequencyHz(10),  "10 Hz"),
     (FilterFrequencyHz(20),  "20 Hz"),
