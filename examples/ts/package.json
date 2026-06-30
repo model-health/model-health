@@ -8,8 +8,7 @@
     "activity-recording": "tsx activity_recording.ts",
     "activity-analysis": "tsx activity_analysis.ts",
     "archive-session": "tsx archive_session.ts",
-    "opencap-import": "tsx opencap_import.ts",
-    "plot-kinematics": "tsx plot_kinematics.ts"
+    "update-activity": "tsx update_activity.ts"
   },
   "dependencies": {
     "@modelhealth/modelhealth": "^0.5.6"

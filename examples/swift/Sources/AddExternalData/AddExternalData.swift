@@ -1,7 +1,5 @@
 /// Model Health Swift examples — external data upload.
 ///
-/// Mirrors examples/python/add_external_data.py.
-///
 /// Usage:
 ///   swift run AddExternalData [<api_key>]
 ///

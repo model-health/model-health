@@ -26,6 +26,9 @@ const ANALYSIS_TYPES: [string, string][] = [
   [ActivityType.Hop,                 'Hop Test'],
   [ActivityType.ChangeOfDirection,   '5-0-5 Test'],
   [ActivityType.Cut,                 'Cutting Maneuver'],
+  [ActivityType.Sprint,              'Sprint'],
+  [ActivityType.LateralStepdown,     'Lateral Step Down'],
+  [ActivityType.Lunge,               'Lunge'],
 ];
 
 const RESULT_TYPES: [AnalysisDataType, string][] = [

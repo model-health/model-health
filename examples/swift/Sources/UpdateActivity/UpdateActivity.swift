@@ -1,7 +1,5 @@
 /// Model Health Swift examples — update activity metadata.
 ///
-/// Mirrors examples/python/update_activity.py.
-///
 /// Usage:
 ///   swift run UpdateActivity [<api_key>]
 

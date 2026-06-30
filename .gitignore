@@ -33,3 +33,9 @@ ModelHealthFFI.xcframework
 
 # Claude
 CLAUDE.md
+
+# General 
+**/.env
+**/downloads
+examples/python/__pycache__/
+model-health-swift

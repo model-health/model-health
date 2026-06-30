@@ -1,7 +1,5 @@
 /// Model Health Swift examples — download data from an existing session.
 ///
-/// Mirrors examples/python/session_data.py.
-///
 /// Usage:
 ///   swift run SessionData [<api_key>]
 

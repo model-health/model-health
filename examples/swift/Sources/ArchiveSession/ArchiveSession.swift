@@ -1,7 +1,5 @@
 /// Model Health Swift examples — session archive.
 ///
-/// Mirrors examples/python/archive_session.py.
-///
 /// Usage:
 ///   swift run ArchiveSession [<api_key>]
 

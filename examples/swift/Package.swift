@@ -34,7 +34,5 @@ let package = Package(
         script("ActivityAnalysis"),
         script("UpdateActivity"),
         script("ArchiveSession"),
-        script("OpenCapImport"),
-        script("PlotKinematics"),
     ]
 )

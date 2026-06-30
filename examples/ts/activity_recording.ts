@@ -175,7 +175,19 @@ async function main() {
   await service.calibrateSubject(subject, session, calibrationCallback);
   console.log('Subject calibration complete.');
 
-  // Recording
+  // Recording loop
+  do {
+    await recordOne(service, session, subject);
+  } while (await confirm('\nRecord another activity?', true));
+
+  console.log('\nDone.');
+}
+
+async function recordOne(
+  service: ModelHealthService,
+  session: Parameters<typeof service.startRecording>[1],
+  subject: { name: string }
+): Promise<void> {
   const activityName = (await prompt('\nActivity name (e.g. cmj, squat): ')).trim() || 'activity';
 
   console.log('\nAutomatic analysis (optional):\n');
@@ -186,12 +198,23 @@ async function main() {
   await prompt(`\nAsk ${subject.name} to get ready, then press Enter to start recording...`);
   console.log('Recording...');
   const config = activityTypeValue ? { activityType: activityTypeValue as any } : undefined;
-  const activity = await service.startRecording(activityName, session, config);
+  let activity;
+  try {
+    activity = await service.startRecording(activityName, session, config);
+  } catch (err: any) {
+    console.error(`Failed to start recording: ${err.message ?? err}`);
+    return;
+  }
   console.log(`  Recording started (activity ${activity.id}).`);
 
   await prompt('\nPress Enter when the movement is complete to stop recording...');
   console.log('Stopping recording...');
-  await service.stopRecording(session);
+  try {
+    await service.stopRecording(session);
+  } catch (err: any) {
+    console.error(`Failed to stop recording: ${err.message ?? err}`);
+    return;
+  }
   console.log('Recording stopped. Videos are uploading.');
 
   // Wait for processing
@@ -207,28 +230,26 @@ async function main() {
     const resultStatus = await pollAnalysis(service, task);
 
     if (resultStatus.type !== 'completed') {
-      console.error(`Analysis did not complete (status: ${resultStatus.type}).`);
-      process.exit(1);
-    }
-    console.log('Analysis complete.');
+      console.log(`Analysis did not complete (status: ${resultStatus.type}).`);
+    } else {
+      console.log('Analysis complete.');
+      const freshActivity = await service.fetchActivity(activity.id);
+      currentActivity = freshActivity;
+      const results = await service.analysisDataForActivity(freshActivity, ['report']);
+      const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
 
-    const freshActivity = await service.fetchActivity(activity.id);
-    currentActivity = freshActivity;
-    const results = await service.analysisDataForActivity(freshActivity, ['report']);
-    const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
-
-    console.log('\nDownloading report...');
-    for (const r of results) {
-      const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
-      const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
-      console.log(`  Saved ${p}`);
+      console.log('\nDownloading report...');
+      for (const r of results) {
+        const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
+        const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+        console.log(`  Saved ${p}`);
+      }
     }
   } else if (finalStatus.type === 'ready') {
     console.log(`Activity is ready. ID: ${activity.id}`);
     console.log('Run activity_analysis.ts to analyze this activity.');
   } else {
-    console.error(`Activity did not reach ready state (status: ${finalStatus.type}).`);
-    process.exit(1);
+    console.log(`Activity did not reach ready state (status: ${finalStatus.type}).`);
   }
 
   // Update activity metadata (optional)
@@ -249,7 +270,6 @@ async function main() {
       console.error(`Failed to update activity: ${err.message ?? err}`);
     }
   }
-  console.log('\nDone.');
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); })

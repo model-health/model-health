@@ -1,7 +1,5 @@
 /// Model Health Swift examples — post-capture analysis workflow.
 ///
-/// Mirrors examples/python/activity_analysis.py.
-///
 /// Usage:
 ///   swift run ActivityAnalysis [<api_key>]
 
@@ -22,6 +20,9 @@ private let analysisTypes: [(ActivityType, String)] = [
     (.hop,                 "Hop Test"),
     (.changeOfDirection,   "5-0-5 Test"),
     (.cut,                 "Cutting Maneuver"),
+    (.sprint,              "Sprint"),
+    (.lateralStepdown,     "Lateral Step Down"),
+    (.lunge,               "Lunge"),
 ]
 
 private let resultTypes: [(AnalysisDataType, String)] = [
