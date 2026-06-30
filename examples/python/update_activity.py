@@ -91,13 +91,18 @@ def main(api_key):
 
     # Update
     print("\nUpdate activity (press Enter to keep current value):")
+    current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
+    print(f"  Current tags: {current_tags}")
 
     new_name = input(f"  Name [{activity.name or activity.id}]: ").strip() or None
 
-    tags_input = input("  Tags, comma-separated (leave blank to skip): ").strip()
-    new_tags = [t.strip() for t in tags_input.split(",") if t.strip()] if tags_input else []
+    add_input = input("  Tags to add, comma-separated (press Enter to skip): ").strip()
+    add_tags = [t.strip() for t in add_input.split(",") if t.strip()] if add_input else []
 
-    if not new_name and not new_tags:
+    remove_input = input("  Tags to remove, comma-separated (press Enter to skip): ").strip()
+    remove_tags = [t.strip() for t in remove_input.split(",") if t.strip()] if remove_input else []
+
+    if not new_name and not add_tags and not remove_tags:
         print("No changes — exiting.")
         return
 
@@ -105,12 +110,14 @@ def main(api_key):
     try:
         activity = service.update_activity(
             activity,
-            ActivityConfig(name=new_name, tags=new_tags),
+            ActivityConfig(name=new_name, add_tags=add_tags, remove_tags=remove_tags),
         )
     except ModelHealthError as exc:
         sys.exit(f"Failed to update activity: {exc}")
 
     print(f"  Name:  {activity.name or activity.id}")
+    updated_tags = ", ".join(activity.tags) if activity.tags else "(none)"
+    print(f"  Tags:  {updated_tags}")
     print("\nDone.")
 
 

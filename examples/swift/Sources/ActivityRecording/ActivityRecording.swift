@@ -41,6 +41,9 @@ private let activityTypeOptions: [ActivityTypeOption] = [
     ActivityTypeOption(type: .hop,                    label: "Hop Test"),
     ActivityTypeOption(type: .changeOfDirection,      label: "5-0-5 Test"),
     ActivityTypeOption(type: .cut,                    label: "Cutting Maneuver"),
+    ActivityTypeOption(type: .sprint,                 label: "Sprint"),
+    ActivityTypeOption(type: .lateralStepdown,        label: "Lateral Step Down"),
+    ActivityTypeOption(type: .lunge,                  label: "Lunge"),
 ]
 
 private let cbWidth = 48
@@ -239,6 +242,8 @@ struct ActivityRecording {
         print("\nWaiting for upload and processing...")
         let finalStatus = await pollActivity(service: service, activity: activity)
 
+        var currentActivity = activity
+
         if case .analyzing(let task) = finalStatus {
             let typeLabel = selectedType.label
             print("Activity is ready. Automatic '\(typeLabel)' analysis has started.")
@@ -264,6 +269,7 @@ struct ActivityRecording {
                 fputs("Failed to re-fetch activity: \(error)\n", stderr)
                 exit(1)
             }
+            currentActivity = freshActivity
 
             let results = await service.analysisData(ofType: [.report], for: freshActivity)
             let slug = (freshActivity.name ?? freshActivity.id).replacingOccurrences(of: " ", with: "_")
@@ -272,14 +278,39 @@ struct ActivityRecording {
                 let path = saveFile(named: "\(slug)_\(r.type.typeLabel).\(r.type.fileExtension)", data: r.data)
                 print("  Saved \(path)")
             }
-            print("\nDone.")
         } else if case .ready = finalStatus {
             print("Activity is ready. ID: \(activity.id)")
-            print("\nDone. Run ActivityAnalysis to analyze this activity.")
+            print("Run ActivityAnalysis to analyze this activity.")
         } else {
             fputs("Activity did not reach ready state (status: \(finalStatus)).\n", stderr)
             exit(1)
         }
+
+        // Update activity metadata (optional)
+        print("\nUpdate activity (optional):")
+        let currentTags = currentActivity.tags.isEmpty ? "(none)" : currentActivity.tags.joined(separator: ", ")
+        print("  Current tags: \(currentTags)")
+        print("  New name (press Enter to keep '\(currentActivity.name ?? currentActivity.id)'): ", terminator: "")
+        let newName = readLine()?.trimmingCharacters(in: .whitespaces).nonEmpty
+        print("  Tags to add, comma-separated (press Enter to skip): ", terminator: "")
+        let addTagsRaw = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        let addTags: [String] = addTagsRaw.isEmpty ? [] : addTagsRaw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        print("  Tags to remove, comma-separated (press Enter to skip): ", terminator: "")
+        let removeTagsRaw = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        let removeTags: [String] = removeTagsRaw.isEmpty ? [] : removeTagsRaw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if newName != nil || !addTags.isEmpty || !removeTags.isEmpty {
+            print("Updating activity...")
+            do {
+                let updated = try await service.update(
+                    activity: currentActivity,
+                    config: ActivityConfig(addTags: addTags, removeTags: removeTags, name: newName)
+                )
+                print("  Updated: \(updated.name ?? updated.id)")
+            } catch {
+                fputs("Failed to update activity: \(error)\n", stderr)
+            }
+        }
+        print("\nDone.")
     }
 }
 

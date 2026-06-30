@@ -32,6 +32,7 @@ let package = Package(
         script("SessionData"),
         script("ActivityRecording"),
         script("ActivityAnalysis"),
+        script("UpdateActivity"),
         script("ArchiveSession"),
         script("OpenCapImport"),
         script("PlotKinematics"),

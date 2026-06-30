@@ -220,18 +220,23 @@ def _record_one(service, session, subject):
 
     # Update activity metadata
     print("\nUpdate activity (optional):")
+    current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
+    print(f"  Current tags: {current_tags}")
 
-    tags_input = input("\nTags (comma-separated, press Enter to skip): ").strip()
-    selected_tags = [t.strip() for t in tags_input.split(",") if t.strip()] if tags_input else []
+    new_name = input(f"  New name (press Enter to keep '{activity.name or activity.id}'): ").strip() or None
 
-    new_name = input(f"New name (press Enter to keep '{activity.name or activity.id}'): ").strip() or None
+    add_input = input("  Tags to add, comma-separated (press Enter to skip): ").strip()
+    add_tags = [t.strip() for t in add_input.split(",") if t.strip()] if add_input else []
 
-    if new_name or selected_tags:
+    remove_input = input("  Tags to remove, comma-separated (press Enter to skip): ").strip()
+    remove_tags = [t.strip() for t in remove_input.split(",") if t.strip()] if remove_input else []
+
+    if new_name or add_tags or remove_tags:
         print("Updating activity...")
         try:
             activity = service.update_activity(
                 activity,
-                ActivityConfig(name=new_name, tags=selected_tags),
+                ActivityConfig(name=new_name, add_tags=add_tags, remove_tags=remove_tags),
             )
         except ModelHealthError as exc:
             print(f"Failed to update activity: {exc}")

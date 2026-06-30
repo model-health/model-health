@@ -71,6 +71,9 @@ const ACTIVITY_TYPE_OPTIONS: ActivityTypeOption[] = [
   { type: ActivityType.Hop,                   label: 'Hop Test'                        },
   { type: ActivityType.ChangeOfDirection,     label: '5-0-5 Test'                      },
   { type: ActivityType.Cut,                   label: 'Cutting Maneuver'                },
+  { type: ActivityType.Sprint,                label: 'Sprint'                          },
+  { type: ActivityType.LateralStepdown,       label: 'Lateral Step Down'               },
+  { type: ActivityType.Lunge,                 label: 'Lunge'                           },
 ];
 
 async function pollActivity(
@@ -195,6 +198,8 @@ async function main() {
   console.log('\nWaiting for upload and processing...');
   const finalStatus = await pollActivity(service, activity);
 
+  let currentActivity = activity;
+
   if (finalStatus.type === 'analyzing') {
     const task: Analysis = { taskId: finalStatus.taskId };
     console.log(`Activity is ready. Automatic '${activityTypeLabel}' analysis has started.`);
@@ -208,6 +213,7 @@ async function main() {
     console.log('Analysis complete.');
 
     const freshActivity = await service.fetchActivity(activity.id);
+    currentActivity = freshActivity;
     const results = await service.analysisDataForActivity(freshActivity, ['report']);
     const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
 
@@ -217,14 +223,33 @@ async function main() {
       const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
       console.log(`  Saved ${p}`);
     }
-    console.log('\nDone.');
   } else if (finalStatus.type === 'ready') {
     console.log(`Activity is ready. ID: ${activity.id}`);
-    console.log('\nDone. Run activity_analysis.ts to analyze this activity.');
+    console.log('Run activity_analysis.ts to analyze this activity.');
   } else {
     console.error(`Activity did not reach ready state (status: ${finalStatus.type}).`);
     process.exit(1);
   }
+
+  // Update activity metadata (optional)
+  console.log('\nUpdate activity (optional):');
+  const currentTags = currentActivity.tags?.length ? currentActivity.tags.join(', ') : '(none)';
+  console.log(`  Current tags: ${currentTags}`);
+  const newName = (await prompt(`  New name (press Enter to keep '${currentActivity.name ?? currentActivity.id}'): `)).trim() || undefined;
+  const addInput = (await prompt('  Tags to add, comma-separated (press Enter to skip): ')).trim();
+  const addTags = addInput ? addInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const removeInput = (await prompt('  Tags to remove, comma-separated (press Enter to skip): ')).trim();
+  const removeTags = removeInput ? removeInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+  if (newName || addTags.length || removeTags.length) {
+    console.log('Updating activity...');
+    try {
+      const updated = await service.updateActivity(currentActivity, { name: newName, addTags, removeTags });
+      console.log(`  Updated: ${updated.name ?? updated.id}`);
+    } catch (err: any) {
+      console.error(`Failed to update activity: ${err.message ?? err}`);
+    }
+  }
+  console.log('\nDone.');
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); })
