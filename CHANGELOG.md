@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.5.1
+
+## Fixed
+
+Minor documentation updates.
+
+## 0.5.0
+
+## Added
+
+- `addMotionData(_:to:)` (Swift), `addMotionDataToActivity()` (TypeScript), `add_motion_data_to_activity()` (Python) — attach external files (CSV, JSON, binary) to an activity after recording. Accepts one or more `ExternalResultFile` values.
+- `ExternalResultFile` type in all bindings, with `tagged` factory method.
+- `ExternalDataFormat` enum (Swift) / format string (Python/TypeScript) for specifying the encoding of tagged files (`csv`, `json`, `binary`).
+
+## Fixed
+
+- Network requests now retry automatically on transient failures (server 5xx errors and connection-level errors).  Client errors (4xx) and authentication failures are not retried.
+
+## 0.4.4
+
+### Fixed: MOT file parsing issues
+
+A MOT file with the following header failed CSV conversion
+
+```
+Coordinates
+version=1
+nRows=421
+nColumns=40
+inDegrees=yes
+
+Units are S.I. units (second, meters, Newtons, ...)
+If the header above contains a line with 'inDegrees', this indicates whether rotational values are in degrees (yes) or radians (no).
+
+endheader
+```
+
+The MOT to CSV converter didn't handle the file title `Coordinates`, or the blank lines and free form description.
+
 ## 0.4.3
 
 ### Fixed: Calibration decoding for Swift and TypeScript
@@ -43,7 +82,7 @@ service = ModelHealthService(api_key="...")
 sessions = service.list_sessions()
 ```
 
-See the [Python documentation](https://docs.modelhealth.io/getting-started/installation) for the full API reference.
+See the [Python documentation](https://sdk.modelhealth.io/getting-started/installation) for the full API reference.
 
 ---
 

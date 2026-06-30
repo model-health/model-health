@@ -14,6 +14,9 @@ export const ANALYSIS_TYPES = [
   { value: 'treadmill_gait', label: 'Treadmill Walking' },
   { value: 'change_of_direction', label: '5-0-5 Test' },
   { value: 'cut', label: 'Cutting Maneuver' },
+  { value: 'sprint', label: 'Sprint' },
+  { value: 'lateral_stepdown', label: 'Lateral Step Down' },
+  { value: 'lunge', label: 'Lunge' },
 ];
 
 export const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? 'YOUR_API_KEY_HERE';

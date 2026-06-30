@@ -30,3 +30,6 @@ sdk-docs/
 ModelHealthFFI.xcframework
 *.zip
 .env.local
+
+# Claude
+CLAUDE.md

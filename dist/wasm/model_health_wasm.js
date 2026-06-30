@@ -47,6 +47,23 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
+     * Upload external data files to an activity and return the refreshed activity.
+     *
+     * `files_json` is an array of `{ tag: string, extension: string, data: Uint8Array }` objects.
+     *
+     * # Errors
+     *
+     * Returns an error if any input fails validation (reserved tag, empty data, size exceeded)
+     * or if any network request fails.
+     * @param {any} trial_json
+     * @param {any} files_json
+     * @returns {Promise<any>}
+     */
+    addMotionDataToActivity(trial_json, files_json) {
+        const ret = wasm.modelhealthservice_addMotionDataToActivity(this.__wbg_ptr, addHeapObject(trial_json), addHeapObject(files_json));
+        return takeObject(ret);
+    }
+    /**
      * # Errors
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
@@ -646,7 +663,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1483(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1544(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -800,8 +817,8 @@ function __wbg_get_imports() {
             console.warn(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 458, function: Function { arguments: [Externref], shim_idx: 459, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1059, __wasm_bindgen_func_elem_1060);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 480, function: Function { arguments: [Externref], shim_idx: 481, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1120, __wasm_bindgen_func_elem_1121);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -838,12 +855,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_1060(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_1060(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_1121(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_1121(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1483(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1483(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1544(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1544(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 

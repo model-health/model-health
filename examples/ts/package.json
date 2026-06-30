@@ -1,6 +1,6 @@
 {
   "name": "modelhealth-ts-scripts",
-  "version": "0.5.0",
+  "version": "0.5.6",
   "type": "module",
   "scripts": {
     "add-external-data": "tsx add_external_data.ts",
@@ -12,7 +12,7 @@
     "plot-kinematics": "tsx plot_kinematics.ts"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "^0.5.0"
+    "@modelhealth/modelhealth": "^0.5.6"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

@@ -6,9 +6,10 @@ Walks through the full capture workflow:
   2. Select an existing subject or create a new one
   3. Calibrate cameras using a checkerboard pattern
   4. Calibrate the subject (neutral standing pose)
-  5. Record a movement activity (optionally with automatic analysis)
-  6. Wait for activity upload and processing
-  7. If an activity type was chosen, wait for analysis and save the report
+  5. Record one or more movement activities in a loop
+  6. For each activity: wait for upload/processing, optionally run analysis,
+     then optionally update activity metadata
+  7. After each activity, choose to record another or quit
 
 Requires cameras to be connected and ready via the Model Health companion iOS app.
 
@@ -36,8 +37,11 @@ from modelhealth import (
     CalibrationStatusUploading,
     CheckerboardDetails,
     CheckerboardPlacement,
+    FilterFrequencyHz,
     ModelHealthError,
     ModelHealthService,
+    RecordingConfig,
+    SessionFramerate,
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
@@ -61,6 +65,27 @@ _ACTIVITY_TYPES = [
     (ActivityType.hop,                   "Hop Test"),
     (ActivityType.change_of_direction,   "5-0-5 Test"),
     (ActivityType.cut,                   "Cutting Maneuver"),
+    (ActivityType.sprint,                "Sprint"),
+    (ActivityType.lateral_stepdown,      "Lateral Step Down"),
+    (ActivityType.lunge,                 "Lunge"),
+]
+
+# ---------------------------------------------------------------------------
+# Per-recording config options
+# ---------------------------------------------------------------------------
+
+_FRAMERATES = [
+    (None,                     "Default"),
+    (SessionFramerate.fps_60,  "60 fps"),
+    (SessionFramerate.fps_120, "120 fps"),
+    (SessionFramerate.fps_240, "240 fps"),
+]
+
+_FILTER_FREQUENCIES = [
+    (None,                   "Default"),
+    (FilterFrequencyHz(6),   "6 Hz"),
+    (FilterFrequencyHz(10),  "10 Hz"),
+    (FilterFrequencyHz(20),  "20 Hz"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -113,6 +138,107 @@ def _poll_activity(service, activity, interval=5):
             print()
             return status
         time.sleep(interval)
+
+
+# ---------------------------------------------------------------------------
+# Single recording loop iteration
+# ---------------------------------------------------------------------------
+
+def _record_one(service, session, subject):
+    """Run a single record → process → (optionally analyse) → (optionally update) cycle.
+
+    Returns True to continue recording, False to quit.
+    """
+    activity_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "activity"
+
+    print("\nAutomatic analysis (optional):\n")
+    activity_type_value, activity_type_label = pick_one(
+        _ACTIVITY_TYPES,
+        "Select activity type",
+        lambda t: t[1],
+    )
+
+    print("\nFramerate override (optional):\n")
+    framerate_value, _ = pick_one(_FRAMERATES, "Select framerate", lambda t: t[1])
+
+    print("\nFilter frequency override (optional):\n")
+    filter_value, _ = pick_one(_FILTER_FREQUENCIES, "Select filter frequency", lambda t: t[1])
+
+    recording_config = None
+    if framerate_value is not None or filter_value is not None:
+        recording_config = RecordingConfig(framerate=framerate_value, filter_frequency=filter_value)
+
+    input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
+    print("Recording...")
+    try:
+        activity = service.start_recording(
+            activity_name,
+            session,
+            ActivityConfig(activity_type=activity_type_value, config=recording_config)
+        )
+    except ModelHealthError as exc:
+        print(f"Failed to start recording: {exc}")
+        return confirm("\nRecord another activity?", default=True)
+
+    print(f"  Recording started (activity {activity.id}).")
+
+    input("\nPress Enter when the movement is complete to stop recording...")
+    print("Stopping recording...")
+    try:
+        service.stop_recording(session)
+    except ModelHealthError as exc:
+        print(f"Failed to stop recording: {exc}")
+        return confirm("\nRecord another activity?", default=True)
+
+    print("Recording stopped. Videos are uploading.")
+
+    # Wait for processing
+    print("\nWaiting for upload and processing...")
+    status = _poll_activity(service, activity)
+
+    if isinstance(status, ActivityStatusAnalyzing):
+        print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
+        print("\nWaiting for analysis to complete...")
+        result_status = poll_analysis(service, status.task)
+        if result_status != AnalysisStatus.completed:
+            print(f"Analysis did not complete (status: {result_status}).")
+        else:
+            print("Analysis complete.")
+            activity = service.fetch_activity(activity.id)
+            results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
+            slug = (activity.name or activity.id).replace(" ", "_")
+            print("\nDownloading report...")
+            for r in results:
+                ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+                path = save_file(f"{slug}_{r.type}.{ext}", r.data)
+                print(f"  Saved {path}")
+    elif status == ActivityStatus.ready:
+        print(f"Activity is ready. ID: {activity.id}")
+        print("Run activity_analysis.py to analyze this activity.")
+    else:
+        print(f"Activity did not reach ready state (status: {status}).")
+
+    # Update activity metadata
+    print("\nUpdate activity (optional):")
+
+    tags_input = input("\nTags (comma-separated, press Enter to skip): ").strip()
+    selected_tags = [t.strip() for t in tags_input.split(",") if t.strip()] if tags_input else []
+
+    new_name = input(f"New name (press Enter to keep '{activity.name or activity.id}'): ").strip() or None
+
+    if new_name or selected_tags:
+        print("Updating activity...")
+        try:
+            activity = service.update_activity(
+                activity,
+                ActivityConfig(name=new_name, tags=selected_tags),
+            )
+        except ModelHealthError as exc:
+            print(f"Failed to update activity: {exc}")
+        else:
+            print(f"  Updated: {activity.name or activity.id}")
+
+    return confirm("\nRecord another activity?", default=True)
 
 
 # ---------------------------------------------------------------------------
@@ -225,62 +351,11 @@ def main(api_key):
         sys.exit(f"Subject calibration failed: {exc}")
     print("Subject calibration complete.")
 
-    # Recording
-    activity_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "activity"
+    # Recording loop
+    while _record_one(service, session, subject):
+        pass
 
-    print("\nAutomatic analysis (optional):\n")
-    activity_type_value, activity_type_label = pick_one(
-        _ACTIVITY_TYPES,
-        "Select activity type",
-        lambda t: t[1],
-    )
-
-    input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
-    print("Recording...")
-    try:
-        activity = service.start_recording(
-            activity_name,
-            session,
-            ActivityConfig(activity_type=activity_type_value)
-        )
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to start recording: {exc}")
-    print(f"  Recording started (activity {activity.id}).")
-
-    input("\nPress Enter when the movement is complete to stop recording...")
-    print("Stopping recording...")
-    try:
-        service.stop_recording(session)
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to stop recording: {exc}")
-    print("Recording stopped. Videos are uploading.")
-
-    # Wait for processing
-    print("\nWaiting for upload and processing...")
-    status = _poll_activity(service, activity)
-
-    if isinstance(status, ActivityStatusAnalyzing):
-        print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
-        print("\nWaiting for analysis to complete...")
-        result_status = poll_analysis(service, status.task)
-        if result_status != AnalysisStatus.completed:
-            sys.exit(f"Analysis did not complete (status: {result_status}).")
-        print("Analysis complete.")
-
-        activity = service.fetch_activity(activity.id)
-        results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
-        slug = (activity.name or activity.id).replace(" ", "_")
-        print("\nDownloading report...")
-        for r in results:
-            ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
-            path = save_file(f"{slug}_{r.type}.{ext}", r.data)
-            print(f"  Saved {path}")
-        print("\nDone.")
-    elif status == ActivityStatus.ready:
-        print(f"Activity is ready. ID: {activity.id}")
-        print("\nDone. Run activity_analysis.py to analyze this activity.")
-    else:
-        sys.exit(f"Activity did not reach ready state (status: {status}).")
+    print("\nDone.")
 
 
 if __name__ == "__main__":

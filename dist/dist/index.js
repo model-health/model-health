@@ -792,6 +792,38 @@ export class ModelHealthService {
         const result = await this.wasmClient.analysisStatus(decamelizeKeys(task));
         return this.parseResponse(result);
     }
+    // MARK: - External Data
+    /**
+     * Attaches external files to an activity and returns a refreshed `Activity`.
+     *
+     * Use this after `activityStatus` returns `ready` to attach external data
+     * (e.g. measurements from another source) before running analysis.
+     *
+     * @param activity The activity to attach files to.
+     * @param files The external files to attach, with tag, file extension and data.
+     * @returns The refreshed `Activity` containing the newly created result entries.
+     * @throws If any upload fails, a tag is reserved or duplicated, or the server is unreachable.
+     *
+     * @example
+     * ```typescript
+     * const file: ExternalResultFile = {
+     *   dataType: { tag: "force_plate", format: "csv" },
+     *   data: new TextEncoder().encode("time,fx,fy,fz\n0.0,0,0,650\n"),
+     * };
+     * const updated = await client.addMotionDataToActivity(activity, [file]);
+     * await client.startAnalysis("counter_movement_jump", updated, session);
+     * ```
+     */
+    async addMotionDataToActivity(activity, files) {
+        this.ensureInitialized();
+        const wireFiles = files.map(f => ({
+            tag: f.tag,
+            extension: f.extension,
+            data: f.data,
+        }));
+        const result = await this.wasmClient.addMotionDataToActivity(decamelizeKeys(activity), wireFiles);
+        return this.parseResponse(result);
+    }
     // MARK: - Import
     /**
      * Imports a set of trials into a new session.

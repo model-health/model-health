@@ -16,7 +16,7 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile } from "./types.js";
 /**
  * Configuration options for the Model Health client.
  */
@@ -614,6 +614,28 @@ export declare class ModelHealthService {
      * ```
      */
     analysisStatus(task: Analysis): Promise<AnalysisStatus>;
+    /**
+     * Attaches external files to an activity and returns a refreshed `Activity`.
+     *
+     * Use this after `activityStatus` returns `ready` to attach external data
+     * (e.g. measurements from another source) before running analysis.
+     *
+     * @param activity The activity to attach files to.
+     * @param files The external files to attach, with tag, file extension and data.
+     * @returns The refreshed `Activity` containing the newly created result entries.
+     * @throws If any upload fails, a tag is reserved or duplicated, or the server is unreachable.
+     *
+     * @example
+     * ```typescript
+     * const file: ExternalResultFile = {
+     *   dataType: { tag: "force_plate", format: "csv" },
+     *   data: new TextEncoder().encode("time,fx,fy,fz\n0.0,0,0,650\n"),
+     * };
+     * const updated = await client.addMotionDataToActivity(activity, [file]);
+     * await client.startAnalysis("counter_movement_jump", updated, session);
+     * ```
+     */
+    addMotionDataToActivity(activity: Activity, files: ExternalResultFile[]): Promise<Activity>;
     /**
      * Imports a set of trials into a new session.
      *
