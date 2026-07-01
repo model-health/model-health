@@ -9,7 +9,7 @@
 import { ModelHealthService, ActivityType } from '@modelhealth/modelhealth';
 import type {
   CheckerboardDetails, CheckerboardPlacement,
-  CalibrationStatus, ActivityStatus, Analysis,
+  CalibrationStatus, ActivityStatus, Analysis, RecordingConfig,
 } from '@modelhealth/modelhealth';
 import {
   loadApiKey, ANALYSIS_DATA_EXT,
@@ -53,7 +53,7 @@ const CHECKERBOARD_PRESETS: CheckerboardPreset[] = [
 ];
 
 interface ActivityTypeOption {
-  type: string | null;
+  type: ActivityType | null;
   label: string;
 }
 
@@ -74,6 +74,30 @@ const ACTIVITY_TYPE_OPTIONS: ActivityTypeOption[] = [
   { type: ActivityType.Sprint,                label: 'Sprint'                          },
   { type: ActivityType.LateralStepdown,       label: 'Lateral Step Down'               },
   { type: ActivityType.Lunge,                 label: 'Lunge'                           },
+];
+
+interface FramerateOption {
+  value: number | null;
+  label: string;
+}
+
+const FRAMERATE_OPTIONS: FramerateOption[] = [
+  { value: null, label: 'Default'  },
+  { value: 60,   label: '60 fps'  },
+  { value: 120,  label: '120 fps' },
+  { value: 240,  label: '240 fps' },
+];
+
+interface FilterFrequencyOption {
+  value: { type: 'hz'; value: number } | null;
+  label: string;
+}
+
+const FILTER_FREQUENCY_OPTIONS: FilterFrequencyOption[] = [
+  { value: null,                       label: 'Default' },
+  { value: { type: 'hz', value: 6 },   label: '6 Hz'    },
+  { value: { type: 'hz', value: 10 },  label: '10 Hz'   },
+  { value: { type: 'hz', value: 20 },  label: '20 Hz'   },
 ];
 
 async function pollActivity(
@@ -195,9 +219,23 @@ async function recordOne(
   const activityTypeValue = selected.type;
   const activityTypeLabel = selected.label;
 
+  console.log('\nFramerate override (optional):\n');
+  const selectedFramerate = await pickOne(FRAMERATE_OPTIONS, 'Select framerate', o => o.label);
+
+  console.log('\nFilter frequency override (optional):\n');
+  const selectedFilter = await pickOne(FILTER_FREQUENCY_OPTIONS, 'Select filter frequency', o => o.label);
+
   await prompt(`\nAsk ${subject.name} to get ready, then press Enter to start recording...`);
   console.log('Recording...');
-  const config = activityTypeValue ? { activityType: activityTypeValue as any } : undefined;
+  let recordingConfig: RecordingConfig | undefined;
+  if (selectedFramerate.value !== null || selectedFilter.value !== null) {
+    recordingConfig = {};
+    if (selectedFramerate.value !== null) recordingConfig.framerate = selectedFramerate.value as any;
+    if (selectedFilter.value !== null) recordingConfig.filterFrequency = selectedFilter.value;
+  }
+  const config = (activityTypeValue || recordingConfig)
+    ? { activityType: activityTypeValue ?? undefined, config: recordingConfig }
+    : undefined;
   let activity;
   try {
     activity = await service.startRecording(activityName, session, config);
