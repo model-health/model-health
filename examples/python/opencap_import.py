@@ -19,6 +19,7 @@ from modelhealth import (
     ModelHealthService,
     SubjectParameters,
     SessionConfig,
+    SessionFramerate,
     SessionOpenSimModel,
     SessionScalingSetup,
     SessionCoreEngine,
@@ -51,6 +52,12 @@ _CORE_ENGINE_MAP = {
     "v0.2": SessionCoreEngine.v0_2,
     "v0.3": SessionCoreEngine.v0_3,
     "v1.0": SessionCoreEngine.v1_0,
+}
+
+_FRAMERATE_MAP = {
+    "60": SessionFramerate.fps_60,
+    "120": SessionFramerate.fps_120,
+    "240": SessionFramerate.fps_240,
 }
 
 
@@ -93,12 +100,17 @@ def copy_session(
         session_id_input: UUID of the OpenCap session to copy from.
         user_token_input: OpenCap authentication token.
         api_url_input: Base URL of the OpenCap API.
-        meta_overrides: Optional dict of settings to set under meta["settings"] on the new
-            session, overriding or extending what is copied from the source session. Supported keys:
+        meta_overrides: Optional dict of explicit settings to apply to the new session.
+            When provided, all fields listed below must be set by the caller — non-specified
+            fields fall back to SDK defaults, not source values.
+            When None (default), the core auto-derives all settings from the source session
+            meta, translating OpenCap field names as needed (e.g. augmentermodel → core_engine).
+            Supported keys:
                 - "openSimModel": "LaiUhlrich2022_shoulder" | "LaiUhlrich2022"
                 - "scalingsetup": "upright_standing_pose" | "any_pose"
                 - "coreengine": "v0.2" | "v0.3" | "v1.0"
                 - "filterfrequency": "default" | <integer>
+                - "framerate": "60" | "120" | "240"
         trials_to_import: Optional list of trial names to import. Setup trials
             (calibration, neutral) are always included. Set to None to import all trials.
         trial_meta_overrides: Optional dict keyed by trial name. Each value is a dict of
@@ -108,21 +120,25 @@ def copy_session(
     # Fetch source session
     session_input = fetch_session(session_id_input, api_url=api_url_input, api_token=user_token_input)
 
-    # Step 1: Build session config from source settings, applying any overrides
+    # Step 1: Build session config from meta_overrides (if provided).
+    # When meta_overrides is None the core auto-derives all settings from
+    # session_meta_json, including OpenCap-specific translations like
+    # augmentermodel → core_engine and the source framerate.
     meta = session_input.get("meta") or {}
     if isinstance(meta, str):
         meta = json.loads(meta) if meta else {}
-    settings = dict(meta.get("settings") or {})
-    if meta_overrides:
-        settings.update(meta_overrides)
-        print(f"Applying settings overrides: {meta_overrides}")
 
-    session_config = SessionConfig(
-        opensim_model=_OPENSIM_MODEL_MAP.get(settings.get("openSimModel"), SessionOpenSimModel.lai_uhlrich_2022_shoulder),
-        scaling_setup=_SCALING_SETUP_MAP.get(settings.get("scalingsetup"), SessionScalingSetup.upright_standing_pose),
-        core_engine=_CORE_ENGINE_MAP.get(settings.get("coreengine"), SessionCoreEngine.v0_3),
-        filter_frequency=_filter_frequency_from_meta(settings.get("filterfrequency")),
-    )
+    if meta_overrides:
+        session_config = SessionConfig(
+            framerate=_FRAMERATE_MAP.get(str(meta_overrides.get("framerate") or ""), SessionFramerate.fps_120),
+            opensim_model=_OPENSIM_MODEL_MAP.get(meta_overrides.get("openSimModel"), SessionOpenSimModel.lai_uhlrich_2022_shoulder),
+            scaling_setup=_SCALING_SETUP_MAP.get(meta_overrides.get("scalingsetup"), SessionScalingSetup.upright_standing_pose),
+            core_engine=_CORE_ENGINE_MAP.get(meta_overrides.get("coreengine"), SessionCoreEngine.v1_0),
+            filter_frequency=_filter_frequency_from_meta(meta_overrides.get("filterfrequency")),
+        )
+        print(f"Applying settings overrides: {meta_overrides}")
+    else:
+        session_config = None
     print("Session settings configured.")
 
     # Step 2: Select or create subject
@@ -307,6 +323,7 @@ if __name__ == "__main__":
         "scalingsetup": "upright_standing_pose",    # "upright_standing_pose" | "any_pose"
         "coreengine": "v1.0",                       # "v0.2" | "v0.3" | "v1.0"
         "filterfrequency": "default",               # "default" | <integer Hz>
+        # "framerate": "60",                        # "60" | "120" | "240" — override source framerate
     }
 
     # Trials to import. Setup trials (calibration, neutral) are always included.
@@ -316,7 +333,11 @@ if __name__ == "__main__":
 
     # Optional per-trial overrides keyed by trial name.
     # Setting "activity_type" will auto-launch analysis after processing.
-    trial_meta_overrides = {}
+    # trial_meta_overrides = {}
+    trial_meta_overrides = {
+        "test": {"activity_type": ActivityType.range_of_motion},
+        # "trial2": {"activity_type": ActivityType.counter_movement_jump},
+    }
     # trial_meta_overrides = {
     #     "trial1": {"activity_type": ActivityType.range_of_motion},
     #     "trial2": {"activity_type": ActivityType.counter_movement_jump},
