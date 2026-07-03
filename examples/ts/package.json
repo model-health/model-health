@@ -8,7 +8,8 @@
     "activity-recording": "tsx activity_recording.ts",
     "activity-analysis": "tsx activity_analysis.ts",
     "archive-session": "tsx archive_session.ts",
-    "update-activity": "tsx update_activity.ts"
+    "update-activity": "tsx update_activity.ts",
+    "activity-metrics": "tsx activity_metrics.ts"
   },
   "dependencies": {
     "@modelhealth/modelhealth": "^0.5.6"
