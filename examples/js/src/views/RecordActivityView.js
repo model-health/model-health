@@ -69,6 +69,7 @@ export function render(container, state, { setState, navigate }) {
                 <button type="button" class="btn small secondary refresh-activity" data-activity-id="${escapeHtml(a.id)}">↻</button>
                 <button type="button" class="btn small primary analyze-btn" data-activity-id="${escapeHtml(a.id)}" ${canAnalyze ? '' : 'disabled'}>Analyze</button>
                 <button type="button" class="btn small primary results-btn" data-activity-id="${escapeHtml(a.id)}" ${canViewResults ? '' : 'disabled'}>Results</button>
+                <button type="button" class="btn small secondary metrics-btn" data-activity-id="${escapeHtml(a.id)}" ${canViewResults ? '' : 'disabled'}>Metrics</button>
               </div>
             </li>
           `;
@@ -229,6 +230,21 @@ export function render(container, state, { setState, navigate }) {
           analysisResult: null,
           analysisResultDataItems: null,
           analysisResultSelectedIndex: 0,
+        });
+      } else {
+        setState({ errorMessage: 'Activity not found.' });
+      }
+    });
+  });
+
+  container.querySelectorAll('.metrics-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-activity-id');
+      const activity = activities.find((a) => a.id === id);
+      if (activity) {
+        navigate('activity-metrics', {
+          selectedActivity: activity,
+          activityMetricsData: null,
         });
       } else {
         setState({ errorMessage: 'Activity not found.' });

@@ -12,6 +12,7 @@ import { render as renderCameraCal } from './views/CameraCalibrationView.js';
 import { render as renderNeutralPose } from './views/NeutralPoseView.js';
 import { render as renderRecordActivity, onEnter as onEnterRecordActivity } from './views/RecordActivityView.js';
 import { render as renderAnalysisResult, onEnter as onEnterAnalysisResult } from './views/AnalysisResultView.js';
+import { render as renderMetrics, onEnter as onEnterMetrics } from './views/MetricsView.js';
 
 const VIEWS = {
   sessions: { render: renderSessions, onEnter: onEnterSessions },
@@ -21,6 +22,7 @@ const VIEWS = {
   'neutral-pose': { render: renderNeutralPose },
   'record-activity': { render: renderRecordActivity, onEnter: onEnterRecordActivity },
   'analysis-result': { render: renderAnalysisResult, onEnter: onEnterAnalysisResult },
+  'activity-metrics': { render: renderMetrics, onEnter: onEnterMetrics },
 };
 
 const container = document.getElementById('content');

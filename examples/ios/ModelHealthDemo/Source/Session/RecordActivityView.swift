@@ -34,6 +34,7 @@ struct RecordActivityView: View {
     @State private var selectedActivityForResults: Activity?
     @State private var selectedActivityForVideos: Activity?
     @State private var selectedActivityForData: Activity?
+    @State private var selectedActivityForMetrics: Activity?
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
@@ -146,6 +147,9 @@ struct RecordActivityView: View {
                                 },
                                 onViewData: {
                                     selectedActivityForData = activityState.activity
+                                },
+                                onViewMetrics: {
+                                    selectedActivityForMetrics = activityState.activity
                                 }
                             )
                         }
@@ -170,6 +174,9 @@ struct RecordActivityView: View {
             }
             .navigationDestination(item: $selectedActivityForData) { activity in
                 ActivityDataView(activity: activity)
+            }
+            .navigationDestination(item: $selectedActivityForMetrics) { activity in
+                MetricsView(activity: activity)
             }
             .task {
                 guard case .notStarted = loadingState else {
@@ -369,6 +376,7 @@ private struct ActivityRow: View {
     let onViewResults: () -> Void
     let onViewVideos: () -> Void
     let onViewData: () -> Void
+    let onViewMetrics: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -460,6 +468,17 @@ private struct ActivityRow: View {
                     onViewResults()
                 } label: {
                     Image(systemName: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!activityState.canViewResults)
+                .frame(width: 44, height: 44)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    onViewMetrics()
+                } label: {
+                    Image(systemName: "chart.bar.xaxis")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!activityState.canViewResults)
@@ -685,7 +704,8 @@ private struct RecordActivityView_Preview: View {
                         onStartAnalysis: { _ in },
                         onViewResults: {},
                         onViewVideos: {},
-                        onViewData: {}
+                        onViewData: {},
+                        onViewMetrics: {}
                     )
                 }
             }
