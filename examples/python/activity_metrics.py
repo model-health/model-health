@@ -84,50 +84,6 @@ def main(api_key):
             for metric in group.metrics:
                 print(f"    {metric.name}: {_format_value(metric.value)}")
 
-    # Subject metrics (optional)
-    print("\n" + "-" * 40)
-    if not confirm("\nFetch subject-level metrics?", default=False):
-        print("\nDone.")
-        return
-
-    print("\nFetching subjects...")
-    subjects = service.subject_list()
-    if not subjects:
-        sys.exit("No subjects found.")
-
-    print(f"\n{len(subjects)} subject(s):\n")
-    subject = pick_one(
-        subjects,
-        "Select subject",
-        lambda s: f"[ID: {s.id}]  {s.name}",
-    )
-
-    start_str = None
-    end_str = None
-    if confirm("\nFilter by date range? (default: last 30 days)", default=False):
-        today = date.today()
-        start_str = (today - timedelta(days=30)).isoformat()
-        end_str = today.isoformat()
-        print(f"  Range: {start_str} to {end_str}")
-
-    print(f"\nFetching metrics for subject '{subject.name}' (ID: {subject.id})...")
-    try:
-        all_metrics = service.subject_metrics(subject.id, start=start_str, end=end_str)
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to fetch subject metrics: {exc}")
-
-    if not all_metrics:
-        print("  No metrics found for this subject.")
-    else:
-        print(f"\n  {len(all_metrics)} activity result(s):\n")
-        for am in all_metrics:
-            total = sum(len(g.metrics) for g in am.groups)
-            print(
-                f"  Activity {am.activity_id}"
-                f"  (type ID: {am.activity_type_id})"
-                f"  — {total} metric(s)"
-            )
-
     print("\nDone.")
 
 
