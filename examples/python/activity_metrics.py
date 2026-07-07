@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Model Health Python SDK — Retrieve biomechanical metrics for an activity or subject.
+"""Model Health Python SDK — Retrieve biomechanical metrics for an activity.
 
-Demonstrates ``activity_metrics`` (single-activity dashboard metrics) and
-``subject_metrics`` (all metrics across activities for a subject, with optional
-date filtering).
+Demonstrates ``activity_metrics`` (single-activity dashboard metrics).
 
 Usage:
     activity_metrics.py [<api_key>]
@@ -20,7 +18,7 @@ from modelhealth import (
     MetricValueScalar,
     MetricValueBilateral,
 )
-from _prompts import pick_one, confirm
+from _prompts import pick_one
 from _utils import load_api_key
 
 # Activities created by the mobile app for internal use — exclude from lists.
@@ -75,16 +73,29 @@ def main(api_key):
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch activity metrics: {exc}")
 
-    if not metrics.groups:
+    flat = _flatten_metrics(metrics)
+    if not flat:
         print("  No metrics available for this activity.")
     else:
-        print(f"\nActivity metrics (activity type ID: {metrics.activity_type_id}):\n")
-        for group in metrics.groups:
-            print(f"  {group.name}")
-            for metric in group.metrics:
-                print(f"    {metric.name}: {_format_value(metric.value)}")
+        print("\nActivity metrics:\n")
+        for name, value in flat.items():
+            print(f"  {name}: {_format_value(value)}")
 
     print("\nDone.")
+
+
+def _flatten_metrics(metrics):
+    """Collapse the grouped metrics into a flat name -> value mapping.
+
+    Groups are discarded and each metric appears exactly once; the first
+    occurrence of a name wins.
+    """
+    flat = {}
+    for group in metrics.groups:
+        for metric in group.metrics:
+            if metric.name not in flat:
+                flat[metric.name] = metric.value
+    return flat
 
 
 def _format_value(value):

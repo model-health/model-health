@@ -42,6 +42,15 @@ an analysis and saving results (metrics JSON, report PDF, data ZIP).
 python3 activity_analysis.py [<api_key>]
 ```
 
+### `activity_metrics.py` — Retrieve biomechanical metrics
+
+Selects a session and activity, then fetches its metrics via
+`activity_metrics` and prints them.
+
+```bash
+python3 activity_metrics.py [<api_key>]
+```
+
 ### `activity_recording.py` — Full capture workflow
 
 Walks through creating a session, calibrating cameras and subject, recording an
@@ -59,6 +68,15 @@ to it using `add_motion_data_to_activity`.
 
 ```bash
 python3 add_external_data.py [<api_key>]
+```
+
+### `update_activity.py` — Update activity metadata
+
+Selects a subject and one of their activities, then optionally updates the
+activity name and/or tags via `update_activity`.
+
+```bash
+python3 update_activity.py [<api_key>]
 ```
 
 ### `archive_session.py` — Session archive download

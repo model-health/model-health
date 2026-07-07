@@ -218,7 +218,15 @@ def _record_one(service, session, subject):
     else:
         print(f"Activity did not reach ready state (status: {status}).")
 
-    # Update activity metadata
+    # Update activity metadata.
+    # Re-fetch first: analysis auto-generates tags server-side, and update_activity
+    # merges add/remove_tags on top of the local activity's tags. Without a fresh
+    # fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
+    try:
+        activity = service.fetch_activity(activity.id)
+    except ModelHealthError as exc:
+        print(f"Failed to refresh activity: {exc}")
+
     print("\nUpdate activity (optional):")
     current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
     print(f"  Current tags: {current_tags}")

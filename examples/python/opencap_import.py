@@ -19,7 +19,6 @@ from modelhealth import (
     ModelHealthService,
     SubjectParameters,
     SessionConfig,
-    SessionFramerate,
     SessionOpenSimModel,
     SessionScalingSetup,
     SessionCoreEngine,
@@ -53,13 +52,6 @@ _CORE_ENGINE_MAP = {
     "v0.3": SessionCoreEngine.v0_3,
     "v1.0": SessionCoreEngine.v1_0,
 }
-
-_FRAMERATE_MAP = {
-    "60": SessionFramerate.fps_60,
-    "120": SessionFramerate.fps_120,
-    "240": SessionFramerate.fps_240,
-}
-
 
 def _filter_frequency_from_meta(value):
     if value is None or value == "default":
@@ -110,7 +102,8 @@ def copy_session(
                 - "scalingsetup": "upright_standing_pose" | "any_pose"
                 - "coreengine": "v0.2" | "v0.3" | "v1.0"
                 - "filterfrequency": "default" | <integer>
-                - "framerate": "60" | "120" | "240"
+            The framerate is always taken from the source session (it is intrinsic to the
+            recorded videos) and cannot be overridden.
         trials_to_import: Optional list of trial names to import. Setup trials
             (calibration, neutral) are always included. Set to None to import all trials.
         trial_meta_overrides: Optional dict keyed by trial name. Each value is a dict of
@@ -130,7 +123,6 @@ def copy_session(
 
     if meta_overrides:
         session_config = SessionConfig(
-            framerate=_FRAMERATE_MAP.get(str(meta_overrides.get("framerate") or ""), SessionFramerate.fps_120),
             opensim_model=_OPENSIM_MODEL_MAP.get(meta_overrides.get("openSimModel"), SessionOpenSimModel.lai_uhlrich_2022_shoulder),
             scaling_setup=_SCALING_SETUP_MAP.get(meta_overrides.get("scalingsetup"), SessionScalingSetup.upright_standing_pose),
             core_engine=_CORE_ENGINE_MAP.get(meta_overrides.get("coreengine"), SessionCoreEngine.v1_0),
@@ -204,7 +196,17 @@ def copy_session(
     # Build the full source session meta with settings overrides applied so the
     # backend has all the context it needs (e.g. sessionWithCalibration).
     session_meta = dict(meta)
-    session_meta.setdefault("settings", {}).update(meta_overrides or {})
+    settings = dict(session_meta.get("settings") or {})
+    # Translate OpenCap's augmentermodel to Model Health's coreengine up front, so an explicit
+    # coreengine override below wins (otherwise the backend re-applies augmentermodel over it).
+    if "augmentermodel" in settings:
+        settings["coreengine"] = settings.pop("augmentermodel")
+    # posemodel is an OpenCap-only setting, unused in Model Health.
+    settings.pop("posemodel", None)
+    # Framerate is intrinsic to the recorded videos, so always keep the source session's
+    # value — drop any framerate from the overrides so it can never be changed here.
+    settings.update({k: v for k, v in (meta_overrides or {}).items() if k != "framerate"})
+    session_meta["settings"] = settings
 
     # Annotate trials with per-trial overrides (e.g. activity_type).
     # Setup trials are never annotated — only dynamic trials support activity_type.
@@ -240,8 +242,15 @@ def copy_session(
             trial = _current_trial[0] or "activity"
             print(f"  [{trial}] Processing...")
 
+    # The v2 API rejects any direct trial `meta` update, so drop the source meta
+    # before import — the backend derives what it needs from settings and activity_type.
+    import_trials = [
+        {k: v for k, v in t.items() if k != "meta"}
+        for t in [calibration_trial, neutral_trial, *annotated_trials]
+    ]
+
     session = mh_service.import_session(
-        json.dumps([calibration_trial, neutral_trial, *annotated_trials]),
+        json.dumps(import_trials),
         subject,
         session_config=session_config,
         session_meta_json=json.dumps(session_meta),
@@ -323,24 +332,19 @@ if __name__ == "__main__":
         "scalingsetup": "upright_standing_pose",    # "upright_standing_pose" | "any_pose"
         "coreengine": "v1.0",                       # "v0.2" | "v0.3" | "v1.0"
         "filterfrequency": "default",               # "default" | <integer Hz>
-        # "framerate": "60",                        # "60" | "120" | "240" — override source framerate
     }
 
     # Trials to import. Setup trials (calibration, neutral) are always included.
     # Set to None to import all trials.
     trials_to_import = None
-    # trials_to_import = ["trial1", "trial2"]  # example: import specific trials
+    # trials_to_import = ["test", "test1"]  # example: import specific trials
 
     # Optional per-trial overrides keyed by trial name.
     # Setting "activity_type" will auto-launch analysis after processing.
-    # trial_meta_overrides = {}
-    trial_meta_overrides = {
-        "test": {"activity_type": ActivityType.range_of_motion},
-        # "trial2": {"activity_type": ActivityType.counter_movement_jump},
-    }
+    trial_meta_overrides = {}
     # trial_meta_overrides = {
-    #     "trial1": {"activity_type": ActivityType.range_of_motion},
-    #     "trial2": {"activity_type": ActivityType.counter_movement_jump},
+    #     "test": {"activity_type": ActivityType.range_of_motion},
+    #     "test1": {"activity_type": ActivityType.counter_movement_jump},
     # }
 
     mh_service = ModelHealthService(load_api_key(args["--api-key"]))
