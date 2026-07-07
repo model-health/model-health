@@ -6,7 +6,7 @@ Walks through the post-capture workflow:
   2. Select an activity from that session
   3. Wait for processing to complete (if needed)
   4. Choose an analysis type and run it
-  5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
+  5. Choose which result files to save (report PDF, data ZIP)
 
 Usage:
     activity_analysis.py [<api_key>]
@@ -52,7 +52,6 @@ ANALYSIS_TYPES = [
 ]
 
 RESULT_TYPES = [
-    (AnalysisDataType.metrics, "Metrics  (JSON)"),
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]

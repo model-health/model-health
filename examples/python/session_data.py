@@ -44,7 +44,6 @@ MOTION_DATA_TYPES = [
 ]
 
 ANALYSIS_DATA_TYPES = [
-    (AnalysisDataType.metrics, "Metrics  (JSON)"),
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
