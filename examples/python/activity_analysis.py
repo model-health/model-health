@@ -121,7 +121,7 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
 
     # Processing status
@@ -140,12 +140,17 @@ def main(api_key):
         )
     print("Activity is ready.")
 
-    # Analysis type
+    # Analysis type — default to the activity's recorded type if available.
+    default_analysis = next(
+        (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
+        None,
+    )
     print("\nAnalysis type:\n")
     analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
         "Select analysis type",
         lambda t: t[1],
+        default=default_analysis,
     )
 
     # Run analysis
