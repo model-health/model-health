@@ -7,7 +7,7 @@
  */
 
 import { ModelHealthService, ActivityType } from '@modelhealth/modelhealth';
-import type { AnalysisDataType } from '@modelhealth/modelhealth';
+import type { AnalysisDataType, ActivityMetrics } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES, ANALYSIS_DATA_EXT,
   pickOne, pickMulti, saveFile, pollAnalysis, sleep, closePrompts,
@@ -109,16 +109,57 @@ async function main() {
   const selected = await pickMulti(RESULT_TYPES, 'Select result types', r => r[1]);
   const dataTypes = selected.map(r => r[0]);
 
-  console.log('\nDownloading...');
-  const results = await service.analysisDataForActivity(freshActivity, dataTypes);
   const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
-  for (const r of results) {
-    const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
-    const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+
+  // Metrics now come from the metrics table — the AnalysisDataType.metrics
+  // download is deprecated. Fetch them and save a single flat JSON.
+  if (dataTypes.includes('metrics')) {
+    console.log('\nFetching metrics...');
+    let metrics: ActivityMetrics;
+    try {
+      metrics = await service.activityMetrics(freshActivity.id);
+    } catch (err: any) {
+      console.error(`Failed to fetch activity metrics: ${err.message ?? err}`);
+      process.exit(1);
+    }
+    const json = JSON.stringify(metricsToDict(metrics), null, 2);
+    const p = saveFile(`${slug}_metrics.json`, Buffer.from(json, 'utf-8'));
     console.log(`  Saved ${p}`);
   }
 
+  // Report and data files still download through the analysis data endpoint.
+  const fileTypes = dataTypes.filter(t => t !== 'metrics');
+  if (fileTypes.length) {
+    console.log('\nDownloading...');
+    const results = await service.analysisDataForActivity(freshActivity, fileTypes);
+    for (const r of results) {
+      const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
+      const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+      console.log(`  Saved ${p}`);
+    }
+  }
+
   console.log('\nDone.');
+}
+
+/**
+ * Flatten activity metrics into a plain object for JSON serialisation.
+ * Groups are discarded and every metric appears exactly once, keyed by name.
+ * Scalar metrics map to a number; bilateral metrics map to a
+ * { left, right } object. The first occurrence of a name wins.
+ */
+function metricsToDict(metrics: ActivityMetrics) {
+  const flat: Record<string, number | null | { left: number | null; right: number | null }> = {};
+  for (const group of metrics.groups) {
+    for (const metric of group.metrics) {
+      if (metric.name in flat) continue;
+      const value = metric.value;
+      flat[metric.name] = value.type === 'bilateral'
+        ? { left: value.left ?? null, right: value.right ?? null }
+        : value.value ?? null;
+    }
+  }
+  return { activityId: metrics.activityId, metrics: flat };
 }
 
 async function pollActivity(

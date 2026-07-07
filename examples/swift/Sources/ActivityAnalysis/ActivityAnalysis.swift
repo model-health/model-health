@@ -169,16 +169,61 @@ struct ActivityAnalysis {
         let selected = pickMulti(from: resultTypes, prompt: "Select result types", label: { $0.1 })
         let dataTypes = Set(selected.map { $0.0 })
 
-        print("\nDownloading...")
-        let results = await service.analysisData(ofType: dataTypes, for: freshActivity)
         let slug = (freshActivity.name ?? freshActivity.id).replacingOccurrences(of: " ", with: "_")
-        for r in results {
-            let path = saveFile(named: "\(slug)_\(r.type.typeLabel).\(r.type.fileExtension)", data: r.data)
-            print("  Saved \(path)")
+
+        // Metrics now come from the metrics table — the AnalysisDataType.metrics
+        // download is deprecated. Fetch them and save a single flat JSON.
+        if dataTypes.contains(.metrics) {
+            print("\nFetching metrics...")
+            let metricsResult: ActivityMetrics?
+            do {
+                metricsResult = try await service.activityMetrics(for: freshActivity.id)
+            } catch {
+                fputs("Failed to fetch activity metrics: \(error)\n", stderr)
+                exit(1)
+            }
+            if let metrics = metricsResult, let data = metricsJSON(metrics) {
+                let path = saveFile(named: "\(slug)_metrics.json", data: data)
+                print("  Saved \(path)")
+            } else {
+                print("  No metrics available for this activity.")
+            }
+        }
+
+        // Report and data files still download through the analysis data endpoint.
+        let fileTypes = dataTypes.subtracting([.metrics])
+        if !fileTypes.isEmpty {
+            print("\nDownloading...")
+            let results = await service.analysisData(ofType: fileTypes, for: freshActivity)
+            for r in results {
+                let path = saveFile(named: "\(slug)_\(r.type.typeLabel).\(r.type.fileExtension)", data: r.data)
+                print("  Saved \(path)")
+            }
         }
 
         print("\nDone.")
     }
+}
+
+/// Flatten activity metrics into pretty-printed JSON.
+///
+/// Groups are discarded and every metric appears exactly once, keyed by name.
+/// Scalar metrics map to a number; bilateral metrics map to a
+/// { "left", "right" } object. The first occurrence of a name wins.
+private func metricsJSON(_ metrics: ActivityMetrics) -> Data? {
+    var flat: [String: Any] = [:]
+    for group in metrics.groups {
+        for metric in group.metrics where flat[metric.name] == nil {
+            switch metric.value {
+            case .scalar(let v):
+                flat[metric.name] = v ?? NSNull()
+            case .bilateral(let left, let right):
+                flat[metric.name] = ["left": left ?? NSNull(), "right": right ?? NSNull()]
+            }
+        }
+    }
+    let root: [String: Any] = ["activityId": metrics.activityId, "metrics": flat]
+    return try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
 }
 
 private func pollActivity(service: ModelHealthService, activity: Activity) async -> ActivityStatus {

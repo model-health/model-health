@@ -2,15 +2,14 @@
  * Model Health TypeScript SDK — retrieve biomechanical metrics.
  * Mirrors examples/python/activity_metrics.py.
  *
- * Demonstrates activityMetrics (single-activity dashboard metrics) and
- * subjectMetrics (all metrics across activities for a subject, with optional
- * date filtering).
+ * Demonstrates activityMetrics (single-activity dashboard metrics).
  *
  * Usage:
  *   npx tsx activity_metrics.ts [<api_key>]
  */
 
 import { ModelHealthService } from '@modelhealth/modelhealth';
+import type { ActivityMetrics, MetricValue } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
   pickOne, closePrompts,
@@ -51,49 +50,33 @@ async function main() {
   console.log(`\nFetching metrics for '${activityLabel}'...`);
   const metrics = await service.activityMetrics(activity.id);
 
-  if (!metrics.groups.length) {
+  const flat = flattenMetrics(metrics);
+  if (!flat.size) {
     console.log('  No metrics available for this activity.');
   } else {
-    console.log(`\nActivity metrics (activity type ID: ${metrics.activityTypeId}):\n`);
-    for (const group of metrics.groups) {
-      console.log(`  ${group.name}`);
-      for (const metric of group.metrics) {
-        console.log(`    ${metric.name}: ${formatValue(metric.value)}`);
-      }
-    }
-  }
-
-  // Subject metrics (optional)
-  console.log('\n' + '-'.repeat(40));
-  const subjects = await service.subjectList();
-  if (!subjects.length) {
-    console.log('\nNo subjects found — skipping subject metrics.');
-    console.log('\nDone.');
-    return;
-  }
-
-  console.log(`\n${subjects.length} subject(s):\n`);
-  const subject = await pickOne(subjects, 'Select subject (or Ctrl-C to skip)', s => `[ID: ${s.id}]  ${s.name}`);
-
-  console.log(`\nFetching metrics for subject '${subject.name}' (ID: ${subject.id})...`);
-  const subjectMetrics = await service.subjectMetrics(subject.id);
-
-  if (!subjectMetrics.length) {
-    console.log('  No metrics found for this subject.');
-  } else {
-    console.log(`\n  ${subjectMetrics.length} activity result(s):\n`);
-    for (const am of subjectMetrics) {
-      const total = am.groups.reduce((n: number, g: { metrics: unknown[] }) => n + g.metrics.length, 0);
-      console.log(`  Activity ${am.activityId}  (type ID: ${am.activityTypeId})  — ${total} metric(s)`);
+    console.log('\nActivity metrics:\n');
+    for (const [name, value] of flat) {
+      console.log(`  ${name}: ${formatValue(value)}`);
     }
   }
 
   console.log('\nDone.');
 }
 
-type MetricValue =
-  | { type: 'scalar'; value: number | null }
-  | { type: 'bilateral'; left: number | null; right: number | null };
+/**
+ * Collapse the grouped metrics into a flat name -> value map.
+ * Groups are discarded and each metric appears exactly once; the first
+ * occurrence of a name wins.
+ */
+function flattenMetrics(metrics: ActivityMetrics): Map<string, MetricValue> {
+  const flat = new Map<string, MetricValue>();
+  for (const group of metrics.groups) {
+    for (const metric of group.metrics) {
+      if (!flat.has(metric.name)) flat.set(metric.name, metric.value);
+    }
+  }
+  return flat;
+}
 
 function formatValue(v: MetricValue): string {
   if (v.type === 'scalar') return v.value != null ? String(v.value) : '—';

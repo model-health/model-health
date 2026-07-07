@@ -290,7 +290,16 @@ async function recordOne(
     console.log(`Activity did not reach ready state (status: ${finalStatus.type}).`);
   }
 
-  // Update activity metadata (optional)
+  // Update activity metadata (optional).
+  // Re-fetch first: analysis auto-generates tags server-side, and updateActivity
+  // merges add/remove tags on top of the local activity's tags. Without a fresh
+  // fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
+  try {
+    currentActivity = await service.fetchActivity(currentActivity.id);
+  } catch (err: any) {
+    console.error(`Failed to refresh activity: ${err.message ?? err}`);
+  }
+
   console.log('\nUpdate activity (optional):');
   const currentTags = currentActivity.tags?.length ? currentActivity.tags.join(', ') : '(none)';
   console.log(`  Current tags: ${currentTags}`);
