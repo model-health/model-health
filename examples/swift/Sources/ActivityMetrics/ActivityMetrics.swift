@@ -94,6 +94,16 @@ struct ActivityMetricsScript {
                 for (name, value) in flat {
                     print("  \(name): \(formattedValue(value))")
                 }
+
+                if confirm("\nSave metrics as JSON?", default: false) {
+                    let slug = activityLabel.replacingOccurrences(of: " ", with: "_")
+                    do {
+                        let path = saveFile(named: "\(slug)_metrics.json", data: Data(try metrics.jsonString().utf8))
+                        print("  Saved \(path)")
+                    } catch {
+                        print("  Failed to serialise metrics: \(error)")
+                    }
+                }
             }
         } else {
             print("  No metrics yet — this activity has not been analysed.")

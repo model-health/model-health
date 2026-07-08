@@ -10,9 +10,10 @@
 
 import { ModelHealthService } from '@modelhealth/modelhealth';
 import type { ActivityMetrics, MetricValue } from '@modelhealth/modelhealth';
+import { activityMetricsToJson } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
-  pickOne, closePrompts,
+  pickOne, confirm, saveFile, closePrompts,
 } from './_shared.js';
 
 async function main() {
@@ -57,6 +58,12 @@ async function main() {
     console.log('\nActivity metrics:\n');
     for (const [name, value] of flat) {
       console.log(`  ${name}: ${formatValue(value)}`);
+    }
+
+    if (await confirm('\nSave metrics as JSON?', false)) {
+      const slug = activityLabel.replace(/ /g, '_');
+      const p = saveFile(`${slug}_metrics.json`, Buffer.from(activityMetricsToJson(metrics), 'utf-8'));
+      console.log(`  Saved ${p}`);
     }
   }
 

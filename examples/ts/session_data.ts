@@ -7,7 +7,7 @@
  */
 
 import { ModelHealthService, ActivityType } from '@modelhealth/modelhealth';
-import type { VideoVersion, MotionDataType, AnalysisDataType, ActivityMetrics } from '@modelhealth/modelhealth';
+import type { VideoVersion, MotionDataType, AnalysisDataType } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES, MOTION_DATA_EXT, ANALYSIS_DATA_EXT,
   pickOne, pickMulti, saveFile, closePrompts,
@@ -26,7 +26,6 @@ const MOTION_DATA_TYPES: [MotionDataType, string][] = [
 ];
 
 const ANALYSIS_DATA_TYPES: [AnalysisDataType, string][] = [
-  ['metrics', 'Metrics  (JSON)'],
   ['report',  'Report   (PDF) '],
   ['data',    'Data     (ZIP) '],
 ];
@@ -59,7 +58,11 @@ async function main() {
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
   console.log(`\n${activities.length} activity/activities:\n`);
-  const activity = await pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
+  const activity = await pickOne(
+    activities,
+    'Select activity',
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+  );
 
   // Check status
   const activityLabel = activity.name ?? activity.id;
@@ -114,33 +117,15 @@ async function main() {
   const selectedAnalysis = await pickMulti(ANALYSIS_DATA_TYPES, 'Select analysis data types', t => t[1]);
   const analysisTypes = selectedAnalysis.map(t => t[0]);
 
-  // Metrics now come from the metrics table — the AnalysisDataType.metrics
-  // download is deprecated. Fetch them and save a single flat JSON.
-  if (analysisTypes.includes('metrics')) {
-    console.log('\nFetching metrics...');
-    try {
-      const metrics = await service.activityMetrics(activity.id);
-      const json = JSON.stringify(metricsToDict(metrics), null, 2);
-      const p = saveFile(`${slug}_metrics.json`, Buffer.from(json, 'utf-8'));
+  console.log('\nDownloading analysis data...');
+  const analysisResults = await service.analysisDataForActivity(activity, analysisTypes);
+  if (!analysisResults.length) {
+    console.log('  No analysis data available.');
+  } else {
+    for (const r of analysisResults) {
+      const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
+      const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
       console.log(`  Saved: ${p}`);
-    } catch (err: any) {
-      console.log(`  Failed to fetch metrics: ${err.message ?? err}`);
-    }
-  }
-
-  // Report and data files still download through the analysis data endpoint.
-  const fileTypes = analysisTypes.filter(t => t !== 'metrics');
-  if (fileTypes.length) {
-    console.log('\nDownloading analysis data...');
-    const analysisResults = await service.analysisDataForActivity(activity, fileTypes);
-    if (!analysisResults.length) {
-      console.log('  No analysis data available.');
-    } else {
-      for (const r of analysisResults) {
-        const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
-        const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
-        console.log(`  Saved: ${p}`);
-      }
     }
   }
 
@@ -163,26 +148,6 @@ async function main() {
   }
 
   console.log('\nDone.');
-}
-
-/**
- * Flatten activity metrics into a plain object for JSON serialisation.
- * Groups are discarded and every metric appears exactly once, keyed by name.
- * Scalar metrics map to a number; bilateral metrics map to a
- * { left, right } object. The first occurrence of a name wins.
- */
-function metricsToDict(metrics: ActivityMetrics) {
-  const flat: Record<string, number | null | { left: number | null; right: number | null }> = {};
-  for (const group of metrics.groups) {
-    for (const metric of group.metrics) {
-      if (metric.name in flat) continue;
-      const value = metric.value;
-      flat[metric.name] = value.type === 'bilateral'
-        ? { left: value.left ?? null, right: value.right ?? null }
-        : value.value ?? null;
-    }
-  }
-  return { activityId: metrics.activityId, metrics: flat };
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); })
