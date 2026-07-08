@@ -82,12 +82,13 @@ struct UpdateActivity {
         let activity = pickOne(
             from: activities,
             prompt: "Select activity",
-            label: { "\($0.name ?? $0.id)  [\($0.status)]" }
+            label: { "\($0.name ?? $0.id)  [\($0.status)]" + ($0.activityType.map { "  \($0)" } ?? "") }
         )
         print("  Selected: \(activity.name ?? activity.id)")
 
         // Update
         print("\nUpdate activity (press Enter to keep current value):")
+        print("  Current activity type: \(activity.activityType.map { "\($0)" } ?? "(none)")")
         let currentTags = activity.tags.isEmpty ? "(none)" : activity.tags.joined(separator: ", ")
         print("  Current tags: \(currentTags)")
 

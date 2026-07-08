@@ -20,7 +20,6 @@ private let motionDataTypes: [(MotionDataType, String)] = [
 ]
 
 private let analysisDataTypes: [(AnalysisDataType, String)] = [
-    (.metrics, "Metrics  (JSON)"),
     (.report,  "Report   (PDF) "),
     (.data,    "Data     (ZIP) "),
 ]
@@ -87,7 +86,7 @@ struct SessionData {
         let activity = pickOne(
             from: activities,
             prompt: "Select activity",
-            label: { a in "\(a.name ?? a.id)  [\(a.status)]" }
+            label: { a in "\(a.name ?? a.id)  [\(a.status)]" + (a.activityType.map { "  \($0)" } ?? "") }
         )
 
         // Check status

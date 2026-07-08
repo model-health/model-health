@@ -6,13 +6,12 @@ Walks through the post-capture workflow:
   2. Select an activity from that session
   3. Wait for processing to complete (if needed)
   4. Choose an analysis type and run it
-  5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
+  5. Choose which result files to save (report PDF, data ZIP)
 
 Usage:
     activity_analysis.py [<api_key>]
 """
 
-import json
 import sys
 import time
 
@@ -26,7 +25,6 @@ from modelhealth import (
     AnalysisStatus,
     ActivityType,
     AnalysisDataType,
-    MetricValueBilateral,
 )
 from _prompts import pick_one, pick_multi
 from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key, poll_analysis
@@ -54,7 +52,6 @@ ANALYSIS_TYPES = [
 ]
 
 RESULT_TYPES = [
-    (AnalysisDataType.metrics, "Metrics  (JSON)"),
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
@@ -82,33 +79,6 @@ def _poll_processing(service, activity, interval=10):
             print()  # clear the \r line
             return status
         time.sleep(interval)
-
-
-# ---------------------------------------------------------------------------
-# Metrics
-# ---------------------------------------------------------------------------
-
-def _metrics_to_dict(metrics):
-    """Flatten ActivityMetrics into a plain dict for JSON serialisation.
-
-    Groups are discarded and every metric appears exactly once, keyed by name.
-    Scalar metrics map to a single number; bilateral metrics map to a
-    ``{"left": ..., "right": ...}`` object. The first occurrence of a name wins.
-    """
-    flat = {}
-    for group in metrics.groups:
-        for metric in group.metrics:
-            if metric.name in flat:
-                continue
-            value = metric.value
-            if isinstance(value, MetricValueBilateral):
-                flat[metric.name] = {"left": value.left, "right": value.right}
-            else:  # MetricValueScalar
-                flat[metric.name] = value.value
-    return {
-        "activity_id": metrics.activity_id,
-        "metrics": flat,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +121,7 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
 
     # Processing status
@@ -170,12 +140,17 @@ def main(api_key):
         )
     print("Activity is ready.")
 
-    # Analysis type
+    # Analysis type — default to the activity's recorded type if available.
+    default_analysis = next(
+        (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
+        None,
+    )
     print("\nAnalysis type:\n")
     analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
         "Select analysis type",
         lambda t: t[1],
+        default=default_analysis,
     )
 
     # Run analysis
@@ -206,27 +181,12 @@ def main(api_key):
 
     slug = (activity.name or activity.id).replace(" ", "_")
 
-    # Metrics now come from the metrics table — the AnalysisDataType.metrics
-    # download is deprecated. Fetch them and save a single flat JSON.
-    if AnalysisDataType.metrics in data_types:
-        print("\nFetching metrics...")
-        try:
-            metrics = service.activity_metrics(activity.id)
-        except ModelHealthError as exc:
-            sys.exit(f"Failed to fetch activity metrics: {exc}")
-        metrics_json = json.dumps(_metrics_to_dict(metrics), indent=2)
-        path = save_file(f"{slug}_metrics.json", metrics_json.encode("utf-8"))
+    print("\nDownloading...")
+    results = service.analysis_data_for_activity(activity, data_types)
+    for r in results:
+        ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+        path = save_file(f"{slug}_{r.type}.{ext}", r.data)
         print(f"  Saved {path}")
-
-    # Report and data files still download through the analysis data endpoint.
-    file_types = [t for t in data_types if t != AnalysisDataType.metrics]
-    if file_types:
-        print("\nDownloading...")
-        results = service.analysis_data_for_activity(activity, file_types)
-        for r in results:
-            ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
-            path = save_file(f"{slug}_{r.type}.{ext}", r.data)
-            print(f"  Saved {path}")
 
     print("\nDone.")
 

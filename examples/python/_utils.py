@@ -66,7 +66,6 @@ MOTION_DATA_EXT = {
 
 # File extensions for analysis data types (keyed by AnalysisData.type string).
 ANALYSIS_DATA_EXT = {
-    "metrics": "json",
     "report":  "pdf",
     "data":    "zip",
 }

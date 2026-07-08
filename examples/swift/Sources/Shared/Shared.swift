@@ -83,15 +83,19 @@ public func pollAnalysis(service: ModelHealthService, task: Analysis) async thro
 
 // MARK: - Prompts
 
-public func pickOne<T>(from items: [T], prompt: String, label: (T) -> String) -> T {
+public func pickOne<T>(from items: [T], prompt: String, label: (T) -> String, defaultIndex: Int? = nil) -> T {
     for (i, item) in items.enumerated() {
-        print("  \(i + 1). \(label(item))")
+        let suffix = i == defaultIndex ? "  (default)" : ""
+        print("  \(i + 1). \(label(item))\(suffix)")
     }
+    let rangeHint = defaultIndex != nil ? "1–\(items.count), Enter for \(defaultIndex! + 1)" : "1–\(items.count)"
     while true {
-        print("\n\(prompt) (1–\(items.count)): ", terminator: "")
-        if let line = readLine(),
-           let n = Int(line.trimmingCharacters(in: .whitespaces)),
-           (1...items.count).contains(n) {
+        print("\n\(prompt) (\(rangeHint)): ", terminator: "")
+        let line = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
+        if line.isEmpty, let defaultIndex {
+            return items[defaultIndex]
+        }
+        if let n = Int(line), (1...items.count).contains(n) {
             return items[n - 1]
         }
         print("  Please enter a number between 1 and \(items.count).")

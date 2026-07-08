@@ -18,8 +18,8 @@ from modelhealth import (
     MetricValueScalar,
     MetricValueBilateral,
 )
-from _prompts import pick_one
-from _utils import load_api_key
+from _prompts import pick_one, confirm
+from _utils import load_api_key, save_file
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
@@ -80,6 +80,11 @@ def main(api_key):
         print("\nActivity metrics:\n")
         for name, value in flat.items():
             print(f"  {name}: {_format_value(value)}")
+
+        if confirm("\nSave metrics as JSON?", default=False):
+            slug = activity_label.replace(" ", "_")
+            path = save_file(f"{slug}_metrics.json", metrics.to_json().encode("utf-8"))
+            print(f"  Saved {path}")
 
     print("\nDone.")
 

@@ -66,12 +66,13 @@ async function main() {
   const activity = await pickOne(
     activities,
     'Select activity',
-    a => `${a.name ?? a.id}  [${a.status}]`
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
   );
   console.log(`  Selected: ${activity.name ?? activity.id}`);
 
   // Update
   console.log('\nUpdate activity (press Enter to keep current value):');
+  console.log(`  Current activity type: ${activity.activityType ?? '(none)'}`);
   const currentTags = activity.tags?.length ? activity.tags.join(', ') : '(none)';
   console.log(`  Current tags: ${currentTags}`);
 

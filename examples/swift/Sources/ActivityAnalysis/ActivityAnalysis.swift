@@ -26,7 +26,6 @@ private let analysisTypes: [(ActivityType, String)] = [
 ]
 
 private let resultTypes: [(AnalysisDataType, String)] = [
-    (.metrics, "Metrics  (JSON)"),
     (.report,  "Report   (PDF) "),
     (.data,    "Data     (ZIP) "),
 ]
@@ -95,7 +94,7 @@ struct ActivityAnalysis {
         let activity = pickOne(
             from: activities,
             prompt: "Select activity",
-            label: { a in "\(a.name ?? a.id)  [\(a.status)]" }
+            label: { a in "\(a.name ?? a.id)  [\(a.status)]" + (a.activityType.map { "  \($0)" } ?? "") }
         )
 
         // Wait for ready
@@ -123,12 +122,14 @@ struct ActivityAnalysis {
         }
         print("Activity is ready.")
 
-        // Analysis type
+        // Analysis type — default to the activity's recorded type if available.
+        let defaultAnalysisIndex = analysisTypes.firstIndex { $0.0 == activity.activityType }
         print("\nAnalysis type:\n")
         let (analysisType, analysisLabel) = pickOne(
             from: analysisTypes,
             prompt: "Select analysis type",
-            label: { $0.1 }
+            label: { $0.1 },
+            defaultIndex: defaultAnalysisIndex
         )
 
         // Run
@@ -169,9 +170,10 @@ struct ActivityAnalysis {
         let selected = pickMulti(from: resultTypes, prompt: "Select result types", label: { $0.1 })
         let dataTypes = Set(selected.map { $0.0 })
 
+        let slug = (freshActivity.name ?? freshActivity.id).replacingOccurrences(of: " ", with: "_")
+
         print("\nDownloading...")
         let results = await service.analysisData(ofType: dataTypes, for: freshActivity)
-        let slug = (freshActivity.name ?? freshActivity.id).replacingOccurrences(of: " ", with: "_")
         for r in results {
             let path = saveFile(named: "\(slug)_\(r.type.typeLabel).\(r.type.fileExtension)", data: r.data)
             print("  Saved \(path)")

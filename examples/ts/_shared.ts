@@ -22,7 +22,6 @@ export const MOTION_DATA_EXT: Record<string, string> = {
 };
 
 export const ANALYSIS_DATA_EXT: Record<string, string> = {
-  metrics: 'json',
   report:  'pdf',
   data:    'zip',
 };
@@ -120,12 +119,19 @@ export function closePrompts(): void {
 export async function pickOne<T>(
   items: T[],
   question: string,
-  label: (item: T) => string
+  label: (item: T) => string,
+  defaultItem?: T
 ): Promise<T> {
-  items.forEach((item, i) => console.log(`  ${i + 1}. ${label(item)}`));
+  const defaultIdx = defaultItem !== undefined ? items.indexOf(defaultItem) : -1;
+  items.forEach((item, i) => {
+    const suffix = i === defaultIdx ? '  (default)' : '';
+    console.log(`  ${i + 1}. ${label(item)}${suffix}`);
+  });
+  const rangeHint = defaultIdx >= 0 ? `1–${items.length}, Enter for ${defaultIdx + 1}` : `1–${items.length}`;
   while (true) {
-    const raw = await prompt(`\n${question} (1–${items.length}): `);
-    const n = parseInt(raw.trim(), 10);
+    const raw = (await prompt(`\n${question} (${rangeHint}): `)).trim();
+    if (raw === '' && defaultIdx >= 0) return items[defaultIdx];
+    const n = parseInt(raw, 10);
     if (!isNaN(n) && n >= 1 && n <= items.length) return items[n - 1];
     console.log(`  Please enter a number between 1 and ${items.length}.`);
   }

@@ -1,7 +1,6 @@
 /// Model Health Swift examples — retrieve biomechanical metrics.
 ///
-/// Demonstrates activityMetrics (single-activity dashboard metrics) and
-/// subjectMetrics (all metrics across activities for a subject).
+/// Demonstrates activityMetrics (single-activity dashboard metrics).
 ///
 /// Usage:
 ///   swift run ActivityMetrics [<api_key>]
@@ -87,14 +86,22 @@ struct ActivityMetricsScript {
         }
 
         if let metrics = metricsResult {
-            if metrics.groups.isEmpty {
+            let flat = flattenMetrics(metrics)
+            if flat.isEmpty {
                 print("  No metrics available for this activity.")
             } else {
-                print("\nActivity metrics (activity type ID: \(metrics.activityTypeId)):\n")
-                for group in metrics.groups {
-                    print("  \(group.name)")
-                    for metric in group.metrics {
-                        print("    \(metric.name): \(formattedValue(metric.value))")
+                print("\nActivity metrics:\n")
+                for (name, value) in flat {
+                    print("  \(name): \(formattedValue(value))")
+                }
+
+                if confirm("\nSave metrics as JSON?", default: false) {
+                    let slug = activityLabel.replacingOccurrences(of: " ", with: "_")
+                    do {
+                        let path = saveFile(named: "\(slug)_metrics.json", data: Data(try metrics.jsonString().utf8))
+                        print("  Saved \(path)")
+                    } catch {
+                        print("  Failed to serialise metrics: \(error)")
                     }
                 }
             }
@@ -102,53 +109,23 @@ struct ActivityMetricsScript {
             print("  No metrics yet — this activity has not been analysed.")
         }
 
-        // Subject metrics (optional)
-        print("\n" + String(repeating: "-", count: 40))
-        print("\nFetching subjects...")
-        let subjects: [Subject]
-        do {
-            subjects = try await service.subjectList()
-        } catch {
-            fputs("Failed to fetch subjects: \(error)\n", stderr)
-            print("\nDone.")
-            return
-        }
-
-        guard !subjects.isEmpty else {
-            print("No subjects found — skipping subject metrics.")
-            print("\nDone.")
-            return
-        }
-
-        print("\n\(subjects.count) subject(s):\n")
-        let subject = pickOne(
-            from: subjects,
-            prompt: "Select subject (or Ctrl-C to skip)",
-            label: { s in "[ID: \(s.id)]  \(s.name)" }
-        )
-
-        print("\nFetching metrics for subject '\(subject.name)' (ID: \(subject.id))...")
-        let subjectMetrics: [ActivityMetrics]
-        do {
-            subjectMetrics = try await service.subjectMetrics(forSubject: subject.id)
-        } catch {
-            fputs("Failed to fetch subject metrics: \(error)\n", stderr)
-            print("\nDone.")
-            return
-        }
-
-        if subjectMetrics.isEmpty {
-            print("  No metrics found for this subject.")
-        } else {
-            print("\n  \(subjectMetrics.count) activity result(s):\n")
-            for am in subjectMetrics {
-                let total = am.groups.reduce(0) { $0 + $1.metrics.count }
-                print("  Activity \(am.activityId)  (type ID: \(am.activityTypeId))  — \(total) metric(s)")
-            }
-        }
-
         print("\nDone.")
     }
+}
+
+/// Collapse the grouped metrics into a flat (name, value) list.
+///
+/// Groups are discarded and each metric appears exactly once, preserving order;
+/// the first occurrence of a name wins.
+private func flattenMetrics(_ metrics: ActivityMetrics) -> [(String, MetricValue)] {
+    var seen = Set<String>()
+    var flat: [(String, MetricValue)] = []
+    for group in metrics.groups {
+        for metric in group.metrics where seen.insert(metric.name).inserted {
+            flat.append((metric.name, metric.value))
+        }
+    }
+    return flat
 }
 
 private func formattedValue(_ value: MetricValue) -> String {

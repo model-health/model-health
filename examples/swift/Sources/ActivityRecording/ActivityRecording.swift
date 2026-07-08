@@ -330,7 +330,16 @@ private func recordOne(service: ModelHealthService, session: Session, subject: S
         print("Activity did not reach ready state (status: \(finalStatus)).")
     }
 
-    // Update activity metadata (optional)
+    // Update activity metadata (optional).
+    // Re-fetch first: analysis auto-generates tags server-side, and update(activity:)
+    // merges add/remove tags on top of the local activity's tags. Without a fresh
+    // fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
+    do {
+        currentActivity = try await service.fetch(activity: currentActivity.id)
+    } catch {
+        fputs("Failed to refresh activity: \(error)\n", stderr)
+    }
+
     print("\nUpdate activity (optional):")
     let currentTags = currentActivity.tags.isEmpty ? "(none)" : currentActivity.tags.joined(separator: ", ")
     print("  Current tags: \(currentTags)")

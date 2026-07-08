@@ -26,7 +26,6 @@ const MOTION_DATA_TYPES: [MotionDataType, string][] = [
 ];
 
 const ANALYSIS_DATA_TYPES: [AnalysisDataType, string][] = [
-  ['metrics', 'Metrics  (JSON)'],
   ['report',  'Report   (PDF) '],
   ['data',    'Data     (ZIP) '],
 ];
@@ -59,7 +58,11 @@ async function main() {
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
   console.log(`\n${activities.length} activity/activities:\n`);
-  const activity = await pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
+  const activity = await pickOne(
+    activities,
+    'Select activity',
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+  );
 
   // Check status
   const activityLabel = activity.name ?? activity.id;

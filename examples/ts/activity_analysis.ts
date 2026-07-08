@@ -32,7 +32,6 @@ const ANALYSIS_TYPES: [string, string][] = [
 ];
 
 const RESULT_TYPES: [AnalysisDataType, string][] = [
-  ['metrics', 'Metrics  (JSON)'],
   ['report',  'Report   (PDF) '],
   ['data',    'Data     (ZIP) '],
 ];
@@ -67,7 +66,11 @@ async function main() {
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
   console.log(`\n${activities.length} activity/activities:\n`);
-  const activity = await pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
+  const activity = await pickOne(
+    activities,
+    'Select activity',
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+  );
 
   // Wait for ready
   const activityLabel = activity.name ?? activity.id;
@@ -85,9 +88,12 @@ async function main() {
   }
   console.log('Activity is ready.');
 
-  // Analysis type
+  // Analysis type — default to the activity's recorded type if available.
+  const defaultAnalysis = ANALYSIS_TYPES.find(t => t[0] === activity.activityType);
   console.log('\nAnalysis type:\n');
-  const [analysisType, analysisLabel] = await pickOne(ANALYSIS_TYPES, 'Select analysis type', t => t[1]);
+  const [analysisType, analysisLabel] = await pickOne(
+    ANALYSIS_TYPES, 'Select analysis type', t => t[1], defaultAnalysis
+  );
 
   // Run
   console.log(`\nStarting '${analysisLabel}' analysis...`);
@@ -109,9 +115,10 @@ async function main() {
   const selected = await pickMulti(RESULT_TYPES, 'Select result types', r => r[1]);
   const dataTypes = selected.map(r => r[0]);
 
+  const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
+
   console.log('\nDownloading...');
   const results = await service.analysisDataForActivity(freshActivity, dataTypes);
-  const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
   for (const r of results) {
     const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
     const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
