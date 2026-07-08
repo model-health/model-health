@@ -5,13 +5,28 @@ import ModelHealth
 @main
 struct ModelHealthDemoApp: App {
     private let service = try! ModelHealthService(apiKey: ExampleConfig.apiKey)
+    @State private var showSplash = true
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                SessionListView()
+            ZStack {
+                NavigationStack {
+                    SessionListView()
+                }
+                .environmentObject(service)
+
+                if showSplash {
+                    SplashView()
+                        .transition(.opacity)
+                }
             }
-            .environmentObject(service)
+            .task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+
+                withAnimation(.easeOut(duration: 0.4)) {
+                    showSplash = false
+                }
+            }
         }
     }
 }
@@ -60,6 +75,9 @@ extension ModelHealthError {
 
         case .internalError:
             return "Internal Error"
+
+        case .notSupported:
+            return "This API is no longer supported"
         }
     }
 }

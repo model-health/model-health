@@ -243,7 +243,11 @@ export type VideoVersion = "raw" | "synced";
  *
  * @group Enumerations
  */
-export type MotionDataType = "animation" | "kinematics_mot" | "kinematics_csv" | "markers_trc" | "markers_csv" | "model";
+export type MotionDataType = "animation" | "kinematics_mot" | "kinematics_csv" | "markers_trc" | "markers_csv" | "model" | {
+    type: "tagged";
+    tag: string;
+    extension: string;
+};
 /**
  * Motion data downloaded from a processed activity.
  *
@@ -474,11 +478,30 @@ export declare const ActivityType: {
     readonly ChangeOfDirection: "change_of_direction";
     /** Cutting Maneuver */
     readonly Cut: "cut";
+    /** Sprint */
+    readonly Sprint: "sprint";
+    /** Lateral Stepdown */
+    readonly LateralStepdown: "lateral_stepdown";
+    /** Lunge */
+    readonly Lunge: "lunge";
 };
 /** @hidden */
 export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];
 /**
- * Configuration for starting a recording.
+ * Per-recording settings that override the session-level config.
+ *
+ * Fields left undefined fall back to the session's configured values.
+ *
+ * @group Configuration
+ */
+export interface RecordingConfig {
+    /** Camera frame rate override. Undefined uses the session default. */
+    framerate?: SessionFramerate;
+    /** Low-pass filter frequency override. Undefined uses the session default. */
+    filterFrequency?: FilterFrequency;
+}
+/**
+ * Configuration for starting or updating a recording.
  *
  * @group Configuration
  */
@@ -488,6 +511,22 @@ export interface ActivityConfig {
      * starts automatically once recording is processed.
      */
     activityType?: ActivityType;
+    /**
+     * Per-recording settings that override the session-level config.
+     */
+    config?: RecordingConfig;
+    /**
+     * Tags to add to the activity. Merged with existing tags.
+     */
+    addTags?: string[];
+    /**
+     * Tags to remove from the activity.
+     */
+    removeTags?: string[];
+    /**
+     * New display name to set on the activity.
+     */
+    name?: string;
 }
 /**
  * An active analysis returned by `startAnalysis`.
@@ -707,5 +746,32 @@ export interface SessionConfig {
     filterFrequency?: FilterFrequency;
     /** Data-sharing preference. Default: `"Share processed data and identified videos"`. */
     dataSharing?: SessionDataSharing;
+}
+/** The measured value(s) for a metric. */
+export type MetricValue = {
+    type: 'scalar';
+    value?: number;
+} | {
+    type: 'bilateral';
+    left?: number;
+    right?: number;
+};
+/** A single computed biomechanical metric for one activity. */
+export interface Metric {
+    name: string;
+    description?: string;
+    value: MetricValue;
+}
+/** A category group that organises related metrics on a dashboard. */
+export interface MetricsGroup {
+    name: string;
+    description?: string;
+    metrics: Metric[];
+}
+/** All dashboard metrics for a single activity, organised into category groups. */
+export interface ActivityMetrics {
+    activityId: string;
+    activityTypeId: number;
+    groups: MetricsGroup[];
 }
 //# sourceMappingURL=types.d.ts.map

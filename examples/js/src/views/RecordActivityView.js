@@ -1,8 +1,9 @@
 /**
- * Record activity — name, start/stop, list activities, analyze, view results/data.
+ * Record activity — name, type, start/stop, list activities, view results/data.
  * Mirrors iOS RecordActivityView.
  */
 import { getClient } from '../api.js';
+import { getState, subscribe } from '../state.js';
 import { ANALYSIS_TYPES } from '../constants.js';
 
 function escapeHtml(s) {
@@ -18,11 +19,16 @@ export function render(container, state, { setState, navigate }) {
   const subject = state.subject;
   const activities = state.activities || [];
   const activityStates = state.activityStates || {};
-  const selectedActivityTypes = state.selectedActivityTypes || {};
+  const analysisCompleted = state.analysisCompleted || {};
+  const selectedActivityType = state.selectedActivityType || ANALYSIS_TYPES[0].value;
   const currentRecording = state.currentRecording;
   const activityName = state.currentActivityName || '';
   const loading = state.loadingState === 'loading';
   const error = state.errorMessage;
+
+  const activityTypeOptions = ANALYSIS_TYPES.map(
+    (t) => `<option value="${t.value}" ${t.value === selectedActivityType ? 'selected' : ''}>${escapeHtml(t.label)}</option>`
+  ).join('');
 
   container.innerHTML = `
     <div class="view-header">
@@ -36,6 +42,10 @@ export function render(container, state, { setState, navigate }) {
         <label>Activity name</label>
         <input type="text" id="activity-name" placeholder="e.g. CMJ" value="${escapeHtml(activityName)}" ${currentRecording ? 'disabled' : ''} />
       </div>
+      <div class="form-group">
+        <label>Activity type</label>
+        <select id="activity-type-select" ${currentRecording ? 'disabled' : ''}>${activityTypeOptions}</select>
+      </div>
       ${currentRecording ? `
         <div class="status">⏺ Recording: ${escapeHtml(currentRecording.name || activityName)} — click Stop when done.</div>
         <button type="button" class="btn danger" id="stop-recording">Stop Recording</button>
@@ -48,16 +58,13 @@ export function render(container, state, { setState, navigate }) {
       <ul class="activity-list">
         ${activities.map((a) => {
           const st = activityStates[a.id] || {};
+          const done = !!analysisCompleted[a.id];
           let statusText;
-          if (st.analysisStatus === 'completed') statusText = 'Analysis complete';
-          else if (st.analysisStatus === 'processing' || st.processingStatus === 'analyzing') statusText = 'Analyzing...';
-          else if (st.processingStatus === 'ready') statusText = 'Ready';
+          if (done) statusText = 'Analysis complete';
+          else if (st.processingStatus === 'analyzing') statusText = 'Analyzing...';
           else if (st.processingStatus === 'processing') statusText = 'Processing...';
+          else if (st.processingStatus === 'uploading') statusText = 'Uploading...';
           else statusText = st.processingStatus || '—';
-          const canAnalyze = st.processingStatus === 'ready' && !st.analysisTask;
-          const canViewResults = st.analysisStatus === 'completed';
-          const selectedType = selectedActivityTypes[a.id] || 'counter_movement_jump';
-          const analysisOptions = ANALYSIS_TYPES.map((t) => `<option value="${t.value}" ${t.value === selectedType ? 'selected' : ''}>${t.label}</option>`).join('');
           return `
             <li class="activity-item" data-activity-id="${escapeHtml(a.id)}">
               <div class="activity-info">
@@ -65,11 +72,8 @@ export function render(container, state, { setState, navigate }) {
                 <span class="muted">${statusText}</span>
               </div>
               <div class="activity-actions">
-                <select class="analysis-type-select" data-activity-id="${escapeHtml(a.id)}">${analysisOptions}</select>
-                <button type="button" class="btn small secondary refresh-activity" data-activity-id="${escapeHtml(a.id)}">↻</button>
-                <button type="button" class="btn small primary analyze-btn" data-activity-id="${escapeHtml(a.id)}" ${canAnalyze ? '' : 'disabled'}>Analyze</button>
-                <button type="button" class="btn small primary results-btn" data-activity-id="${escapeHtml(a.id)}" ${canViewResults ? '' : 'disabled'}>Results</button>
-                <button type="button" class="btn small secondary metrics-btn" data-activity-id="${escapeHtml(a.id)}" ${canViewResults ? '' : 'disabled'}>Metrics</button>
+                <button type="button" class="btn small primary results-btn" data-activity-id="${escapeHtml(a.id)}" ${done ? '' : 'disabled'}>Results</button>
+                <button type="button" class="btn small secondary metrics-btn" data-activity-id="${escapeHtml(a.id)}" ${done ? '' : 'disabled'}>Metrics</button>
               </div>
             </li>
           `;
@@ -80,14 +84,8 @@ export function render(container, state, { setState, navigate }) {
 
   container.querySelector('#back-record')?.addEventListener('click', () => navigate('sessions'));
 
-  container.querySelectorAll('.analysis-type-select').forEach((select) => {
-    select.addEventListener('change', () => {
-      const id = select.getAttribute('data-activity-id');
-      const value = select.value;
-      setState({
-        selectedActivityTypes: { ...state.selectedActivityTypes, [id]: value },
-      });
-    });
+  container.querySelector('#activity-type-select')?.addEventListener('change', (e) => {
+    setState({ selectedActivityType: e.target.value });
   });
 
   container.querySelector('#start-recording')?.addEventListener('click', async () => {
@@ -97,7 +95,7 @@ export function render(container, state, { setState, navigate }) {
       return;
     setState({ loadingState: 'loading', errorMessage: null });
     try {
-      const activity = await client.startRecording(name, session);
+      const activity = await client.startRecording(name, session, { activityType: selectedActivityType });
       setState({
         currentRecording: activity,
         currentActivityName: name,
@@ -117,13 +115,12 @@ export function render(container, state, { setState, navigate }) {
       await client.stopRecording(session);
       const activitiesList = await client.activityList(session.id);
       const filtered = (activitiesList || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
-      const newStates = { ...state.activityStates };
+      const newStates = { ...getState().activityStates };
       for (const a of filtered) {
         if (!newStates[a.id]) {
           try {
             const status = await client.activityStatus(a);
-            const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : null;
-            newStates[a.id] = { processingStatus: status.type, analysisTask, analysisStatus: analysisTask ? 'processing' : null };
+            newStates[a.id] = { processingStatus: status.type };
           } catch (_) {
             newStates[a.id] = {};
           }
@@ -139,85 +136,6 @@ export function render(container, state, { setState, navigate }) {
     } catch (err) {
       setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to stop recording' });
     }
-  });
-
-  container.querySelectorAll('.refresh-activity').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-activity-id');
-      const activity = activities.find((a) => a.id === id);
-      if (!activity)
-        return;
-      const client = getClient();
-      try {
-        const status = await client.activityStatus(activity);
-        const st = state.activityStates[id] || {};
-        let analysisStatus = st.analysisStatus;
-        let resultTags = st.resultTags;
-        const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : st.analysisTask;
-        if (analysisTask) {
-          const as = await client.analysisStatus(analysisTask);
-          analysisStatus = as.type;
-        } else if (activity.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
-          analysisStatus = 'completed';
-          if (!resultTags?.length && activity.results?.length) resultTags = activity.results.map((r) => r.tag).filter(Boolean);
-        }
-        setState({
-          activityStates: { ...state.activityStates, [id]: { ...st, processingStatus: status.type, analysisTask, analysisStatus, resultTags } },
-        });
-      } catch (_) {}
-    });
-  });
-
-  container.querySelectorAll('.analyze-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-activity-id');
-      const activity = activities.find((a) => a.id === id);
-      const activityType = state.selectedActivityTypes?.[id] || 'counter_movement_jump';
-      const client = getClient();
-      if (!client || !activity || !session)
-        return;
-      try {
-        const task = await client.startAnalysis(activityType, activity, session);
-        const st = state.activityStates[id] || {};
-        setState({ activityStates: { ...state.activityStates, [id]: { ...st, analysisTask: task, analysisStatus: 'processing' } } });
-        let as = await client.analysisStatus(task);
-        let attempts = 0;
-        while (as.type === 'processing' && attempts < 10) {
-          await new Promise((r) => setTimeout(r, 3000));
-          as = await client.analysisStatus(task);
-          attempts++;
-        }
-        const nextActivityStates = {
-          ...state.activityStates,
-          [id]: {
-            ...state.activityStates[id],
-            analysisStatus: as.type,
-          },
-        };
-
-        if (as.type === 'completed') {
-          const latestActivitiesList = await client.activityList(session.id);
-          const latestActivities = (latestActivitiesList || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
-          const refreshedActivity = latestActivities.find((a) => a.id === id);
-          if (refreshedActivity?.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
-            nextActivityStates[id] = {
-              ...nextActivityStates[id],
-              resultTags: (refreshedActivity.results || []).map((r) => r.tag).filter(Boolean),
-            };
-          }
-          setState({
-            activities: latestActivities,
-            activityStates: nextActivityStates,
-          });
-        } else {
-          setState({
-            activityStates: nextActivityStates,
-          });
-        }
-      } catch (err) {
-        setState({ errorMessage: err.message || 'Analysis failed' });
-      }
-    });
   });
 
   container.querySelectorAll('.results-btn').forEach((btn) => {
@@ -265,23 +183,81 @@ export async function onEnter(container, state, ctx) {
     const list = await client.activityList(session.id);
     const activities = (list || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');
     const activityStates = {};
+    const analysisCompleted = {};
     for (const a of activities) {
+      if (a.results?.length > 0) {
+        analysisCompleted[a.id] = true;
+      }
       try {
         const status = await client.activityStatus(a);
-        let analysisStatus = null;
-        let resultTags = [];
-        if (a.results?.some((r) => r.tag?.startsWith('analysis_function_result'))) {
-          analysisStatus = 'completed';
-          resultTags = (a.results || []).map((r) => r.tag).filter(Boolean);
+        activityStates[a.id] = { processingStatus: status.type };
+        if (status.type === 'analyzing') {
+          analysisCompleted[a.id] = false;
         }
-        const analysisTask = status.type === 'analyzing' ? { taskId: status.taskId } : null;
-        activityStates[a.id] = { processingStatus: status.type, analysisTask, analysisStatus: analysisTask ? 'processing' : analysisStatus, resultTags };
       } catch (_) {
         activityStates[a.id] = {};
       }
     }
-    ctx.setState({ activities, activityStates, loadingState: 'idle' });
+    ctx.setState({ activities, activityStates, analysisCompleted, loadingState: 'idle' });
   } catch (err) {
     ctx.setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to load activities' });
   }
+
+  // Auto-poll while any activity is still processing or analyzing.
+  // Cancelled as soon as the user navigates away.
+  let stopped = false;
+  const unsubscribe = subscribe((s) => {
+    if (s.screen !== 'record-activity') {
+      stopped = true;
+      unsubscribe();
+    }
+  });
+
+  const pollId = setInterval(async () => {
+    if (stopped) {
+      clearInterval(pollId);
+      return;
+    }
+    const s = getState();
+    if (s.screen !== 'record-activity') {
+      clearInterval(pollId);
+      return;
+    }
+    const acts = s.activities || [];
+    if (!acts.length)
+      return;
+    const hasInProgress = acts.some((a) => {
+      if (s.analysisCompleted?.[a.id]) return false;
+      return (s.activityStates?.[a.id]?.processingStatus) !== 'failed';
+    });
+    if (!hasInProgress)
+      return;
+
+    // Reload activity list to get fresh results arrays. Used as a fallback
+    // completion signal when the 'analyzing' status window is missed between polls.
+    let freshById = {};
+    try {
+      const freshList = await client.activityList(session.id);
+      for (const a of (freshList || [])) freshById[a.id] = a;
+    } catch (_) {}
+
+    const newStates = { ...s.activityStates };
+    const nextCompleted = { ...s.analysisCompleted };
+    for (const a of acts) {
+      try {
+        const prevStatus = (newStates[a.id] || {}).processingStatus;
+        const status = await client.activityStatus(a);
+        newStates[a.id] = { processingStatus: status.type };
+        if (prevStatus === 'analyzing' && status.type === 'ready') {
+          nextCompleted[a.id] = true;
+        } else if (status.type === 'ready' && !nextCompleted[a.id]) {
+          // Analysis may have completed between polls; check results as a fallback.
+          if (freshById[a.id]?.results?.length > 0) {
+            nextCompleted[a.id] = true;
+          }
+        }
+      } catch (_) {}
+    }
+    ctx.setState({ activityStates: newStates, analysisCompleted: nextCompleted });
+  }, 3000);
 }

@@ -45,7 +45,7 @@ private extension MetricsView {
     func metricsContentView(metrics: ActivityMetrics) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(metrics.groups, id: \.id) { group in
+                ForEach(metrics.groups, id: \.name) { group in
                     groupCard(group)
                 }
             }
@@ -66,7 +66,7 @@ private extension MetricsView {
 
             Divider()
 
-            ForEach(group.metrics, id: \.id) { metric in
+            ForEach(group.metrics, id: \.name) { metric in
                 metricRow(metric)
                     .padding(.vertical, 2)
             }

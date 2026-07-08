@@ -15,8 +15,9 @@ const initialState = {
   subjectCreateMode: false, // true when showing create-subject form inside subject-select
   // Record activity
   activities: [],
-  activityStates: {}, // id -> { processingStatus, analysisTask, analysisStatus, resultTags?: string[] }
-  selectedActivityTypes: {}, // id -> selected analysis type for each activity
+  activityStates: {}, // id -> { processingStatus }
+  selectedActivityType: 'counter_movement_jump', // activity type for the next recording
+  analysisCompleted: {}, // id -> true when analysis has completed for this activity
   currentRecording: null,
   currentActivityName: '',
   // Selected activity for results/data views

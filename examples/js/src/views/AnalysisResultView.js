@@ -1,6 +1,6 @@
 /**
  * Analysis result — mirrors iOS AnalysisResultDataView.
- * Loads metrics + report, picker to switch, metrics grid + report PDF download.
+ * Loads report data and renders it with a PDF viewer and download button.
  */
 import { getClient } from '../api.js';
 
@@ -26,14 +26,12 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-export function render(container, state, { setState, navigate }) {
-  const result = state.analysisResult;
+export function render(container, state, { navigate }) {
   const dataItems = state.analysisResultDataItems || [];
-  const selectedIndex = Math.min(state.analysisResultSelectedIndex ?? 0, Math.max(0, dataItems.length - 1));
   const loading = state.loadingState === 'loading';
   const error = state.errorMessage;
 
-  if (loading && !result && dataItems.length === 0) {
+  if (loading && dataItems.length === 0) {
     container.innerHTML = `
       <div class="view-header">
         <button type="button" class="btn back" id="back-result">← Back</button>
@@ -69,16 +67,10 @@ export function render(container, state, { setState, navigate }) {
     return;
   }
 
-  const labels = dataItems.map((r) => (r.type === 'metrics' ? 'Metrics' : r.type === 'report' ? 'Report' : 'Data'));
-  const selected = dataItems[selectedIndex];
-  const isMetrics = selected?.type === 'metrics';
+  const selected = dataItems[0];
 
   let mainContent = '';
-  if (isMetrics && result) {
-    mainContent = `
-      <pre class="metrics-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
-    `;
-  } else if (selected?.type === 'report' && selected.data) {
+  if (selected?.type === 'report' && selected.data) {
     const bytes = toUint8Array(selected.data);
     const blob = new Blob([bytes], { type: 'application/pdf' });
     const pdfUrl = URL.createObjectURL(blob);
@@ -98,24 +90,12 @@ export function render(container, state, { setState, navigate }) {
       <button type="button" class="btn back" id="back-result">← Back</button>
       <h1>Analysis Data</h1>
     </div>
-    ${dataItems.length > 1 ? `
-      <div class="analysis-result-picker">
-        ${dataItems.map((_, i) => `
-          <button type="button" class="btn small ${i === selectedIndex ? 'primary' : 'secondary'}" data-index="${i}">${labels[i]}</button>
-        `).join('')}
-      </div>
-    ` : ''}
     <div class="card">
-      ${result && isMetrics ? `<h2>${escapeHtml(result.analysis_title || 'Metrics')}</h2><p class="view-subtitle">${escapeHtml(result.analysis_description || '')}</p>` : ''}
       ${mainContent}
     </div>
   `;
 
   container.querySelector('#back-result')?.addEventListener('click', () => navigate('record-activity'));
-
-  container.querySelectorAll('.analysis-result-picker [data-index]').forEach((btn) => {
-    btn.addEventListener('click', () => setState({ analysisResultSelectedIndex: Number(btn.getAttribute('data-index')) }));
-  });
 
   const reportBtn = container.querySelector('#download-report');
   if (reportBtn && selected?.type === 'report' && selected.data) {
@@ -142,7 +122,7 @@ export async function onEnter(container, state, ctx) {
     return;
   ctx.setState({ loadingState: 'loading', errorMessage: null });
   try {
-    const results = await client.analysisDataForActivity(activity, ['metrics', 'report']);
+    const results = await client.analysisDataForActivity(activity, ['report']);
     if (!results?.length) {
       ctx.setState({ loadingState: 'idle', errorMessage: 'No analysis data in result' });
       return;
@@ -151,16 +131,8 @@ export async function onEnter(container, state, ctx) {
       type: r.type,
       data: toUint8Array(r.data),
     }));
-    const metricsEntry = dataItems.find((r) => r.type === 'metrics');
-    let analysisResult = null;
-    if (metricsEntry?.data?.length) {
-      const text = new TextDecoder().decode(metricsEntry.data);
-      analysisResult = JSON.parse(text);
-    }
     ctx.setState({
       analysisResultDataItems: dataItems,
-      analysisResult,
-      analysisResultSelectedIndex: 0,
       loadingState: 'idle',
     });
   } catch (err) {

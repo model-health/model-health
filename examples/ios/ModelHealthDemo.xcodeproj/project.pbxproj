@@ -9,7 +9,8 @@
 /* Begin PBXBuildFile section */
 		802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 802955F22EF151CE000C2B72 /* ModelHealth */; };
 		805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 805EFA822EEE9C14006B9AEE /* ModelHealth */; };
-		80CB184A2F4DA70900BC610C /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 80CB18492F4DA70900BC610C /* ModelHealth */; };
+		806BCA492FFBEC3A009D8585 /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 806BCA482FFBEC3A009D8585 /* ModelHealth */; };
+		806BCB6C2FFD3460009D8585 /* ModelHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 806BCB6B2FFD3460009D8585 /* ModelHealth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,8 +31,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				80CB184A2F4DA70900BC610C /* ModelHealth in Frameworks */,
+				806BCA492FFBEC3A009D8585 /* ModelHealth in Frameworks */,
 				802955F32EF151CE000C2B72 /* ModelHealth in Frameworks */,
+				806BCB6C2FFD3460009D8585 /* ModelHealth in Frameworks */,
 				805EFA832EEE9C14006B9AEE /* ModelHealth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -78,7 +80,8 @@
 			packageProductDependencies = (
 				805EFA822EEE9C14006B9AEE /* ModelHealth */,
 				802955F22EF151CE000C2B72 /* ModelHealth */,
-				80CB18492F4DA70900BC610C /* ModelHealth */,
+				806BCA482FFBEC3A009D8585 /* ModelHealth */,
+				806BCB6B2FFD3460009D8585 /* ModelHealth */,
 			);
 			productName = ModelHealthDemo;
 			productReference = 801D65F92EBA415A00FB51D7 /* ModelHealthDemo.app */;
@@ -109,7 +112,7 @@
 			mainGroup = 801D65F02EBA415A00FB51D7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */,
+				806BCB6A2FFD3460009D8585 /* XCLocalSwiftPackageReference "../../swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 801D65FA2EBA415A00FB51D7 /* Products */;
@@ -267,7 +270,7 @@
 				CODE_SIGN_ENTITLEMENTS = ModelHealthDemo/ModelHealthDemo.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -287,7 +290,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.5.1;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -311,7 +314,7 @@
 				CODE_SIGN_ENTITLEMENTS = ModelHealthDemo/ModelHealthDemo.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -331,7 +334,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.5.1;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -369,16 +372,12 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/model-health/model-health-swift";
-			requirement = {
-				kind = exactVersion;
-				version = 0.5.1;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		806BCB6A2FFD3460009D8585 /* XCLocalSwiftPackageReference "../../swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../swift;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		802955F22EF151CE000C2B72 /* ModelHealth */ = {
@@ -389,9 +388,12 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = ModelHealth;
 		};
-		80CB18492F4DA70900BC610C /* ModelHealth */ = {
+		806BCA482FFBEC3A009D8585 /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 80CB18482F4DA70900BC610C /* XCRemoteSwiftPackageReference "model-health-swift" */;
+			productName = ModelHealth;
+		};
+		806BCB6B2FFD3460009D8585 /* ModelHealth */ = {
+			isa = XCSwiftPackageProductDependency;
 			productName = ModelHealth;
 		};
 /* End XCSwiftPackageProductDependency section */

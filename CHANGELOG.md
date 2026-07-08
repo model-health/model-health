@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0
+
+## Added
+
+- `ActivityType.sprint`, `ActivityType.lateralStepdown`, `ActivityType.lunge` — three new activity types available for analysis in all language bindings.
+- `RecordingConfig` — a new type with optional `framerate` and `filterFrequency` fields that override the session-level defaults for a specific recording. Available in all language bindings.
+- `ActivityConfig.config: RecordingConfig?` — pass a `RecordingConfig` when starting a recording to apply per-recording settings. Omitting it (or passing `nil`/`null`/`None`) falls back to the session's configured values.
+- `ActivityConfig.addTags` / `ActivityConfig.removeTags` (Swift/TypeScript) and `ActivityConfig.add_tags` / `ActivityConfig.remove_tags` (Python) — pass tags to add or remove on a recording. Existing tags are preserved; only the specified tags are added or removed. Pass both at once to add and remove in a single call.
+- `ActivityConfig.activityType` is now optional (previously required). This allows `ActivityConfig` to be used for update-only operations (e.g. modifying tags) without specifying an activity type.
+- `update(activity:config:)` / `updateActivity(activity, config)` — all supported languages now accept an optional `ActivityConfig` alongside the activity, enabling tag updates in the same call.
+- `activityMetrics(for:)` / `activityMetrics(activityId)` / `activity_metrics(activity_id)` — fetches the dashboard metric groups for a single activity. Returns an `ActivityMetrics` value containing `MetricsGroup` entries, each holding `Metric` values with scalar or bilateral readings.
+- `subjectMetrics(forSubject:start:end:)` / `subjectMetrics(subjectId, start?, end?)` / `subject_metrics(subject_id, start, end)` — fetches metrics across all activities for a subject, with optional ISO 8601 date-range filtering. Swift accepts `Date?`; TypeScript and Python accept ISO date strings.
+- `ActivityMetrics`, `MetricsGroup`, `Metric`, `MetricValue` — new model types backing the metrics APIs. `MetricValue` is a scalar (`value: Double?`) or bilateral (`left: Double?`, `right: Double?`) reading.
+- The SDK now includes example scripts for Swift and TypeScript.
+
+
+## Fixed
+
+- TypeScript: `calibrateCamera` and `calibrateSubject` now invoke the `statusCallback` argument with live status updates. Previously the callback was accepted but never called.
+- TypeScript: WASM initialisation now works correctly in Node.js. The SDK previously failed to load in Node environments due to `fetch` not supporting `file://` URLs.
+- TypeScript: `analysisDataForActivity` and `motionDataForActivity` now return `data` as `Uint8Array` as documented. Previously the bytes were returned as a plain `Array`, causing errors when writing results to disk.
+
 ## 0.5.1
 
 ## Fixed

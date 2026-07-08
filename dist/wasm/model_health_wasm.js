@@ -26,6 +26,16 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
+     * @param {string} activity_id
+     * @returns {Promise<any>}
+     */
+    activityMetrics(activity_id) {
+        const ptr0 = passStringToWasm0(activity_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.modelhealthservice_activityMetrics(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
      * # Errors
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
@@ -279,13 +289,13 @@ export class ModelHealthService {
      * Returns an error if the input cannot be deserialized or the network request fails.
      * @param {string} trial_name
      * @param {any} session_json
-     * @param {any} activity_type_json
+     * @param {any} config_json
      * @returns {Promise<any>}
      */
-    startRecording(trial_name, session_json, activity_type_json) {
+    startRecording(trial_name, session_json, config_json) {
         const ptr0 = passStringToWasm0(trial_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.modelhealthservice_startRecording(this.__wbg_ptr, ptr0, len0, addHeapObject(session_json), addHeapObject(activity_type_json));
+        const ret = wasm.modelhealthservice_startRecording(this.__wbg_ptr, ptr0, len0, addHeapObject(session_json), addHeapObject(config_json));
         return takeObject(ret);
     }
     /**
@@ -310,6 +320,20 @@ export class ModelHealthService {
         return takeObject(ret);
     }
     /**
+     * @param {number} subject_id
+     * @param {string | null} [start]
+     * @param {string | null} [end]
+     * @returns {Promise<any>}
+     */
+    subjectMetrics(subject_id, start, end) {
+        var ptr0 = isLikeNone(start) ? 0 : passStringToWasm0(start, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(end) ? 0 : passStringToWasm0(end, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.modelhealthservice_subjectMetrics(this.__wbg_ptr, subject_id, ptr0, len0, ptr1, len1);
+        return takeObject(ret);
+    }
+    /**
      * # Errors
      *
      * Returns an error if the network request fails or the response cannot be parsed.
@@ -327,10 +351,11 @@ export class ModelHealthService {
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
      * @param {any} activity_json
+     * @param {any} config_json
      * @returns {Promise<any>}
      */
-    updateActivity(activity_json) {
-        const ret = wasm.modelhealthservice_updateActivity(this.__wbg_ptr, addHeapObject(activity_json));
+    updateActivity(activity_json, config_json) {
+        const ret = wasm.modelhealthservice_updateActivity(this.__wbg_ptr, addHeapObject(activity_json), addHeapObject(config_json));
         return takeObject(ret);
     }
     /**
@@ -352,13 +377,13 @@ if (Symbol.dispose) ModelHealthService.prototype[Symbol.dispose] = ModelHealthSe
  * @param {string} api_key
  * @param {any} session_json
  * @param {any} checkerboard_json
- * @param {Function} _status_callback
+ * @param {Function} status_callback
  * @returns {Promise<any>}
  */
-export function calibrateCamera(api_key, session_json, checkerboard_json, _status_callback) {
+export function calibrateCamera(api_key, session_json, checkerboard_json, status_callback) {
     const ptr0 = passStringToWasm0(api_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.calibrateCamera(ptr0, len0, addHeapObject(session_json), addHeapObject(checkerboard_json), addHeapObject(_status_callback));
+    const ret = wasm.calibrateCamera(ptr0, len0, addHeapObject(session_json), addHeapObject(checkerboard_json), addHeapObject(status_callback));
     return takeObject(ret);
 }
 
@@ -366,13 +391,13 @@ export function calibrateCamera(api_key, session_json, checkerboard_json, _statu
  * @param {string} api_key
  * @param {any} subject_json
  * @param {any} session_json
- * @param {Function} _status_callback
+ * @param {Function} status_callback
  * @returns {Promise<any>}
  */
-export function calibrateSubject(api_key, subject_json, session_json, _status_callback) {
+export function calibrateSubject(api_key, subject_json, session_json, status_callback) {
     const ptr0 = passStringToWasm0(api_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.calibrateSubject(ptr0, len0, addHeapObject(subject_json), addHeapObject(session_json), addHeapObject(_status_callback));
+    const ret = wasm.calibrateSubject(ptr0, len0, addHeapObject(subject_json), addHeapObject(session_json), addHeapObject(status_callback));
     return takeObject(ret);
 }
 
@@ -500,9 +525,10 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_debug_46a93995fc6f8820: function(arg0, arg1, arg2, arg3) {
-            console.debug(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
-        },
+        __wbg_call_812d25f1510c13c8: function() { return handleError(function (arg0, arg1, arg2, arg3) {
+            const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3));
+            return addHeapObject(ret);
+        }, arguments); },
         __wbg_done_57b39ecd9addfe81: function(arg0) {
             const ret = getObject(arg0).done;
             return ret;
@@ -521,12 +547,6 @@ function __wbg_get_imports() {
             } finally {
                 wasm.__wbindgen_export4(deferred0_0, deferred0_1, 1);
             }
-        },
-        __wbg_error_794d0ffc9d00d5c3: function(arg0, arg1, arg2, arg3) {
-            console.error(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
-        },
-        __wbg_error_9a7fe3f932034cde: function(arg0) {
-            console.error(getObject(arg0));
         },
         __wbg_fetch_afb6a4b6cacf876d: function(arg0, arg1) {
             const ret = getObject(arg0).fetch(getObject(arg1));
@@ -555,9 +575,6 @@ function __wbg_get_imports() {
         __wbg_headers_59a2938db9f80985: function(arg0) {
             const ret = getObject(arg0).headers;
             return addHeapObject(ret);
-        },
-        __wbg_info_9e602cf10c5c690b: function(arg0, arg1, arg2, arg3) {
-            console.info(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbg_instanceof_ArrayBuffer_c367199e2fa2aa04: function(arg0) {
             let result;
@@ -599,16 +616,6 @@ function __wbg_get_imports() {
             const ret = result;
             return ret;
         },
-        __wbg_instanceof_Window_ed49b2db8df90359: function(arg0) {
-            let result;
-            try {
-                result = getObject(arg0) instanceof Window;
-            } catch (_) {
-                result = false;
-            }
-            const ret = result;
-            return ret;
-        },
         __wbg_isArray_d314bb98fcf08331: function(arg0) {
             const ret = Array.isArray(getObject(arg0));
             return ret;
@@ -628,9 +635,6 @@ function __wbg_get_imports() {
         __wbg_length_35a7bace40f36eac: function(arg0) {
             const ret = getObject(arg0).length;
             return ret;
-        },
-        __wbg_log_24aba2a6d8990b35: function(arg0, arg1, arg2, arg3) {
-            console.log(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
         },
         __wbg_new_361308b2356cecd0: function() {
             const ret = new Object();
@@ -663,7 +667,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1544(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1631(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -728,10 +732,6 @@ function __wbg_get_imports() {
             const ret = Promise.resolve(getObject(arg0));
             return addHeapObject(ret);
         },
-        __wbg_setTimeout_eff32631ea138533: function() { return handleError(function (arg0, arg1, arg2) {
-            const ret = getObject(arg0).setTimeout(getObject(arg1), arg2);
-            return ret;
-        }, arguments); },
         __wbg_set_3f1d0b984ed272ed: function(arg0, arg1, arg2) {
             getObject(arg0)[takeObject(arg1)] = takeObject(arg2);
         },
@@ -813,12 +813,9 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).value;
             return addHeapObject(ret);
         },
-        __wbg_warn_a40b971467b219c7: function(arg0, arg1, arg2, arg3) {
-            console.warn(getObject(arg0), getObject(arg1), getObject(arg2), getObject(arg3));
-        },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 480, function: Function { arguments: [Externref], shim_idx: 481, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1120, __wasm_bindgen_func_elem_1121);
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 498, function: Function { arguments: [Externref], shim_idx: 499, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1213, __wasm_bindgen_func_elem_1214);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -855,12 +852,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_1121(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_1121(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_1214(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_1214(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1544(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1544(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1631(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1631(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 

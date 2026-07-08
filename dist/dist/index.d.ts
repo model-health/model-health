@@ -16,7 +16,7 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics } from "./types.js";
 /**
  * Configuration options for the Model Health client.
  */
@@ -143,6 +143,23 @@ export declare class ModelHealthService {
      * ```
      */
     sessionList(): Promise<Session[]>;
+    /**
+     * Retrieves a specific session by ID with its populated activities.
+     *
+     * Use this to fetch a known session directly — for example, a public demo session
+     * or one whose ID was stored previously.
+     *
+     * @param sessionId The unique identifier of the session.
+     * @returns The `Session` with its populated activity list.
+     * @throws If the session doesn't exist or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const session = await client.getSession("1f32961c-d2b5-4aae-bc23-3f3db6b31540");
+     * console.log(`Activities: ${session.trialsCount}`);
+     * ```
+     */
+    getSession(sessionId: string): Promise<Session>;
     /**
      * Creates a session.
      *
@@ -342,6 +359,7 @@ export declare class ModelHealthService {
      * state is returned, so use the result rather than the input going forward.
      *
      * @param activity The activity to update, with modified properties.
+     * @param config Optional config to apply alongside the update (e.g. `addTags`/`removeTags` to modify tags).
      * @returns The updated `Activity` as stored on the server.
      * @throws If the update fails or the request fails.
      *
@@ -353,7 +371,7 @@ export declare class ModelHealthService {
      * console.log(`Updated: ${updated.name ?? "Unnamed"}`);
      * ```
      */
-    updateActivity(activity: Activity): Promise<Activity>;
+    updateActivity(activity: Activity, config?: ActivityConfig): Promise<Activity>;
     /**
      * Deletes an activity.
      *
@@ -509,7 +527,7 @@ export declare class ModelHealthService {
      *
      * @param activityName A descriptive name for this activity (e.g., `"cmj"`, `"squat"`).
      * @param session The session this activity is associated with.
-     * @param config Optional recording configuration.
+     * @param config Optional recording configuration. Set `config.config` to override the session-level framerate or filter frequency for this recording only.
      * @returns The newly created `Activity`.
      * @throws If recording cannot start (e.g., missing calibration).
      *
@@ -747,6 +765,37 @@ export declare class ModelHealthService {
      */
     archiveData(archive: Archive): Promise<Uint8Array>;
     /**
+     * Fetch dashboard metrics for a single activity.
+     *
+     * @param activityId UUID of the activity.
+     * @returns The dashboard metrics organised into category groups.
+     * @throws On network failure or if the activity is not found.
+     *
+     * @example
+     * ```typescript
+     * const metrics = await client.activityMetrics(activity.id);
+     * for (const group of metrics.groups) {
+     *   console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     * }
+     * ```
+     */
+    activityMetrics(activityId: string): Promise<ActivityMetrics>;
+    /**
+     * Fetch dashboard metrics for all activities belonging to a subject.
+     *
+     * @param subjectId Numeric ID of the subject.
+     * @param start Optional start date in `YYYY-MM-DD` format.
+     * @param end Optional end date in `YYYY-MM-DD` format.
+     * @returns Array of per-activity metric payloads.
+     * @throws On network failure or if the subject is not found.
+     *
+     * @example
+     * ```typescript
+     * const allMetrics = await client.subjectMetrics(subject.id, "2024-01-01", "2024-12-31");
+     * ```
+     */
+    subjectMetrics(subjectId: number, start?: string, end?: string): Promise<ActivityMetrics[]>;
+    /**
      * Parse a WASM response and normalise object keys to camelCase.
      *
      * Normalises snake_case field names from the WASM layer to idiomatic
@@ -759,5 +808,12 @@ export declare class ModelHealthService {
      */
     private parseResponse;
 }
+/**
+ * Serialise activity metrics to a JSON string (snake_case keys, matching the
+ * wire format shared with the Python and Swift SDKs).
+ *
+ * Pretty-printed (indented) by default; pass `pretty=false` for compact output.
+ */
+export declare function activityMetricsToJson(metrics: ActivityMetrics, pretty?: boolean): string;
 export * from "./types.js";
 //# sourceMappingURL=index.d.ts.map

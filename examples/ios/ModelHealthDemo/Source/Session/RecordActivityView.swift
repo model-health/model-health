@@ -29,6 +29,7 @@ struct RecordActivityView: View {
     }
 
     @State private var activityName: String = ""
+    @State private var selectedActivityType: ActivityType = ActivityType.allCases[0]
     @State private var currentActivity: Activity?
     @State private var completedActivities: [ActivityState] = []
     @State private var selectedActivityForResults: Activity?
@@ -49,29 +50,65 @@ struct RecordActivityView: View {
         currentActivity != nil
     }
 
+    private var hasActivitiesInProgress: Bool {
+        completedActivities.contains { state in
+            guard let status = state.processingStatus else {
+                return true
+            }
+
+            switch status {
+            case .uploading, .processing, .analyzing:
+                return true
+
+            case .ready:
+                return !state.analysisCompleted
+
+            case .failed:
+                return false
+            }
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Activity Name")
                         .font(.headline)
-                    
+
                     TextField("e.g., Walking, Squatting, Jump", text: $activityName)
                         .textFieldStyle(.roundedBorder)
                         .disabled(isRecording)
                         .autocorrectionDisabled()
                 }
-                
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activity Type")
+                        .font(.headline)
+
+                    HStack {
+                        Picker("Activity Type", selection: $selectedActivityType) {
+                            ForEach(ActivityType.allCases, id: \.rawValue) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(isRecording)
+
+                        Spacer()
+                    }
+                }
+
                 if isRecording {
                     VStack(spacing: 8) {
                         Image(systemName: "record.circle.fill")
                             .font(.system(size: 48))
                             .foregroundStyle(.red)
                             .symbolEffect(.pulse)
-                        
+
                         Text("Recording activity: \"\(activityName)\"")
                             .font(.headline)
-                        
+
                         Text("Have the subject perform the activity")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -81,7 +118,7 @@ struct RecordActivityView: View {
                     .background(Color.red.opacity(0.1))
                     .cornerRadius(12)
                 }
-                
+
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.subheadline)
@@ -91,7 +128,7 @@ struct RecordActivityView: View {
                         .background(Color.red.opacity(0.1))
                         .cornerRadius(8)
                 }
-                
+
                 LoadingButton(
                     title: isRecording ? "Stop Recording" : "Start Recording",
                     isLoading: false,
@@ -101,11 +138,11 @@ struct RecordActivityView: View {
                         await isRecording ? stopRecordingActivity() : startRecordingActivity()
                     }
                 }
-                
+
                 switch loadingState {
                 case .notStarted:
                     EmptyView()
-                    
+
                 case .loading:
                     HStack {
                         ProgressView()
@@ -115,30 +152,21 @@ struct RecordActivityView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding()
-                    
+
                 case .loaded where completedActivities.isEmpty:
                     EmptyView()
-                    
+
                 case .loaded:
                     Divider()
                         .padding(.vertical)
-                    
+
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Completed Activities")
                             .font(.headline)
-                        
+
                         ForEach($completedActivities) { $activityState in
                             ActivityRow(
                                 activityState: $activityState,
-                                onRefreshStatus: {
-                                    await refreshActivityStatus($activityState)
-                                },
-                                onStartAnalysis: { activityType in
-                                    await startAnalysis(
-                                        $activityState,
-                                        activityType: activityType
-                                    )
-                                },
                                 onViewResults: {
                                     selectedActivityForResults = activityState.activity
                                 },
@@ -154,14 +182,14 @@ struct RecordActivityView: View {
                             )
                         }
                     }
-                    
+
                 case .error(let message):
                     Text(message)
                         .font(.subheadline)
                         .foregroundStyle(.red)
                         .padding()
                 }
-                
+
                 Spacer()
             }
             .padding()
@@ -182,8 +210,16 @@ struct RecordActivityView: View {
                 guard case .notStarted = loadingState else {
                     return
                 }
-                
+
                 await loadExistingActivities()
+
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    guard !completedActivities.isEmpty && hasActivitiesInProgress else {
+                        continue
+                    }
+                    await refreshAllActivityStatuses()
+                }
             }
         }
     }
@@ -202,8 +238,7 @@ struct RecordActivityView: View {
                         activity: activity,
                         name: activity.name ?? "Activity \(activity.id)",
                         processingStatus: nil,
-                        analysisTask: nil,
-                        analysisStatus: nil
+                        analysisCompleted: !activity.results.isEmpty
                     )
                 }
         } catch {
@@ -216,29 +251,47 @@ struct RecordActivityView: View {
     }
 
     private func refreshAllActivityStatuses() async {
-        await withTaskGroup(of: (Int, ActivityStatus?, AnalysisStatus?).self) { group in
+        // Reload the activity list to get fresh results arrays. This is the
+        // fallback signal for analysis completion when the .analyzing status
+        // window was missed entirely between polls.
+        let freshById: [String: Activity]
+        if let list = try? await modelHealth.activityList(for: session) {
+            freshById = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
+        } else {
+            freshById = [:]
+        }
+
+        await withTaskGroup(of: (Int, ActivityStatus?).self) { group in
             for (index, activityState) in completedActivities.enumerated() {
                 group.addTask {
                     do {
                         print("Getting status for activity \(activityState.activity.id)")
                         let status = try await self.modelHealth.activityStatus(for: activityState.activity)
                         print("Got status \(String(describing: status)) for activity \(activityState.activity.id)")
-
-                        var analysisStatus = activityState.analysisStatus
-                        if let task = activityState.analysisTask {
-                            analysisStatus = try await self.modelHealth.analysisStatus(for: task)
-                        }
-
-                        return (index, status, analysisStatus)
+                        return (index, status)
                     } catch {
-                        return (index, activityState.processingStatus, activityState.analysisStatus)
+                        return (index, activityState.processingStatus)
                     }
                 }
             }
 
-            for await (index, processingStatus, analysisStatus) in group {
+            for await (index, processingStatus) in group {
+                let activityId = completedActivities[index].activity.id
+                let previousStatus = completedActivities[index].processingStatus
                 completedActivities[index].processingStatus = processingStatus
-                completedActivities[index].analysisStatus = analysisStatus
+
+                if let fresh = freshById[activityId] {
+                    completedActivities[index].activity = fresh
+                }
+
+                if case .analyzing = previousStatus, case .ready = processingStatus {
+                    completedActivities[index].analysisCompleted = true
+                } else if case .ready = processingStatus, !completedActivities[index].analysisCompleted {
+                    // Analysis may have completed between polls; check results as a fallback.
+                    if let fresh = freshById[activityId], !fresh.results.isEmpty {
+                        completedActivities[index].analysisCompleted = true
+                    }
+                }
             }
         }
     }
@@ -249,7 +302,8 @@ struct RecordActivityView: View {
         do {
             currentActivity = try await modelHealth.startRecording(
                 activityNamed: activityName,
-                in: session
+                in: session,
+                config: ActivityConfig(activityType: selectedActivityType)
             )
         } catch let error as ModelHealthError {
             errorMessage = error.message
@@ -269,99 +323,34 @@ struct RecordActivityView: View {
             try await modelHealth.stopRecording(session)
 
             completedActivities.insert(
-                ActivityState(activity: activity, name: activityName),
+                ActivityState(activity: activity, name: activityName, analysisCompleted: false),
                 at: 0
             )
 
             activityName = ""
             currentActivity = nil
 
-            if let index = completedActivities.firstIndex(where: { $0.activity.id == activity.id }) {
-                await refreshActivityStatus($completedActivities[index])
-            }
+            await refreshAllActivityStatuses()
         } catch let error as ModelHealthError {
             errorMessage = error.message
         } catch {
             errorMessage = "Failed to stop recording: \(error.localizedDescription)"
         }
     }
-
-    private func refreshActivityStatus(_ activityState: Binding<ActivityState>) async {
-        activityState.wrappedValue.isRefreshing = true
-        defer {
-            activityState.wrappedValue.isRefreshing = false
-        }
-
-        do {
-            let status = try await modelHealth.activityStatus(for: activityState.wrappedValue.activity)
-            activityState.wrappedValue.processingStatus = status
-
-            if let task = activityState.wrappedValue.analysisTask {
-                let analysisStatus = try await modelHealth.analysisStatus(for: task)
-                activityState.wrappedValue.analysisStatus = analysisStatus
-            }
-        } catch let error as ModelHealthError {
-            errorMessage = error.message
-        } catch {
-            errorMessage = "Failed to refresh status: \(error.localizedDescription)"
-        }
-    }
-
-    private func startAnalysis(
-        _ activityState: Binding<ActivityState>,
-        activityType: ActivityType
-    ) async {
-        activityState.wrappedValue.isAnalyzing = true
-        defer {
-            activityState.wrappedValue.isAnalyzing = false
-        }
-
-        do {
-            let task = try await modelHealth.startAnalysis(
-                activityType,
-                for: activityState.wrappedValue.activity,
-                in: session
-            )
-
-            activityState.wrappedValue.analysisTask = task
-            activityState.wrappedValue.analysisStatus = .processing
-
-            await refreshActivityStatus(activityState)
-        } catch let error as ModelHealthError {
-            errorMessage = error.message
-        } catch {
-            errorMessage = "Failed to start analysis: \(error.localizedDescription)"
-        }
-    }
 }
 
 struct ActivityState: Identifiable {
-    let activity: Activity
+    var activity: Activity
     let name: String
     var processingStatus: ActivityStatus?
-    var analysisTask: Analysis?
-    var analysisStatus: AnalysisStatus?
-    var isRefreshing: Bool = false
-    var isAnalyzing: Bool = false
+    var analysisCompleted: Bool
 
     var id: String {
         activity.id
     }
 
-    var canAnalyze: Bool {
-        if case .ready = processingStatus {
-            return analysisTask == nil
-        }
-
-        return false
-    }
-
     var canViewResults: Bool {
-        if case .completed = analysisStatus {
-            return true
-        }
-
-        return false
+        analysisCompleted
     }
 }
 
@@ -369,50 +358,24 @@ struct ActivityState: Identifiable {
 
 private struct ActivityRow: View {
     @Binding var activityState: ActivityState
-    @State var activityType: ActivityType = .cut
 
-    let onRefreshStatus: () async -> Void
-    let onStartAnalysis: (ActivityType) async -> Void
     let onViewResults: () -> Void
     let onViewVideos: () -> Void
     let onViewData: () -> Void
     let onViewMetrics: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(activityState.name)
-                        .font(.headline)
-                    StatusIndicator(
-                        processingStatus: activityState.processingStatus,
-                        analysisStatus: activityState.analysisStatus
-                    )
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 0) {
+                Text(activityState.name)
+                    .font(.headline)
 
-                Button {
-                    Task {
-                        await onRefreshStatus()
-                    }
-                } label: {
-                    if activityState.isRefreshing {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .frame(width: 84, height: 18)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(activityState.isRefreshing)
+                Spacer()
 
-                Picker("Analysis Type", selection: $activityType) {
-                    ForEach(ActivityType.allCases, id: \.rawValue) { type in
-                        Text(type.rawValue).tag(type)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity)
+                StatusIndicator(
+                    processingStatus: activityState.processingStatus,
+                    analysisCompleted: activityState.analysisCompleted
+                )
             }
 
             Spacer()
@@ -427,62 +390,45 @@ private struct ActivityRow: View {
 
     private var buttonGrid: some View {
         VStack(spacing: 4) {
-            HStack(spacing: 8) {
+            HStack
+            {
                 Button {
                     onViewVideos()
                 } label: {
-                    Image(systemName: "film.stack")
+                    Text("Videos")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(activityState.processingStatus == nil)
-                .frame(width: 44, height: 44)
+
+                Spacer()
 
                 Button {
                     onViewData()
                 } label: {
-                    Image(systemName: "curlybraces")
+                    Text("Data")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(activityState.processingStatus == nil)
-                .frame(width: 44, height: 44)
-            }
 
-            HStack(spacing: 8) {
-                Button {
-                    Task {
-                        await onStartAnalysis(activityType)
-                    }
-                } label: {
-                    if activityState.isAnalyzing {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "chart.line.text.clipboard")
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!activityState.canAnalyze || activityState.isAnalyzing)
-                .frame(width: 44, height: 44)
+                Spacer()
 
                 Button {
                     onViewResults()
                 } label: {
-                    Image(systemName: "doc.text.magnifyingglass")
+                    Text("Report")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!activityState.canViewResults)
-                .frame(width: 44, height: 44)
-            }
 
-            HStack(spacing: 8) {
+                Spacer()
+
                 Button {
                     onViewMetrics()
                 } label: {
-                    Image(systemName: "chart.bar.xaxis")
+                    Text("Metrics")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!activityState.canViewResults)
-                .frame(width: 44, height: 44)
             }
         }
     }
@@ -492,7 +438,7 @@ private struct ActivityRow: View {
 
 struct StatusIndicator: View {
     let processingStatus: ActivityStatus?
-    let analysisStatus: AnalysisStatus?
+    let analysisCompleted: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -507,75 +453,49 @@ struct StatusIndicator: View {
     }
 
     private var statusColor: Color {
-        if let analysisStatus {
-            switch analysisStatus {
-            case .processing:
-                return .yellow
-
-            case .completed:
-                return .blue
-
-            case .failed:
-                return .red
-            }
+        guard let processingStatus else {
+            return .gray
         }
 
-        if let processingStatus {
-            switch processingStatus {
-            case .uploading:
-                return .black
+        switch processingStatus {
+        case .uploading:
+            return .black
 
-            case .processing:
-                return .yellow
+        case .processing:
+            return .yellow
 
-            case .ready:
-                return .blue
+        case .ready:
+            return .blue
 
-            case .analyzing:
-                return .mint
+        case .analyzing:
+            return .mint
 
-            case .failed:
-                return .red
-            }
+        case .failed:
+            return .red
         }
-
-        return .gray
     }
 
     private var statusText: String {
-        if let analysisStatus {
-            switch analysisStatus {
-            case .processing:
-                return "Analyzing..."
-
-            case .completed:
-                return "Analysis complete"
-
-            case .failed:
-                return "Analysis failed"
-            }
+        guard let processingStatus else {
+            return "Unknown status"
         }
 
-        if let processingStatus {
-            switch processingStatus {
-            case .uploading(let uploaded, let total):
-                return "Uploading \(uploaded)/\(total)"
+        switch processingStatus {
+        case .uploading(let uploaded, let total):
+            return "Uploading \(uploaded)/\(total)"
 
-            case .processing:
-                return "Processing..."
+        case .processing:
+            return "Processing..."
 
-            case .ready:
-                return "Ready for analysis"
+        case .ready:
+            return analysisCompleted ? "Analysis complete" : "Ready"
 
-            case .analyzing:
-                return "Analyzing..."
+        case .analyzing:
+            return "Analyzing..."
 
-            case .failed:
-                return "Processing failed"
-            }
+        case .failed:
+            return "Processing failed"
         }
-
-        return "Unknown status"
     }
 }
 
@@ -600,7 +520,6 @@ struct StatusIndicator: View {
 // Preview helper with populated data
 private struct RecordActivityView_Preview: View {
     @State private var completedActivities: [ActivityState] = [
-        // Activity with completed analysis
         ActivityState(
             activity: .forPreview { builder in
                 builder.id = "activity-1"
@@ -608,25 +527,15 @@ private struct RecordActivityView_Preview: View {
                 builder.status = "done"
                 builder.results = [
                     .forPreview { result in
-                        result.tag = "joint-angles-csv"
-                    },
-                    .forPreview { result in
-                        result.id = 2
-                        result.tag = "kinematics-json"
-                    },
-                    .forPreview { result in
-                        result.id = 3
-                        result.tag = "forces-csv"
+                        result.tag = "overground_walking_report"
                     }
                 ]
             },
             name: "Gait Analysis",
             processingStatus: .ready,
-            analysisTask: .forPreview(),
-            analysisStatus: .completed
+            analysisCompleted: true
         ),
 
-        // Activity ready for analysis
         ActivityState(
             activity: .forPreview { builder in
                 builder.id = "activity-2"
@@ -634,42 +543,30 @@ private struct RecordActivityView_Preview: View {
                 builder.status = "done"
             },
             name: "Squat Test",
-            processingStatus: .ready
+            processingStatus: .analyzing(.forPreview()),
+            analysisCompleted: false
         ),
 
-        // Activity currently analyzing
         ActivityState(
             activity: .forPreview { builder in
                 builder.id = "activity-3"
-                builder.name = "Jump Test"
-                builder.status = "done"
-            },
-            name: "Jump Test",
-            processingStatus: .ready,
-            analysisTask: .forPreview(),
-            analysisStatus: .processing
-        ),
-
-        // Activity still processing
-        ActivityState(
-            activity: .forPreview { builder in
-                builder.id = "activity-4"
                 builder.name = "Walking Test"
                 builder.status = "processing"
             },
             name: "Walking Test",
-            processingStatus: .processing
+            processingStatus: .processing,
+            analysisCompleted: false
         ),
 
-        // Activity uploading
         ActivityState(
             activity: .forPreview { builder in
-                builder.id = "activity-5"
+                builder.id = "activity-4"
                 builder.name = "Balance Test"
                 builder.status = "stopped"
             },
             name: "Balance Test",
-            processingStatus: .uploading(uploaded: 2, total: 4)
+            processingStatus: .uploading(uploaded: 2, total: 4),
+            analysisCompleted: false
         )
     ]
 
@@ -682,6 +579,19 @@ private struct RecordActivityView_Preview: View {
                 TextField("e.g., Walking, Squatting, Jump", text: .constant(""))
                     .textFieldStyle(.roundedBorder)
                     .disabled(true)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Activity Type")
+                    .font(.headline)
+
+                Picker("Activity Type", selection: .constant(ActivityType.gait)) {
+                    ForEach(ActivityType.allCases, id: \.rawValue) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(true)
             }
 
             LoadingButton(
@@ -700,8 +610,6 @@ private struct RecordActivityView_Preview: View {
                 ForEach($completedActivities) { $activityState in
                     ActivityRow(
                         activityState: $activityState,
-                        onRefreshStatus: {},
-                        onStartAnalysis: { _ in },
                         onViewResults: {},
                         onViewVideos: {},
                         onViewData: {},
@@ -731,20 +639,14 @@ extension ActivityState {
         public var activity: Activity = .forPreview()
         public var name: String = "Counter Movement Jump"
         public var processingStatus: ActivityStatus? = .ready
-        public var analysisTask: Analysis? = .forPreview()
-        public var analysisStatus: AnalysisStatus? = .completed
-        public var isRefreshing: Bool = false
-        public var isAnalyzing: Bool = false
+        public var analysisCompleted: Bool = true
 
         func build() -> ActivityState {
             ActivityState(
                 activity: activity,
                 name: name,
                 processingStatus: processingStatus,
-                analysisTask: analysisTask,
-                analysisStatus: analysisStatus,
-                isRefreshing: isRefreshing,
-                isAnalyzing: isAnalyzing
+                analysisCompleted: analysisCompleted
             )
         }
     }

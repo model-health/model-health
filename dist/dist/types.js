@@ -44,5 +44,11 @@ export const ActivityType = {
     ChangeOfDirection: "change_of_direction",
     /** Cutting Maneuver */
     Cut: "cut",
+    /** Sprint */
+    Sprint: "sprint",
+    /** Lateral Stepdown */
+    LateralStepdown: "lateral_stepdown",
+    /** Lunge */
+    Lunge: "lunge",
 };
 //# sourceMappingURL=types.js.map

@@ -177,6 +177,9 @@ private extension MotionData {
 
         case .model:
             "Model"
+
+        case .tagged(_, _):
+            "Tags"
         }
     }
 
@@ -196,6 +199,9 @@ private extension MotionData {
 
         case .model:
             "OSim"
+
+        case .tagged(_, _):
+            "TXT"
         }
     }
 
@@ -212,6 +218,9 @@ private extension MotionData {
 
         case .model:
             "cube"
+
+        case .tagged(_, _):
+            "tag"
         }
     }
 

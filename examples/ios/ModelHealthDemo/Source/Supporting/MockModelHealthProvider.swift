@@ -46,6 +46,19 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
+    func getSession(id sessionId: String) async throws -> ModelHealth.Session {
+        .forPreview { builder in
+            builder.id = "mock-session-\(sessionId)"
+            builder.name = "Mock Session"
+            builder.sessionName = "Demo Session \(Date().formatted(date: .abbreviated, time: .shortened))"
+            builder.user = 1
+            builder.public = false
+            builder.qrcode = nil
+            builder.subject = nil
+            builder.activitiesCount = 0
+        }
+    }
+
     func subjectList() async throws -> [Subject] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return subjects
@@ -108,10 +121,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
         Activity.forPreview()
     }
 
-    func update(activity: Activity) async throws -> Activity {
-        activity
-    }
-
     func delete(activity: Activity) async throws {
     }
 
@@ -130,6 +139,14 @@ final class MockModelHealthProvider: ModelHealthProvider {
         return types.map { type in
             MotionData.forPreview(resultDataType: type)
         }
+    }
+
+    func update(activity: ModelHealth.Activity, config: ModelHealth.ActivityConfig?) async throws -> ModelHealth.Activity {
+        activity
+    }
+
+    func addMotionData(_ files: [ModelHealth.ExternalResultFile], to activity: ModelHealth.Activity) async throws -> ModelHealth.Activity {
+        activity
     }
 
     func configure(session: Session, config: SessionConfig) async throws {
@@ -271,5 +288,13 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func archiveData(for archive: Archive) async throws -> Data {
         Data()
+    }
+
+    func activityMetrics(for activityId: String) async throws -> ModelHealth.ActivityMetrics? {
+        nil
+    }
+
+    func subjectMetrics(forSubject subjectId: Int, start: Date?, end: Date?) async throws -> [ModelHealth.ActivityMetrics] {
+        []
     }
 }

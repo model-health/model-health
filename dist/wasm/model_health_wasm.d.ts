@@ -10,6 +10,7 @@ export class ModelHealthService {
      * Returns an error if the input cannot be deserialized or the network request fails.
      */
     activitiesForSubject(subject_id: number, start_index: number, count: number, sort: any): Promise<any>;
+    activityMetrics(activity_id: string): Promise<any>;
     /**
      * # Errors
      *
@@ -141,7 +142,7 @@ export class ModelHealthService {
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
      */
-    startRecording(trial_name: string, session_json: any, activity_type_json: any): Promise<any>;
+    startRecording(trial_name: string, session_json: any, config_json: any): Promise<any>;
     /**
      * # Errors
      *
@@ -154,6 +155,7 @@ export class ModelHealthService {
      * Returns an error if the network request fails or the response cannot be parsed.
      */
     subjectList(): Promise<any>;
+    subjectMetrics(subject_id: number, start?: string | null, end?: string | null): Promise<any>;
     /**
      * # Errors
      *
@@ -165,7 +167,7 @@ export class ModelHealthService {
      *
      * Returns an error if the input cannot be deserialized or the network request fails.
      */
-    updateActivity(activity_json: any): Promise<any>;
+    updateActivity(activity_json: any, config_json: any): Promise<any>;
     /**
      * # Errors
      *
@@ -174,9 +176,9 @@ export class ModelHealthService {
     videosForActivity(trial_json: any, version_json: any): Promise<Array<any>>;
 }
 
-export function calibrateCamera(api_key: string, session_json: any, checkerboard_json: any, _status_callback: Function): Promise<any>;
+export function calibrateCamera(api_key: string, session_json: any, checkerboard_json: any, status_callback: Function): Promise<any>;
 
-export function calibrateSubject(api_key: string, subject_json: any, session_json: any, _status_callback: Function): Promise<any>;
+export function calibrateSubject(api_key: string, subject_json: any, session_json: any, status_callback: Function): Promise<any>;
 
 export function init(): void;
 
@@ -188,6 +190,7 @@ export interface InitOutput {
     readonly calibrateCamera: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly calibrateSubject: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly modelhealthservice_activitiesForSubject: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly modelhealthservice_activityMetrics: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_activityStatus: (a: number, b: number) => number;
     readonly modelhealthservice_activityTags: (a: number) => number;
     readonly modelhealthservice_addMotionDataToActivity: (a: number, b: number, c: number) => number;
@@ -210,13 +213,14 @@ export interface InitOutput {
     readonly modelhealthservice_startRecording: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly modelhealthservice_stopRecording: (a: number, b: number) => number;
     readonly modelhealthservice_subjectList: (a: number) => number;
+    readonly modelhealthservice_subjectMetrics: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
     readonly modelhealthservice_trialList: (a: number, b: number, c: number) => number;
-    readonly modelhealthservice_updateActivity: (a: number, b: number) => number;
+    readonly modelhealthservice_updateActivity: (a: number, b: number, c: number) => number;
     readonly modelhealthservice_videosForActivity: (a: number, b: number, c: number) => number;
     readonly init: () => void;
-    readonly __wasm_bindgen_func_elem_1120: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_1544: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_1121: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_1213: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_1631: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_1214: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

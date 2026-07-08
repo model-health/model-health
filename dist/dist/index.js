@@ -35,8 +35,19 @@ async function initWasm() {
     wasmInitPromise = (async () => {
         try {
             wasmModule = await import("../wasm/model_health_wasm.js");
-            await wasmModule.default();
-            await wasmModule.init();
+            // Node.js fetch() does not support file:// URLs, so we read the .wasm
+            // bytes from disk and pass the buffer directly to the init function.
+            const isNode = typeof process !== "undefined" && Boolean(process.versions?.node);
+            if (isNode) {
+                const { readFile } = await import("fs/promises");
+                const { fileURLToPath } = await import("url");
+                const wasmUrl = new URL("../wasm/model_health_wasm_bg.wasm", import.meta.url);
+                const wasmBytes = await readFile(fileURLToPath(wasmUrl));
+                await wasmModule.default({ module_or_path: wasmBytes.buffer });
+            }
+            else {
+                await wasmModule.default();
+            }
             wasmInitialized = true;
         }
         catch (error) {
@@ -230,6 +241,27 @@ export class ModelHealthService {
     async sessionList() {
         this.ensureInitialized();
         const result = await this.wasmClient.sessionList();
+        return this.parseResponse(result);
+    }
+    /**
+     * Retrieves a specific session by ID with its populated activities.
+     *
+     * Use this to fetch a known session directly — for example, a public demo session
+     * or one whose ID was stored previously.
+     *
+     * @param sessionId The unique identifier of the session.
+     * @returns The `Session` with its populated activity list.
+     * @throws If the session doesn't exist or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const session = await client.getSession("1f32961c-d2b5-4aae-bc23-3f3db6b31540");
+     * console.log(`Activities: ${session.trialsCount}`);
+     * ```
+     */
+    async getSession(sessionId) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.getSession(sessionId);
         return this.parseResponse(result);
     }
     /**
@@ -468,6 +500,7 @@ export class ModelHealthService {
      * state is returned, so use the result rather than the input going forward.
      *
      * @param activity The activity to update, with modified properties.
+     * @param config Optional config to apply alongside the update (e.g. `addTags`/`removeTags` to modify tags).
      * @returns The updated `Activity` as stored on the server.
      * @throws If the update fails or the request fails.
      *
@@ -479,9 +512,9 @@ export class ModelHealthService {
      * console.log(`Updated: ${updated.name ?? "Unnamed"}`);
      * ```
      */
-    async updateActivity(activity) {
+    async updateActivity(activity, config) {
         this.ensureInitialized();
-        const result = await this.wasmClient.updateActivity(decamelizeKeys(activity));
+        const result = await this.wasmClient.updateActivity(decamelizeKeys(activity), config ? decamelizeKeys(config) : null);
         return this.parseResponse(result);
     }
     /**
@@ -617,7 +650,8 @@ export class ModelHealthService {
     async motionDataForActivity(activity, dataTypes) {
         this.ensureInitialized();
         const result = await this.wasmClient.motionDataForActivity(decamelizeKeys(activity), dataTypes);
-        return this.parseResponse(result);
+        const parsed = this.parseResponse(result);
+        return parsed.map((item) => ({ ...item, data: new Uint8Array(item.data) }));
     }
     /**
      * Downloads result data for an activity with a completed analysis.
@@ -657,7 +691,8 @@ export class ModelHealthService {
     async analysisDataForActivity(activity, dataTypes) {
         this.ensureInitialized();
         const result = await this.wasmClient.analysisDataForActivity(decamelizeKeys(activity), dataTypes);
-        return this.parseResponse(result);
+        const parsed = this.parseResponse(result);
+        return parsed.map((item) => ({ ...item, data: new Uint8Array(item.data) }));
     }
     // MARK: - Recording & Analysis
     /**
@@ -668,7 +703,7 @@ export class ModelHealthService {
      *
      * @param activityName A descriptive name for this activity (e.g., `"cmj"`, `"squat"`).
      * @param session The session this activity is associated with.
-     * @param config Optional recording configuration.
+     * @param config Optional recording configuration. Set `config.config` to override the session-level framerate or filter frequency for this recording only.
      * @returns The newly created `Activity`.
      * @throws If recording cannot start (e.g., missing calibration).
      *
@@ -681,7 +716,7 @@ export class ModelHealthService {
      */
     async startRecording(activityName, session, config) {
         this.ensureInitialized();
-        const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session), config?.activityType ?? null);
+        const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session), config ? decamelizeKeys(config) : null);
         return this.parseResponse(result);
     }
     /**
@@ -977,6 +1012,46 @@ export class ModelHealthService {
         const result = await this.wasmClient.archiveData(decamelizeKeys(archive));
         return new Uint8Array(result);
     }
+    // MARK: - Metrics
+    /**
+     * Fetch dashboard metrics for a single activity.
+     *
+     * @param activityId UUID of the activity.
+     * @returns The dashboard metrics organised into category groups.
+     * @throws On network failure or if the activity is not found.
+     *
+     * @example
+     * ```typescript
+     * const metrics = await client.activityMetrics(activity.id);
+     * for (const group of metrics.groups) {
+     *   console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     * }
+     * ```
+     */
+    async activityMetrics(activityId) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.activityMetrics(activityId);
+        return this.parseResponse(result);
+    }
+    /**
+     * Fetch dashboard metrics for all activities belonging to a subject.
+     *
+     * @param subjectId Numeric ID of the subject.
+     * @param start Optional start date in `YYYY-MM-DD` format.
+     * @param end Optional end date in `YYYY-MM-DD` format.
+     * @returns Array of per-activity metric payloads.
+     * @throws On network failure or if the subject is not found.
+     *
+     * @example
+     * ```typescript
+     * const allMetrics = await client.subjectMetrics(subject.id, "2024-01-01", "2024-12-31");
+     * ```
+     */
+    async subjectMetrics(subjectId, start, end) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.subjectMetrics(subjectId, start ?? null, end ?? null);
+        return this.parseResponse(result);
+    }
     // MARK: - Utilities
     /**
      * Parse a WASM response and normalise object keys to camelCase.
@@ -993,6 +1068,15 @@ export class ModelHealthService {
         const parsed = typeof value === "string" ? JSON.parse(value) : value;
         return camelizeKeys(parsed);
     }
+}
+/**
+ * Serialise activity metrics to a JSON string (snake_case keys, matching the
+ * wire format shared with the Python and Swift SDKs).
+ *
+ * Pretty-printed (indented) by default; pass `pretty=false` for compact output.
+ */
+export function activityMetricsToJson(metrics, pretty = true) {
+    return JSON.stringify(decamelizeKeys(metrics), null, pretty ? 2 : undefined);
 }
 // MARK: - Exports
 export * from "./types.js";
