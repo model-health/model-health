@@ -46,7 +46,6 @@ MOTION_DATA_TYPES = [
 ]
 
 ANALYSIS_DATA_TYPES = [
-    (AnalysisDataType.metrics, "Metrics  (JSON)"),
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
@@ -116,7 +115,7 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
 
     # Check status

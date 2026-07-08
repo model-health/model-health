@@ -6,7 +6,7 @@ Walks through the post-capture workflow:
   2. Select an activity from that session
   3. Wait for processing to complete (if needed)
   4. Choose an analysis type and run it
-  5. Choose which result files to save (metrics JSON, report PDF, data ZIP)
+  5. Choose which result files to save (report PDF, data ZIP)
 
 Usage:
     activity_analysis.py [<api_key>]
@@ -54,7 +54,6 @@ ANALYSIS_TYPES = [
 ]
 
 RESULT_TYPES = [
-    (AnalysisDataType.metrics, "Metrics  (JSON)"),
     (AnalysisDataType.report,  "Report   (PDF) "),
     (AnalysisDataType.data,    "Data     (ZIP) "),
 ]
@@ -151,7 +150,7 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
 
     # Processing status
@@ -170,12 +169,17 @@ def main(api_key):
         )
     print("Activity is ready.")
 
-    # Analysis type
+    # Analysis type — default to the activity's recorded type if available.
+    default_analysis = next(
+        (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
+        None,
+    )
     print("\nAnalysis type:\n")
     analysis_value, analysis_label = pick_one(
         ANALYSIS_TYPES,
         "Select analysis type",
         lambda t: t[1],
+        default=default_analysis,
     )
 
     # Run analysis

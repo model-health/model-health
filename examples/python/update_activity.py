@@ -85,12 +85,13 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]",
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
     print(f"  Selected: {activity.name or activity.id}")
 
     # Update
     print("\nUpdate activity (press Enter to keep current value):")
+    print(f"  Current activity type: {activity.activity_type or '(none)'}")
     current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
     print(f"  Current tags: {current_tags}")
 

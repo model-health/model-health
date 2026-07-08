@@ -1,12 +1,32 @@
 """Interactive prompt helpers shared across the Model Health demo scripts."""
 
 
-def pick_one(items, prompt, label_fn):
-    """Display a numbered list and return the item the user selects."""
+def pick_one(items, prompt, label_fn, default=None):
+    """Display a numbered list and return the item the user selects.
+
+    Pass ``default`` as an item already in ``items`` to pre-select it;
+    the user can then press Enter to accept it.
+    """
+    default_idx = None
+    if default is not None:
+        try:
+            default_idx = items.index(default)
+        except ValueError:
+            pass
+
     for i, item in enumerate(items, 1):
-        print(f"  {i}. {label_fn(item)}")
+        suffix = "  (default)" if i - 1 == default_idx else ""
+        print(f"  {i}. {label_fn(item)}{suffix}")
+
+    if default_idx is not None:
+        range_hint = f"1-{len(items)}, Enter for {default_idx + 1}"
+    else:
+        range_hint = f"1-{len(items)}"
+
     while True:
-        raw = input(f"{prompt} [1-{len(items)}]: ").strip()
+        raw = input(f"{prompt} [{range_hint}]: ").strip()
+        if raw == "" and default_idx is not None:
+            return items[default_idx]
         try:
             idx = int(raw) - 1
             if 0 <= idx < len(items):
