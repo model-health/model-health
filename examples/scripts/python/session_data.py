@@ -72,7 +72,7 @@ def main(api_key):
     session = pick_one(
         sessions,
         "Select session",
-        lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}",
+        lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}  created: {s.created_at}",
     )
 
     # Activities
@@ -86,7 +86,7 @@ def main(api_key):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
+        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else "") + f"  updated: {a.updated_at}",
     )
 
     # Check status

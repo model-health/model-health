@@ -29,12 +29,21 @@ public func loadAPIKey() -> String {
 public func dotEnvValue(for key: String) -> String? {
     let envURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         .appendingPathComponent(".env")
-    guard let contents = try? String(contentsOf: envURL, encoding: .utf8) else { return nil }
+    guard let contents = try? String(contentsOf: envURL, encoding: .utf8) else {
+        return nil
+    }
+
     for line in contents.components(separatedBy: .newlines) {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
+            continue
+        }
+
         let parts = trimmed.components(separatedBy: "=")
-        guard parts.count >= 2, parts[0].trimmingCharacters(in: .whitespaces) == key else { continue }
+        guard parts.count >= 2, parts[0].trimmingCharacters(in: .whitespaces) == key else {
+            continue
+        }
+
         var value = parts.dropFirst().joined(separator: "=").trimmingCharacters(in: .whitespaces)
         if value.count >= 2,
            (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
@@ -111,7 +120,9 @@ public func pickMulti<T>(from items: [T], prompt: String, label: (T) -> String) 
         if let line = readLine() {
             let indices = line.split(separator: " ").compactMap { Int($0) }.map { $0 - 1 }
             let selected = indices.compactMap { (0..<items.count).contains($0) ? items[$0] : nil }
-            if !selected.isEmpty { return selected }
+            if !selected.isEmpty {
+                return selected
+            }
         }
         print("  Please enter one or more numbers between 1 and \(items.count).")
     }
@@ -119,15 +130,29 @@ public func pickMulti<T>(from items: [T], prompt: String, label: (T) -> String) 
 
 public func confirm(_ prompt: String, default defaultValue: Bool? = nil) -> Bool {
     let hint: String
-    if defaultValue == true { hint = "[Y/n]" }
-    else if defaultValue == false { hint = "[y/N]" }
-    else { hint = "[y/n]" }
+    if defaultValue == true { 
+        hint = "[Y/n]"
+    } else if defaultValue == false {
+        hint = "[y/N]"
+    } else {
+        hint = "[y/n]"
+    }
+
     while true {
         print("\(prompt) \(hint): ", terminator: "")
         let raw = readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
-        if raw == "y" || raw == "yes" { return true }
-        if raw == "n" || raw == "no" { return false }
-        if raw.isEmpty, let d = defaultValue { return d }
+        if raw == "y" || raw == "yes" {
+            return true
+        }
+
+        if raw == "n" || raw == "no" {
+            return false
+        }
+
+        if raw.isEmpty, let dv = defaultValue {
+            return dv
+        }
+
         print("  Please enter y or n.")
     }
 }

@@ -58,7 +58,10 @@ struct ActivityMetricsScript {
         }
 
         let activities = allActivities.filter { a in
-            guard let name = a.name else { return true }
+            guard let name = a.name else {
+                return true
+            }
+            
             return !internalActivityNames.contains(name)
         }
 
@@ -131,12 +134,16 @@ private func flattenMetrics(_ metrics: ActivityMetrics) -> [(String, MetricValue
 private func formattedValue(_ value: MetricValue) -> String {
     switch value {
     case .scalar(let v):
-        guard let v else { return "—" }
+        guard let v else {
+            return "—"
+        }
+
         return String(format: "%g", v)
 
     case .bilateral(let left, let right):
         let l = left.map { String(format: "%g", $0) } ?? "—"
         let r = right.map { String(format: "%g", $0) } ?? "—"
+
         return "L \(l) / R \(r)"
     }
 }

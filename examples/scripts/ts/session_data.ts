@@ -48,7 +48,7 @@ async function main() {
   const session = await pickOne(sessions, 'Select session', s => {
     const sn = s.sessionName || '(unnamed)';
     const sub = s.name || '(unnamed)';
-    return `[session ID: ${s.id}]  session name: ${sn}  subject: ${sub}`;
+    return `[session ID: ${s.id}]  session name: ${sn}  subject: ${sub}  created: ${s.createdAt}`;
   });
 
   // Activities
@@ -61,7 +61,7 @@ async function main() {
   const activity = await pickOne(
     activities,
     'Select activity',
-    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '') + `  updated: ${a.updatedAt}`
   );
 
   // Check status

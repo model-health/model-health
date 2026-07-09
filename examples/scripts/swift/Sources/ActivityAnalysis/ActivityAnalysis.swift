@@ -81,7 +81,10 @@ struct ActivityAnalysis {
         }
 
         let activities = allActivities.filter { a in
-            guard let name = a.name else { return true }
+            guard let name = a.name else {
+                return true
+            }
+
             return !internalActivityNames.contains(name)
         }
 

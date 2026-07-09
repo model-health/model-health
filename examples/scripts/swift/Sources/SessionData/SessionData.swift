@@ -24,6 +24,13 @@ private let analysisDataTypes: [(AnalysisDataType, String)] = [
     (.data,    "Data     (ZIP) "),
 ]
 
+private let displayDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+}()
+
 @main
 struct SessionData {
     static func main() async {
@@ -58,7 +65,8 @@ struct SessionData {
             label: { s in
                 let sn = s.sessionName.isEmpty ? "(unnamed)" : s.sessionName
                 let sub = s.name.isEmpty ? "(unnamed)" : s.name
-                return "[session ID: \(s.id)]  session name: \(sn)  subject: \(sub)"
+                let created = displayDateFormatter.string(from: s.createdAt)
+                return "[session ID: \(s.id)]  session name: \(sn)  subject: \(sub)  created: \(created)"
             }
         )
 
@@ -73,7 +81,10 @@ struct SessionData {
         }
 
         let activities = allActivities.filter { a in
-            guard let name = a.name else { return true }
+            guard let name = a.name else {
+                return true
+            }
+            
             return !internalActivityNames.contains(name)
         }
 
@@ -86,7 +97,10 @@ struct SessionData {
         let activity = pickOne(
             from: activities,
             prompt: "Select activity",
-            label: { a in "\(a.name ?? a.id)  [\(a.status)]" + (a.activityType.map { "  \($0)" } ?? "") }
+            label: { a in
+                let updated = displayDateFormatter.string(from: a.updatedAt)
+                return "\(a.name ?? a.id)  [\(a.status)]" + (a.activityType.map { "  \($0)" } ?? "") + "  updated: \(updated)"
+            }
         )
 
         // Check status
