@@ -20,10 +20,10 @@ node_modules/
 package-lock.json
 
 # iOS example app — private config (real values live in model-health-internal)
-examples/ios/LocalConfig.xcconfig
+examples/app/ios/LocalConfig.xcconfig
 
 # TypeScript example app — private config
-examples/ts/.env.local
+examples/app/ts/.env.local
 
 # SDK Documentation
 sdk-docs/
@@ -37,5 +37,5 @@ CLAUDE.md
 # General 
 **/.env
 **/downloads
-examples/python/__pycache__/
+examples/scripts/python/__pycache__/
 model-health-swift
