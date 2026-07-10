@@ -311,7 +311,10 @@ export declare class ModelHealthService {
      * @param startIndex Zero-based index to start from. Use `0` for the first page.
      * @param count Number of activities to retrieve per request.
      * @param sort Sort order for the results (for example, `"updated_at"` for most recent first).
+     * @param start Optional start date (`YYYY-MM-DD`) to filter the results to a date range.
+     * @param end Optional end date (`YYYY-MM-DD`) to filter the results to a date range.
      * @returns An array of `Activity` objects, or an empty array if none exist.
+     * @throws If `start` or `end` is set and the client isn't configured for API v2.
      * @throws If the request fails due to network or authentication issues.
      *
      * @example
@@ -333,7 +336,7 @@ export declare class ModelHealthService {
      * );
      * ```
      */
-    activitiesForSubject(subjectId: number, startIndex: number, count: number, sort: ActivitySort): Promise<Activity[]>;
+    activitiesForSubject(subjectId: number, startIndex: number, count: number, sort: ActivitySort, start?: string, end?: string): Promise<Activity[]>;
     /**
      * Retrieves an activity by its ID.
      *

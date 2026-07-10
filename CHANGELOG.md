@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+### Added:
+- `created_at` and `updated_at` fields to `Session` and `Activity` types 
+
 ## 0.6.0
 
 ## Added

@@ -444,7 +444,10 @@ export class ModelHealthService {
      * @param startIndex Zero-based index to start from. Use `0` for the first page.
      * @param count Number of activities to retrieve per request.
      * @param sort Sort order for the results (for example, `"updated_at"` for most recent first).
+     * @param start Optional start date (`YYYY-MM-DD`) to filter the results to a date range.
+     * @param end Optional end date (`YYYY-MM-DD`) to filter the results to a date range.
      * @returns An array of `Activity` objects, or an empty array if none exist.
+     * @throws If `start` or `end` is set and the client isn't configured for API v2.
      * @throws If the request fails due to network or authentication issues.
      *
      * @example
@@ -466,9 +469,9 @@ export class ModelHealthService {
      * );
      * ```
      */
-    async activitiesForSubject(subjectId, startIndex, count, sort) {
+    async activitiesForSubject(subjectId, startIndex, count, sort, start, end) {
         this.ensureInitialized();
-        const result = await this.wasmClient.activitiesForSubject(subjectId, startIndex, count, sort);
+        const result = await this.wasmClient.activitiesForSubject(subjectId, startIndex, count, sort, start ?? null, end ?? null);
         return this.parseResponse(result);
     }
     /**

@@ -33,6 +33,8 @@ export interface Session {
     activities: Activity[];
     subject?: number;
     activitiesCount: number;
+    createdAt: string;
+    updatedAt: string;
 }
 /**
  * Gender identity options for subject demographics.
@@ -126,6 +128,8 @@ export interface Activity {
     results: ActivityResult[];
     /** The activity type associated with this recording, if one was set. */
     activityType?: ActivityType;
+    createdAt: string;
+    updatedAt: string;
 }
 /**
  * Sort order for activity lists.

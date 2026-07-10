@@ -19,10 +19,16 @@ export class ModelHealthService {
      * @param {number} start_index
      * @param {number} count
      * @param {any} sort
+     * @param {string | null} [start]
+     * @param {string | null} [end]
      * @returns {Promise<any>}
      */
-    activitiesForSubject(subject_id, start_index, count, sort) {
-        const ret = wasm.modelhealthservice_activitiesForSubject(this.__wbg_ptr, subject_id, start_index, count, addHeapObject(sort));
+    activitiesForSubject(subject_id, start_index, count, sort, start, end) {
+        var ptr0 = isLikeNone(start) ? 0 : passStringToWasm0(start, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(end) ? 0 : passStringToWasm0(end, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.modelhealthservice_activitiesForSubject(this.__wbg_ptr, subject_id, start_index, count, addHeapObject(sort), ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
@@ -667,7 +673,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_1631(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_1630(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -815,7 +821,7 @@ function __wbg_get_imports() {
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 498, function: Function { arguments: [Externref], shim_idx: 499, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1213, __wasm_bindgen_func_elem_1214);
+            const ret = makeMutClosure(arg0, arg1, wasm.__wasm_bindgen_func_elem_1212, __wasm_bindgen_func_elem_1213);
             return addHeapObject(ret);
         },
         __wbindgen_cast_0000000000000002: function(arg0) {
@@ -852,12 +858,12 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_1214(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_1214(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_1213(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_1213(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_1631(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_1631(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_1630(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_1630(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 
