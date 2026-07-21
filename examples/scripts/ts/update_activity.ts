@@ -34,13 +34,14 @@ async function loadActivities(
   return activities;
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+async function connect(apiKey: string): Promise<ModelHealthService> {
   console.log('Connecting...');
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
+  const service = new ModelHealthService({ apiKey, autoInit: false });
   await service.init();
+  return service;
+}
 
-  // Subject
+async function pickSubject(service: ModelHealthService) {
   console.log('\nFetching subjects...');
   const subjects = await service.subjectList();
 
@@ -52,8 +53,10 @@ async function main() {
   console.log();
   const subject = await pickOne(subjects, 'Select subject', s => `${s.name}  (ID ${s.id})`);
   console.log(`  Selected: ${subject.name}`);
+  return subject;
+}
 
-  // Activities
+async function pickActivity(service: ModelHealthService, subject: Awaited<ReturnType<typeof pickSubject>>) {
   console.log(`\nFetching activities for ${subject.name}...`);
   const activities = await loadActivities(service, subject);
 
@@ -69,8 +72,11 @@ async function main() {
     a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
   );
   console.log(`  Selected: ${activity.name ?? activity.id}`);
+  return activity;
+}
 
-  // Update
+/** Returns undefined if the user made no changes. */
+async function promptEdits(activity: Awaited<ReturnType<typeof pickActivity>>) {
   console.log('\nUpdate activity (press Enter to keep current value):');
   console.log(`  Current activity type: ${activity.activityType ?? '(none)'}`);
   const currentTags = activity.tags?.length ? activity.tags.join(', ') : '(none)';
@@ -85,16 +91,38 @@ async function main() {
   const removeTags = removeInput ? removeInput.split(',').map(t => t.trim()).filter(Boolean) : [];
 
   if (!newName && !addTags.length && !removeTags.length) {
-    console.log('No changes — exiting.');
-    return;
+    return undefined;
   }
 
+  return { name: newName, addTags, removeTags };
+}
+
+async function applyEdits(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof pickActivity>>,
+  edits: { name?: string; addTags: string[]; removeTags: string[] }
+) {
   console.log('\nUpdating activity...');
-  const updated = await service.updateActivity(activity, { name: newName, addTags, removeTags });
+  const updated = await service.updateActivity(activity, edits);
 
   const updatedTags = updated.tags?.length ? updated.tags.join(', ') : '(none)';
   console.log(`  Name:  ${updated.name ?? updated.id}`);
   console.log(`  Tags:  ${updatedTags}`);
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const service = await connect(loadApiKey(args[0]));
+  const subject = await pickSubject(service);
+  const activity = await pickActivity(service, subject);
+
+  const edits = await promptEdits(activity);
+  if (!edits) {
+    console.log('No changes — exiting.');
+    return;
+  }
+
+  await applyEdits(service, activity, edits);
   console.log('\nDone.');
 }
 

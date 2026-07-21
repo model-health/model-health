@@ -141,14 +141,146 @@ def _poll_activity(service, activity, interval=5):
 
 
 # ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
+def _connect(api_key):
+    print("Connecting...")
+    try:
+        return ModelHealthService(api_key)
+    except ModelHealthError as exc:
+        sys.exit(f"Failed to initialise: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Session / camera pairing
+# ---------------------------------------------------------------------------
+
+def _create_session_and_save_qr_code(service):
+    print("\nCreating session...")
+    try:
+        session = service.create_session()
+    except ModelHealthError as exc:
+        sys.exit(f"Failed to create session: {exc}")
+    print(f"  Session ID: {session.id}")
+
+    if not session.qrcode:
+        sys.exit("Session has no QR code — cannot pair cameras.")
+
+    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+    qr_path = os.path.join(DOWNLOADS_DIR, "qr-code.png")
+    try:
+        urllib.request.urlretrieve(session.qrcode, qr_path)
+        print(f"  QR code saved to: {qr_path}")
+    except Exception as exc:
+        sys.exit(f"Failed to download QR code: {exc}")
+
+    return session
+
+
+def _wait_for_camera_pairing():
+    print("  Pair your cameras using the Model Health companion iOS app before continuing.")
+    input("\nPress Enter when cameras are ready...")
+
+
+# ---------------------------------------------------------------------------
+# Camera calibration
+# ---------------------------------------------------------------------------
+
+def _configure_checkerboard():
+    print("\nCheckerboard configuration:\n")
+    preset = pick_one(
+        _CHECKERBOARD_PRESETS,
+        "Select checkerboard",
+        lambda p: p[3],
+    )
+    rows, columns, square_size, _ = preset
+
+    if rows is None:
+        rows        = int(input("  Internal rows: ").strip())
+        columns     = int(input("  Internal columns: ").strip())
+        square_size = int(input("  Square size (mm): ").strip())
+
+    print("\nCheckerboard placement:\n")
+    placement_value, _ = pick_one(
+        [
+            (CheckerboardPlacement.perpendicular, "Perpendicular (upright, facing cameras)"),
+            (CheckerboardPlacement.parallel,      "Parallel (flat on the floor)"),
+        ],
+        "Select placement",
+        lambda p: p[1],
+    )
+
+    return CheckerboardDetails(
+        rows=rows,
+        columns=columns,
+        square_size=square_size,
+        placement=placement_value,
+    )
+
+
+def _calibrate_cameras(service, session, checkerboard):
+    input("\nPress Enter to start camera calibration...")
+    print("Calibrating cameras...")
+    try:
+        service.calibrate_camera(session, checkerboard, _calibration_callback)
+    except ModelHealthError as exc:
+        sys.exit(f"Camera calibration failed: {exc}")
+    print("Camera calibration complete.")
+
+
+# ---------------------------------------------------------------------------
+# Subject
+# ---------------------------------------------------------------------------
+
+def _pick_or_create_subject(service):
+    print("\nFetching subjects...")
+    try:
+        subjects = service.subject_list()
+    except ModelHealthError as exc:
+        sys.exit(f"Failed to fetch subjects: {exc}")
+
+    if subjects and confirm(f"Found {len(subjects)} subject(s). Select an existing one?", default=True):
+        print()
+        subject = pick_one(
+            subjects,
+            "Select subject",
+            lambda s: f"{s.name}  (ID {s.id})",
+        )
+        print(f"  Using: {subject.name}")
+        return subject
+
+    print("\nNew subject details:")
+    name   = input("  Name: ").strip() or "Anonymous"
+    weight = float(input("  Weight (kg): ").strip())
+    height = float(input("  Height (cm): ").strip())
+
+    params = SubjectParameters(name=name, weight=weight, height=height)
+    print("Creating subject...")
+    try:
+        subject = service.create_subject(params)
+    except ModelHealthError as exc:
+        sys.exit(f"Failed to create subject: {exc}")
+    print(f"  Subject created: {subject.name} (ID {subject.id})")
+    return subject
+
+
+def _calibrate_subject(service, subject, session):
+    input(f"\nAsk {subject.name} to stand in the neutral pose, then press Enter...")
+    print("Calibrating subject...")
+    try:
+        service.calibrate_subject(subject, session, _calibration_callback)
+    except ModelHealthError as exc:
+        sys.exit(f"Subject calibration failed: {exc}")
+    print("Subject calibration complete.")
+
+
+# ---------------------------------------------------------------------------
 # Single recording loop iteration
 # ---------------------------------------------------------------------------
 
-def _record_one(service, session, subject):
-    """Run a single record → process → (optionally analyse) → (optionally update) cycle.
-
-    Returns True to continue recording, False to quit.
-    """
+def _prompt_recording_config():
+    """Returns (activity_name, activity_type_value, activity_type_label, recording_config)."""
     activity_name = input("\nActivity name (e.g. cmj, squat): ").strip() or "activity"
 
     print("\nAutomatic analysis (optional):\n")
@@ -168,6 +300,10 @@ def _record_one(service, session, subject):
     if framerate_value is not None or filter_value is not None:
         recording_config = RecordingConfig(framerate=framerate_value, filter_frequency=filter_value)
 
+    return activity_name, activity_type_value, activity_type_label, recording_config
+
+
+def _start_recording(service, session, subject, activity_name, activity_type_value, recording_config):
     input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
     print("Recording...")
     try:
@@ -178,47 +314,67 @@ def _record_one(service, session, subject):
         )
     except ModelHealthError as exc:
         print(f"Failed to start recording: {exc}")
-        return confirm("\nRecord another activity?", default=True)
+        return None
 
     print(f"  Recording started (activity {activity.id}).")
+    return activity
 
+
+def _stop_recording(service, session):
     input("\nPress Enter when the movement is complete to stop recording...")
     print("Stopping recording...")
     try:
         service.stop_recording(session)
     except ModelHealthError as exc:
         print(f"Failed to stop recording: {exc}")
-        return confirm("\nRecord another activity?", default=True)
+        return False
 
     print("Recording stopped. Videos are uploading.")
+    return True
 
-    # Wait for processing
+
+def _wait_and_process_results(service, activity, activity_type_label):
+    """Waits for upload/processing and, if automatic analysis was requested,
+    waits for it to complete and downloads the report.
+
+    Always returns the activity (fresh, if analysis ran and completed).
+    """
     print("\nWaiting for upload and processing...")
     status = _poll_activity(service, activity)
 
     if isinstance(status, ActivityStatusAnalyzing):
-        print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
-        print("\nWaiting for analysis to complete...")
-        result_status = poll_analysis(service, status.task)
-        if result_status != AnalysisStatus.completed:
-            print(f"Analysis did not complete (status: {result_status}).")
-        else:
-            print("Analysis complete.")
-            activity = service.fetch_activity(activity.id)
-            results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
-            slug = (activity.name or activity.id).replace(" ", "_")
-            print("\nDownloading report...")
-            for r in results:
-                ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
-                path = save_file(f"{slug}_{r.type}.{ext}", r.data)
-                print(f"  Saved {path}")
+        return _wait_for_analysis_and_download_report(service, activity, status.task, activity_type_label)
     elif status == ActivityStatus.ready:
         print(f"Activity is ready. ID: {activity.id}")
         print("Run activity_analysis.py to analyze this activity.")
+        return activity
     else:
         print(f"Activity did not reach ready state (status: {status}).")
+        return activity
 
-    # Update activity metadata.
+
+def _wait_for_analysis_and_download_report(service, activity, task, activity_type_label):
+    print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
+    print("\nWaiting for analysis to complete...")
+    result_status = poll_analysis(service, task)
+    if result_status != AnalysisStatus.completed:
+        print(f"Analysis did not complete (status: {result_status}).")
+        return activity
+
+    print("Analysis complete.")
+    activity = service.fetch_activity(activity.id)
+    results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
+    slug = (activity.name or activity.id).replace(" ", "_")
+    print("\nDownloading report...")
+    for r in results:
+        ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
+        path = save_file(f"{slug}_{r.type}.{ext}", r.data)
+        print(f"  Saved {path}")
+
+    return activity
+
+
+def _update_activity_metadata(service, activity):
     # Re-fetch first: analysis auto-generates tags server-side, and update_activity
     # merges add/remove_tags on top of the local activity's tags. Without a fresh
     # fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
@@ -251,6 +407,26 @@ def _record_one(service, session, subject):
         else:
             print(f"  Updated: {activity.name or activity.id}")
 
+    return activity
+
+
+def _record_one(service, session, subject):
+    """Run a single record → process → (optionally analyse) → (optionally update) cycle.
+
+    Returns True to continue recording, False to quit.
+    """
+    activity_name, activity_type_value, activity_type_label, recording_config = _prompt_recording_config()
+
+    activity = _start_recording(service, session, subject, activity_name, activity_type_value, recording_config)
+    if activity is None:
+        return confirm("\nRecord another activity?", default=True)
+
+    if not _stop_recording(service, session):
+        return confirm("\nRecord another activity?", default=True)
+
+    activity = _wait_and_process_results(service, activity, activity_type_label)
+    _update_activity_metadata(service, activity)
+
     return confirm("\nRecord another activity?", default=True)
 
 
@@ -259,110 +435,16 @@ def _record_one(service, session, subject):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    print("Connecting...")
-    try:
-        service = ModelHealthService(api_key)
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to initialise: {exc}")
+    service = _connect(api_key)
 
-    # Session
-    print("\nCreating session...")
-    try:
-        session = service.create_session()
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to create session: {exc}")
-    print(f"  Session ID: {session.id}")
+    session = _create_session_and_save_qr_code(service)
+    _wait_for_camera_pairing()
 
-    if not session.qrcode:
-        sys.exit("Session has no QR code — cannot pair cameras.")
+    checkerboard = _configure_checkerboard()
+    _calibrate_cameras(service, session, checkerboard)
 
-    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
-    qr_path = os.path.join(DOWNLOADS_DIR, "qr-code.png")
-    try:
-        urllib.request.urlretrieve(session.qrcode, qr_path)
-        print(f"  QR code saved to: {qr_path}")
-    except Exception as exc:
-        sys.exit(f"Failed to download QR code: {exc}")
-
-    print("  Pair your cameras using the Model Health companion iOS app before continuing.")
-    input("\nPress Enter when cameras are ready...")
-
-    # Camera calibration
-    print("\nCheckerboard configuration:\n")
-    preset = pick_one(
-        _CHECKERBOARD_PRESETS,
-        "Select checkerboard",
-        lambda p: p[3],
-    )
-    rows, columns, square_size, _ = preset
-
-    if rows is None:
-        rows        = int(input("  Internal rows: ").strip())
-        columns     = int(input("  Internal columns: ").strip())
-        square_size = int(input("  Square size (mm): ").strip())
-
-    print("\nCheckerboard placement:\n")
-    placement_value, _ = pick_one(
-        [
-            (CheckerboardPlacement.perpendicular, "Perpendicular (upright, facing cameras)"),
-            (CheckerboardPlacement.parallel,      "Parallel (flat on the floor)"),
-        ],
-        "Select placement",
-        lambda p: p[1],
-    )
-
-    checkerboard = CheckerboardDetails(
-        rows=rows,
-        columns=columns,
-        square_size=square_size,
-        placement=placement_value,
-    )
-
-    input("\nPress Enter to start camera calibration...")
-    print("Calibrating cameras...")
-    try:
-        service.calibrate_camera(session, checkerboard, _calibration_callback)
-    except ModelHealthError as exc:
-        sys.exit(f"Camera calibration failed: {exc}")
-    print("Camera calibration complete.")
-
-    # Subject
-    print("\nFetching subjects...")
-    try:
-        subjects = service.subject_list()
-    except ModelHealthError as exc:
-        sys.exit(f"Failed to fetch subjects: {exc}")
-
-    if subjects and confirm(f"Found {len(subjects)} subject(s). Select an existing one?", default=True):
-        print()
-        subject = pick_one(
-            subjects,
-            "Select subject",
-            lambda s: f"{s.name}  (ID {s.id})",
-        )
-        print(f"  Using: {subject.name}")
-    else:
-        print("\nNew subject details:")
-        name   = input("  Name: ").strip() or "Anonymous"
-        weight = float(input("  Weight (kg): ").strip())
-        height = float(input("  Height (cm): ").strip())
-
-        params = SubjectParameters(name=name, weight=weight, height=height)
-        print("Creating subject...")
-        try:
-            subject = service.create_subject(params)
-        except ModelHealthError as exc:
-            sys.exit(f"Failed to create subject: {exc}")
-        print(f"  Subject created: {subject.name} (ID {subject.id})")
-
-    # Subject calibration
-    input(f"\nAsk {subject.name} to stand in the neutral pose, then press Enter...")
-    print("Calibrating subject...")
-    try:
-        service.calibrate_subject(subject, session, _calibration_callback)
-    except ModelHealthError as exc:
-        sys.exit(f"Subject calibration failed: {exc}")
-    print("Subject calibration complete.")
+    subject = _pick_or_create_subject(service)
+    _calibrate_subject(service, subject, session)
 
     # Recording loop
     while _record_one(service, session, subject):

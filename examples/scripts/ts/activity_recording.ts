@@ -118,13 +118,14 @@ async function pollActivity(
   }
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+async function connect(apiKey: string): Promise<ModelHealthService> {
   console.log('Connecting...');
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
+  const service = new ModelHealthService({ apiKey, autoInit: false });
   await service.init();
+  return service;
+}
 
-  // Session
+async function createSessionAndSaveQrCode(service: ModelHealthService) {
   console.log('\nCreating session...');
   const session = await service.createSession();
   console.log(`  Session ID: ${session.id}`);
@@ -138,11 +139,16 @@ async function main() {
   const qrData = new Uint8Array(await qrRes.arrayBuffer());
   const qrPath = saveFile('qr-code.png', qrData);
   console.log(`  QR code saved to: ${qrPath}`);
+
+  return session;
+}
+
+async function waitForCameraPairing() {
   console.log('  Pair your cameras using the Model Health companion iOS app before continuing.');
-
   await prompt('\nPress Enter when cameras are ready...');
+}
 
-  // Camera calibration
+async function configureCheckerboard(): Promise<CheckerboardDetails> {
   console.log('\nCheckerboard configuration:\n');
   const preset = await pickOne(CHECKERBOARD_PRESETS, 'Select checkerboard', p => p.label);
 
@@ -167,37 +173,64 @@ async function main() {
     p => p === 'perpendicular' ? 'Perpendicular (upright, facing cameras)' : 'Parallel (flat on the floor)'
   );
 
-  const checkerboard: CheckerboardDetails = { rows, columns, squareSize, placement };
+  return { rows, columns, squareSize, placement };
+}
 
+async function calibrateCameras(
+  service: ModelHealthService,
+  session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>,
+  checkerboard: CheckerboardDetails
+) {
   await prompt('\nPress Enter to start camera calibration...');
   console.log('Calibrating cameras...');
   await service.calibrateCamera(session, checkerboard, calibrationCallback);
   console.log('Camera calibration complete.');
+}
 
-  // Subject
+async function pickOrCreateSubject(service: ModelHealthService) {
   console.log('\nFetching subjects...');
   const subjects = await service.subjectList();
 
-  let subject;
   if (subjects.length > 0 && await confirm(`Found ${subjects.length} subject(s). Select an existing one?`, true)) {
     console.log();
-    subject = await pickOne(subjects, 'Select subject', s => `${s.name}  (ID ${s.id})`);
+    const subject = await pickOne(subjects, 'Select subject', s => `${s.name}  (ID ${s.id})`);
     console.log(`  Using: ${subject.name}`);
-  } else {
-    console.log('\nNew subject details:');
-    const name   = (await prompt('  Name: ')).trim() || 'Anonymous';
-    const weight = parseFloat((await prompt('  Weight (kg): ')).trim());
-    const height = parseFloat((await prompt('  Height (cm): ')).trim());
-    console.log('Creating subject...');
-    subject = await service.createSubject({ name, weight, height });
-    console.log(`  Subject created: ${subject.name} (ID ${subject.id})`);
+    return subject;
   }
 
-  // Subject calibration
+  console.log('\nNew subject details:');
+  const name   = (await prompt('  Name: ')).trim() || 'Anonymous';
+  const weight = parseFloat((await prompt('  Weight (kg): ')).trim());
+  const height = parseFloat((await prompt('  Height (cm): ')).trim());
+  console.log('Creating subject...');
+  const subject = await service.createSubject({ name, weight, height });
+  console.log(`  Subject created: ${subject.name} (ID ${subject.id})`);
+  return subject;
+}
+
+async function calibrateSubject(
+  service: ModelHealthService,
+  subject: Awaited<ReturnType<typeof pickOrCreateSubject>>,
+  session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>
+) {
   await prompt(`\nAsk ${subject.name} to stand in the neutral pose, then press Enter...`);
   console.log('Calibrating subject...');
   await service.calibrateSubject(subject, session, calibrationCallback);
   console.log('Subject calibration complete.');
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const service = await connect(loadApiKey(args[0]));
+
+  const session = await createSessionAndSaveQrCode(service);
+  await waitForCameraPairing();
+
+  const checkerboard = await configureCheckerboard();
+  await calibrateCameras(service, session, checkerboard);
+
+  const subject = await pickOrCreateSubject(service);
+  await calibrateSubject(service, subject, session);
 
   // Recording loop
   do {
@@ -207,17 +240,11 @@ async function main() {
   console.log('\nDone.');
 }
 
-async function recordOne(
-  service: ModelHealthService,
-  session: Parameters<typeof service.startRecording>[1],
-  subject: { name: string }
-): Promise<void> {
+async function promptRecordingSetup() {
   const activityName = (await prompt('\nActivity name (e.g. cmj, squat): ')).trim() || 'activity';
 
   console.log('\nAutomatic analysis (optional):\n');
-  const selected = await pickOne(ACTIVITY_TYPE_OPTIONS, 'Select activity type', t => t.label);
-  const activityTypeValue = selected.type;
-  const activityTypeLabel = selected.label;
+  const selectedType = await pickOne(ACTIVITY_TYPE_OPTIONS, 'Select activity type', t => t.label);
 
   console.log('\nFramerate override (optional):\n');
   const selectedFramerate = await pickOne(FRAMERATE_OPTIONS, 'Select framerate', o => o.label);
@@ -225,77 +252,117 @@ async function recordOne(
   console.log('\nFilter frequency override (optional):\n');
   const selectedFilter = await pickOne(FILTER_FREQUENCY_OPTIONS, 'Select filter frequency', o => o.label);
 
-  await prompt(`\nAsk ${subject.name} to get ready, then press Enter to start recording...`);
-  console.log('Recording...');
   let recordingConfig: RecordingConfig | undefined;
   if (selectedFramerate.value !== null || selectedFilter.value !== null) {
     recordingConfig = {};
     if (selectedFramerate.value !== null) recordingConfig.framerate = selectedFramerate.value as any;
     if (selectedFilter.value !== null) recordingConfig.filterFrequency = selectedFilter.value;
   }
-  const config = (activityTypeValue || recordingConfig)
-    ? { activityType: activityTypeValue ?? undefined, config: recordingConfig }
+  const config = (selectedType.type || recordingConfig)
+    ? { activityType: selectedType.type ?? undefined, config: recordingConfig }
     : undefined;
-  let activity;
+
+  return { activityName, selectedType, config };
+}
+
+async function startRecording(
+  service: ModelHealthService,
+  session: Parameters<typeof service.startRecording>[1],
+  subject: { name: string },
+  activityName: string,
+  config: Parameters<typeof service.startRecording>[2]
+) {
+  await prompt(`\nAsk ${subject.name} to get ready, then press Enter to start recording...`);
+  console.log('Recording...');
   try {
-    activity = await service.startRecording(activityName, session, config);
+    const activity = await service.startRecording(activityName, session, config);
+    console.log(`  Recording started (activity ${activity.id}).`);
+    return activity;
   } catch (err: any) {
     console.error(`Failed to start recording: ${err.message ?? err}`);
-    return;
+    return undefined;
   }
-  console.log(`  Recording started (activity ${activity.id}).`);
+}
 
+async function stopRecording(service: ModelHealthService, session: Parameters<typeof service.stopRecording>[0]) {
   await prompt('\nPress Enter when the movement is complete to stop recording...');
   console.log('Stopping recording...');
   try {
     await service.stopRecording(session);
   } catch (err: any) {
     console.error(`Failed to stop recording: ${err.message ?? err}`);
-    return;
+    return false;
   }
   console.log('Recording stopped. Videos are uploading.');
+  return true;
+}
 
-  // Wait for processing
+/**
+ * Waits for upload/processing and, if automatic analysis was requested,
+ * waits for it to complete and downloads the report. Always returns the
+ * activity (fresh, if analysis ran and completed).
+ */
+async function waitAndProcessResults(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof service.startRecording>>,
+  activityTypeLabel: string
+) {
   console.log('\nWaiting for upload and processing...');
   const finalStatus = await pollActivity(service, activity);
 
-  let currentActivity = activity;
-
   if (finalStatus.type === 'analyzing') {
     const task: Analysis = { taskId: finalStatus.taskId };
-    console.log(`Activity is ready. Automatic '${activityTypeLabel}' analysis has started.`);
-    console.log('\nWaiting for analysis to complete...');
-    const resultStatus = await pollAnalysis(service, task);
-
-    if (resultStatus.type !== 'completed') {
-      console.log(`Analysis did not complete (status: ${resultStatus.type}).`);
-    } else {
-      console.log('Analysis complete.');
-      const freshActivity = await service.fetchActivity(activity.id);
-      currentActivity = freshActivity;
-      const results = await service.analysisDataForActivity(freshActivity, ['report']);
-      const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
-
-      console.log('\nDownloading report...');
-      for (const r of results) {
-        const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
-        const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
-        console.log(`  Saved ${p}`);
-      }
-    }
+    return waitForAnalysisAndDownloadReport(service, activity, task, activityTypeLabel);
   } else if (finalStatus.type === 'ready') {
     console.log(`Activity is ready. ID: ${activity.id}`);
     console.log('Run activity_analysis.ts to analyze this activity.');
+    return activity;
   } else {
     console.log(`Activity did not reach ready state (status: ${finalStatus.type}).`);
+    return activity;
+  }
+}
+
+async function waitForAnalysisAndDownloadReport(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof service.startRecording>>,
+  task: Analysis,
+  activityTypeLabel: string
+) {
+  console.log(`Activity is ready. Automatic '${activityTypeLabel}' analysis has started.`);
+  console.log('\nWaiting for analysis to complete...');
+  const resultStatus = await pollAnalysis(service, task);
+
+  if (resultStatus.type !== 'completed') {
+    console.log(`Analysis did not complete (status: ${resultStatus.type}).`);
+    return activity;
   }
 
-  // Update activity metadata (optional).
-  // Re-fetch first: analysis auto-generates tags server-side, and updateActivity
-  // merges add/remove tags on top of the local activity's tags. Without a fresh
-  // fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
+  console.log('Analysis complete.');
+  const freshActivity = await service.fetchActivity(activity.id);
+  const results = await service.analysisDataForActivity(freshActivity, ['report']);
+  const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
+
+  console.log('\nDownloading report...');
+  for (const r of results) {
+    const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
+    const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+    console.log(`  Saved ${p}`);
+  }
+
+  return freshActivity;
+}
+
+// Re-fetch first: analysis auto-generates tags server-side, and updateActivity
+// merges add/remove tags on top of the local activity's tags. Without a fresh
+// fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
+async function updateActivityMetadata(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof waitAndProcessResults>>
+) {
+  let currentActivity = activity;
   try {
-    currentActivity = await service.fetchActivity(currentActivity.id);
+    currentActivity = await service.fetchActivity(activity.id);
   } catch (err: any) {
     console.error(`Failed to refresh activity: ${err.message ?? err}`);
   }
@@ -317,6 +384,22 @@ async function recordOne(
       console.error(`Failed to update activity: ${err.message ?? err}`);
     }
   }
+}
+
+async function recordOne(
+  service: ModelHealthService,
+  session: Parameters<typeof service.startRecording>[1],
+  subject: { name: string }
+): Promise<void> {
+  const { activityName, selectedType, config } = await promptRecordingSetup();
+
+  const activity = await startRecording(service, session, subject, activityName, config);
+  if (!activity) return;
+
+  if (!(await stopRecording(service, session))) return;
+
+  const currentActivity = await waitAndProcessResults(service, activity, selectedType.label);
+  await updateActivityMetadata(service, currentActivity);
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); })

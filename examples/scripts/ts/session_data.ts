@@ -30,13 +30,14 @@ const ANALYSIS_DATA_TYPES: [AnalysisDataType, string][] = [
   ['data',    'Data     (ZIP) '],
 ];
 
-async function main() {
-  const args = process.argv.slice(2);
+async function connect(apiKey: string): Promise<ModelHealthService> {
   console.log('Connecting to Model Health...');
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
+  const service = new ModelHealthService({ apiKey, autoInit: false });
   await service.init();
+  return service;
+}
 
-  // Session
+async function pickSession(service: ModelHealthService) {
   console.log('\nFetching sessions...');
   const sessions = await service.sessionList();
   if (!sessions.length) {
@@ -45,13 +46,15 @@ async function main() {
   }
 
   console.log(`\n${sessions.length} session(s):\n`);
-  const session = await pickOne(sessions, 'Select session', s => {
+  return pickOne(sessions, 'Select session', s => {
     const sn = s.sessionName || '(unnamed)';
     const sub = s.name || '(unnamed)';
     return `[session ID: ${s.id}]  session name: ${sn}  subject: ${sub}  created: ${s.createdAt}`;
   });
+}
 
-  // Activities
+/** Returns the picked activity alongside all_activities — needed later for the neutral-model lookup. */
+async function pickActivity(service: ModelHealthService, session: Awaited<ReturnType<typeof pickSession>>) {
   console.log(`\nFetching activities for session ID: ${session.id}...`);
   const allActivities = await service.activityList(session.id);
   const activities = allActivities.filter(a => !INTERNAL_ACTIVITY_NAMES.has(a.name ?? ''));
@@ -63,8 +66,10 @@ async function main() {
     'Select activity',
     a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '') + `  updated: ${a.updatedAt}`
   );
+  return { activity, allActivities };
+}
 
-  // Check status
+async function ensureReady(service: ModelHealthService, activity: Awaited<ReturnType<typeof pickActivity>>['activity']) {
   const activityLabel = activity.name ?? activity.id;
   console.log(`\nChecking status of '${activityLabel}'...`);
   const status = await service.activityStatus(activity);
@@ -73,10 +78,13 @@ async function main() {
     process.exit(1);
   }
   console.log('Activity is ready.');
+}
 
-  const slug = activityLabel.replace(/ /g, '_');
-
-  // Videos
+async function downloadVideos(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof pickActivity>>['activity'],
+  slug: string
+) {
   console.log('\nWhich video versions would you like to download?\n');
   const selectedVersions = await pickMulti(VIDEO_VERSIONS, 'Select video versions', v => v[1]);
 
@@ -94,8 +102,13 @@ async function main() {
       }
     }
   }
+}
 
-  // Motion data
+async function downloadMotionData(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof pickActivity>>['activity'],
+  slug: string
+) {
   console.log('\nWhich motion data would you like to download?\n');
   const selectedMotion = await pickMulti(MOTION_DATA_TYPES, 'Select motion data types', t => t[1]);
   const motionTypes = selectedMotion.map(t => t[0]);
@@ -104,15 +117,21 @@ async function main() {
   const motionResults = await service.motionDataForActivity(activity, motionTypes);
   if (!motionResults.length) {
     console.log('  No motion data available.');
-  } else {
-    for (const r of motionResults) {
-      const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
-      const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
-      console.log(`  Saved: ${p}`);
-    }
+    return;
   }
 
-  // Analysis data
+  for (const r of motionResults) {
+    const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
+    const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+    console.log(`  Saved: ${p}`);
+  }
+}
+
+async function downloadAnalysisData(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof pickActivity>>['activity'],
+  slug: string
+) {
   console.log('\nWhich analysis results would you like to download?\n');
   const selectedAnalysis = await pickMulti(ANALYSIS_DATA_TYPES, 'Select analysis data types', t => t[1]);
   const analysisTypes = selectedAnalysis.map(t => t[0]);
@@ -121,31 +140,52 @@ async function main() {
   const analysisResults = await service.analysisDataForActivity(activity, analysisTypes);
   if (!analysisResults.length) {
     console.log('  No analysis data available.');
-  } else {
-    for (const r of analysisResults) {
-      const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
-      const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
-      console.log(`  Saved: ${p}`);
-    }
+    return;
   }
 
-  // OpenSim model from neutral activity
+  for (const r of analysisResults) {
+    const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
+    const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+    console.log(`  Saved: ${p}`);
+  }
+}
+
+async function downloadNeutralModel(
+  service: ModelHealthService,
+  allActivities: Awaited<ReturnType<typeof pickActivity>>['allActivities']
+) {
   const neutralActivities = allActivities.filter(a => a.name === 'neutral');
   const neutral = neutralActivities[neutralActivities.length - 1];
-  if (neutral) {
-    console.log(`\nDownloading OpenSim model for neutral activity (id: ${neutral.id})...`);
-    const neutralStatus = await service.activityStatus(neutral);
-    if (neutralStatus.type !== 'ready') {
-      console.log(`  Skipping: neutral activity status is '${neutralStatus.type}' (expected 'ready').`);
-    } else {
-      const modelResults = await service.motionDataForActivity(neutral, ['model']);
-      for (const r of modelResults) {
-        const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
-        const p = saveFile(`neutral_${r.type}.${ext}`, r.data);
-        console.log(`  Saved: ${p}`);
-      }
-    }
+  if (!neutral) return;
+
+  console.log(`\nDownloading OpenSim model for neutral activity (id: ${neutral.id})...`);
+  const neutralStatus = await service.activityStatus(neutral);
+  if (neutralStatus.type !== 'ready') {
+    console.log(`  Skipping: neutral activity status is '${neutralStatus.type}' (expected 'ready').`);
+    return;
   }
+
+  const modelResults = await service.motionDataForActivity(neutral, ['model']);
+  for (const r of modelResults) {
+    const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
+    const p = saveFile(`neutral_${r.type}.${ext}`, r.data);
+    console.log(`  Saved: ${p}`);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const service = await connect(loadApiKey(args[0]));
+  const session = await pickSession(service);
+  const { activity, allActivities } = await pickActivity(service, session);
+  await ensureReady(service, activity);
+
+  const activityLabel = activity.name ?? activity.id;
+  const slug = activityLabel.replace(/ /g, '_');
+  await downloadVideos(service, activity, slug);
+  await downloadMotionData(service, activity, slug);
+  await downloadAnalysisData(service, activity, slug);
+  await downloadNeutralModel(service, allActivities);
 
   console.log('\nDone.');
 }

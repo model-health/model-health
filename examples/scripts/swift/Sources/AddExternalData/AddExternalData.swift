@@ -62,10 +62,10 @@ private func pickActivity(service: ModelHealthService) async -> Activity {
     let session = pickOne(
         from: sessions,
         prompt: "Select session",
-        label: { s in
-            let sessionLabel = s.sessionName.isEmpty ? "(unnamed)" : s.sessionName
-            let subjectLabel = s.name.isEmpty ? "(unnamed)" : s.name
-            return "[\(s.id)]  \(sessionLabel)  —  subject: \(subjectLabel)"
+        label: { subject in
+            let sessionLabel = subject.sessionName.isEmpty ? "(unnamed)" : subject.sessionName
+            let subjectLabel = subject.name.isEmpty ? "(unnamed)" : subject.name
+            return "[\(subject.id)]  \(sessionLabel)  —  subject: \(subjectLabel)"
         }
     )
 
@@ -78,8 +78,8 @@ private func pickActivity(service: ModelHealthService) async -> Activity {
         exit(1)
     }
 
-    let activities = allActivities.filter { a in
-        guard let name = a.name else {
+    let activities = allActivities.filter { activity in
+        guard let name = activity.name else {
             return true
         }
 
@@ -95,7 +95,7 @@ private func pickActivity(service: ModelHealthService) async -> Activity {
     return pickOne(
         from: activities,
         prompt: "Select activity",
-        label: { a in "\(a.name ?? a.id)  [\(a.status)]" }
+        label: { activity in "\(activity.name ?? activity.id)  [\(activity.status)]" }
     )
 }
 

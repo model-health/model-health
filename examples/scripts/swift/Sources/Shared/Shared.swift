@@ -20,7 +20,7 @@ public func loadAPIKey() -> String {
     }
     fputs(
         "Model Health API key not found.\n"
-        + "Provide it as a CLI argument or set MODEL_HEALTH_API_KEY in .env or your environment.\n",
+            + "Provide it as a CLI argument or set MODEL_HEALTH_API_KEY in .env or your environment.\n",
         stderr
     )
     exit(1)
@@ -46,7 +46,8 @@ public func dotEnvValue(for key: String) -> String? {
 
         var value = parts.dropFirst().joined(separator: "=").trimmingCharacters(in: .whitespaces)
         if value.count >= 2,
-           (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
+           (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'"))
+        {
             value = String(value.dropFirst().dropLast())
         }
         return value.isEmpty ? nil : value
@@ -93,27 +94,34 @@ public func pollAnalysis(service: ModelHealthService, task: Analysis) async thro
 // MARK: - Prompts
 
 public func pickOne<T>(from items: [T], prompt: String, label: (T) -> String, defaultIndex: Int? = nil) -> T {
-    for (i, item) in items.enumerated() {
-        let suffix = i == defaultIndex ? "  (default)" : ""
-        print("  \(i + 1). \(label(item))\(suffix)")
+    for (index, item) in items.enumerated() {
+        let suffix = index == defaultIndex ? "  (default)" : ""
+        print("  \(index + 1). \(label(item))\(suffix)")
     }
-    let rangeHint = defaultIndex != nil ? "1–\(items.count), Enter for \(defaultIndex! + 1)" : "1–\(items.count)"
+
+    let rangeHint: String
+    if let defaultIndex {
+        rangeHint = "1–\(items.count), Enter for \(defaultIndex + 1)"
+    } else {
+        rangeHint = "1–\(items.count)"
+    }
+
     while true {
         print("\n\(prompt) (\(rangeHint)): ", terminator: "")
         let line = readLine()?.trimmingCharacters(in: .whitespaces) ?? ""
         if line.isEmpty, let defaultIndex {
             return items[defaultIndex]
         }
-        if let n = Int(line), (1...items.count).contains(n) {
-            return items[n - 1]
+        if let num = Int(line), (1...items.count).contains(num) {
+            return items[num - 1]
         }
         print("  Please enter a number between 1 and \(items.count).")
     }
 }
 
 public func pickMulti<T>(from items: [T], prompt: String, label: (T) -> String) -> [T] {
-    for (i, item) in items.enumerated() {
-        print("  \(i + 1). \(label(item))")
+    for (index, item) in items.enumerated() {
+        print("  \(index + 1). \(label(item))")
     }
     while true {
         print("\n\(prompt) (e.g. 1 2 3): ", terminator: "")
@@ -130,7 +138,7 @@ public func pickMulti<T>(from items: [T], prompt: String, label: (T) -> String) 
 
 public func confirm(_ prompt: String, default defaultValue: Bool? = nil) -> Bool {
     let hint: String
-    if defaultValue == true { 
+    if defaultValue == true {
         hint = "[Y/n]"
     } else if defaultValue == false {
         hint = "[y/N]"
@@ -149,8 +157,8 @@ public func confirm(_ prompt: String, default defaultValue: Bool? = nil) -> Bool
             return false
         }
 
-        if raw.isEmpty, let dv = defaultValue {
-            return dv
+        if raw.isEmpty, let defaultVal = defaultValue {
+            return defaultVal
         }
 
         print("  Please enter y or n.")
@@ -169,7 +177,6 @@ public extension MotionDataType {
         case .markers(.csv): return "csv"
         case .model: return "osim"
         case .tagged(_, let ext): return ext
-        default: return "bin"
         }
     }
 
@@ -182,7 +189,6 @@ public extension MotionDataType {
         case .markers(.csv): return "markers_csv"
         case .model: return "model"
         case .tagged(let tag, _): return tag
-        default: return "data"
         }
     }
 }

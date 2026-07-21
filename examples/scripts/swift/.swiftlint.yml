@@ -1,0 +1,65 @@
+# Ported from the ../ios app's .swiftlint.yml (see that repo's CLAUDE.md).
+
+included:
+  - Sources
+
+excluded:
+  - .build
+  - Packages
+
+opt_in_rules:
+  - closure_spacing
+  - contains_over_first_not_nil
+  - empty_string
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - identical_operands
+  - joined_default_parameter
+  - last_where
+  - legacy_random
+  - modifier_order
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - static_operator
+  - superfluous_else
+  - toggle_bool
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+  - yoda_condition
+
+disabled_rules:
+  - nesting
+  - multiple_closures_with_trailing_closure
+
+line_length:
+  warning: 150
+  ignores_urls: true
+  ignores_comments: true
+  ignores_interpolated_strings: true
+
+file_length:
+  warning: 800
+  ignore_comment_only_lines: true
+
+opening_brace:
+  ignore_multiline_statement_conditions: true
+
+type_body_length:
+  warning: 400
+
+function_body_length:
+  warning: 140  
+
+cyclomatic_complexity:
+  warning: 10
+
+force_cast: warning
+force_try: warning
+force_unwrapping: warning
+
+reporter: "xcode"

@@ -36,13 +36,14 @@ const RESULT_TYPES: [AnalysisDataType, string][] = [
   ['data',    'Data     (ZIP) '],
 ];
 
-async function main() {
-  const args = process.argv.slice(2);
+async function connect(apiKey: string): Promise<ModelHealthService> {
   console.log('Connecting...');
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
+  const service = new ModelHealthService({ apiKey, autoInit: false });
   await service.init();
+  return service;
+}
 
-  // Session
+async function pickSession(service: ModelHealthService) {
   console.log('\nFetching sessions...');
   const sessions = await service.sessionList();
   if (!sessions.length) {
@@ -51,13 +52,14 @@ async function main() {
   }
 
   console.log(`\n${sessions.length} session(s):\n`);
-  const session = await pickOne(sessions, 'Select session', s => {
+  return pickOne(sessions, 'Select session', s => {
     const sn = s.sessionName || '(unnamed)';
     const sub = s.name || '(unnamed)';
     return `[session ID: ${s.id}]  session name: ${sn}  subject: ${sub}`;
   });
+}
 
-  // Activity
+async function pickActivity(service: ModelHealthService, session: Awaited<ReturnType<typeof pickSession>>) {
   const sn = session.sessionName || '(unnamed)';
   const sub = session.name || '(unnamed)';
   console.log(`\nFetching activities for session ID: ${session.id},  session name: ${sn}, subject: ${sub}...`);
@@ -66,13 +68,14 @@ async function main() {
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
   console.log(`\n${activities.length} activity/activities:\n`);
-  const activity = await pickOne(
+  return pickOne(
     activities,
     'Select activity',
     a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
   );
+}
 
-  // Wait for ready
+async function ensureReady(service: ModelHealthService, activity: Awaited<ReturnType<typeof pickActivity>>) {
   const activityLabel = activity.name ?? activity.id;
   console.log(`\nChecking status of '${activityLabel}'...`);
   let status = await service.activityStatus(activity);
@@ -87,18 +90,29 @@ async function main() {
     process.exit(1);
   }
   console.log('Activity is ready.');
+}
 
-  // Analysis type — default to the activity's recorded type if available.
+async function startAnalysis(
+  service: ModelHealthService,
+  activity: Awaited<ReturnType<typeof pickActivity>>,
+  session: Awaited<ReturnType<typeof pickSession>>
+) {
+  // Default to the activity's recorded type if available.
   const defaultAnalysis = ANALYSIS_TYPES.find(t => t[0] === activity.activityType);
   console.log('\nAnalysis type:\n');
   const [analysisType, analysisLabel] = await pickOne(
     ANALYSIS_TYPES, 'Select analysis type', t => t[1], defaultAnalysis
   );
 
-  // Run
   console.log(`\nStarting '${analysisLabel}' analysis...`);
-  const task = await service.startAnalysis(analysisType as any, activity, session);
+  return service.startAnalysis(analysisType as any, activity, session);
+}
 
+async function waitForAnalysis(
+  service: ModelHealthService,
+  task: Awaited<ReturnType<typeof startAnalysis>>,
+  activity: Awaited<ReturnType<typeof pickActivity>>
+) {
   console.log('Waiting for analysis to complete...');
   const resultStatus = await pollAnalysis(service, task);
 
@@ -108,22 +122,35 @@ async function main() {
   }
   console.log('Analysis complete.');
 
-  const freshActivity = await service.fetchActivity(activity.id);
+  return service.fetchActivity(activity.id);
+}
 
-  // Choose results
+async function downloadResults(service: ModelHealthService, activity: Awaited<ReturnType<typeof waitForAnalysis>>) {
   console.log('\nWhich results would you like to save?\n');
   const selected = await pickMulti(RESULT_TYPES, 'Select result types', r => r[1]);
   const dataTypes = selected.map(r => r[0]);
 
-  const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
+  const slug = (activity.name ?? activity.id).replace(/ /g, '_');
 
   console.log('\nDownloading...');
-  const results = await service.analysisDataForActivity(freshActivity, dataTypes);
+  const results = await service.analysisDataForActivity(activity, dataTypes);
   for (const r of results) {
     const ext = ANALYSIS_DATA_EXT[r.type] ?? 'bin';
     const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
     console.log(`  Saved ${p}`);
   }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const service = await connect(loadApiKey(args[0]));
+  const session = await pickSession(service);
+  const activity = await pickActivity(service, session);
+  await ensureReady(service, activity);
+
+  const task = await startAnalysis(service, activity, session);
+  const freshActivity = await waitForAnalysis(service, task, activity);
+  await downloadResults(service, freshActivity);
 
   console.log('\nDone.');
 }

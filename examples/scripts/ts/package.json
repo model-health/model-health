@@ -9,7 +9,8 @@
     "activity-analysis": "tsx activity_analysis.ts",
     "archive-session": "tsx archive_session.ts",
     "update-activity": "tsx update_activity.ts",
-    "activity-metrics": "tsx activity_metrics.ts"
+    "activity-metrics": "tsx activity_metrics.ts",
+    "video-upload-mode": "tsx video_upload_mode.ts"
   },
   "dependencies": {
     "@modelhealth/modelhealth": "^0.5.6"

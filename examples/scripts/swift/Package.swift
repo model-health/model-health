@@ -5,7 +5,7 @@ let modelHealth: Target.Dependency = .product(name: "ModelHealth", package: "mod
 let shared: Target.Dependency = .target(name: "Shared")
 let linkerSettings: [LinkerSetting] = [
     .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
-    .linkedFramework("Security", .when(platforms: [.macOS])),
+    .linkedFramework("Security", .when(platforms: [.macOS]))
 ]
 
 func script(_ name: String) -> Target {
@@ -20,7 +20,7 @@ let package = Package(
     name: "ModelHealthExamples",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/model-health/model-health-swift", from: "0.5.0"),
+        .package(url: "https://github.com/model-health/model-health-swift", from: "0.5.0")
     ],
     targets: [
         .target(
@@ -35,5 +35,6 @@ let package = Package(
         script("ActivityMetrics"),
         script("UpdateActivity"),
         script("ArchiveSession"),
+        script("VideoUploadMode")
     ]
 )

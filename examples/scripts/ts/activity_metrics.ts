@@ -16,13 +16,14 @@ import {
   pickOne, confirm, saveFile, closePrompts,
 } from './_shared.js';
 
-async function main() {
-  const args = process.argv.slice(2);
+async function connect(apiKey: string): Promise<ModelHealthService> {
   console.log('Connecting to Model Health...');
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
+  const service = new ModelHealthService({ apiKey, autoInit: false });
   await service.init();
+  return service;
+}
 
-  // Session
+async function pickSession(service: ModelHealthService) {
   console.log('\nFetching sessions...');
   const sessions = await service.sessionList();
   if (!sessions.length) {
@@ -31,22 +32,24 @@ async function main() {
   }
 
   console.log(`\n${sessions.length} session(s):\n`);
-  const session = await pickOne(sessions, 'Select session', s => {
+  return pickOne(sessions, 'Select session', s => {
     const sn = s.sessionName || '(unnamed)';
     const sub = s.name || '(unnamed)';
     return `[session ID: ${s.id}]  session name: ${sn}  subject: ${sub}`;
   });
+}
 
-  // Activities
+async function pickActivity(service: ModelHealthService, session: Awaited<ReturnType<typeof pickSession>>) {
   console.log(`\nFetching activities for session ID: ${session.id}...`);
   const allActivities = await service.activityList(session.id);
   const activities = allActivities.filter(a => !INTERNAL_ACTIVITY_NAMES.has(a.name ?? ''));
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
   console.log(`\n${activities.length} activity/activities:\n`);
-  const activity = await pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
+  return pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
+}
 
-  // Activity metrics
+async function showMetrics(service: ModelHealthService, activity: Awaited<ReturnType<typeof pickActivity>>) {
   const activityLabel = activity.name ?? activity.id;
   console.log(`\nFetching metrics for '${activityLabel}'...`);
   const metrics = await service.activityMetrics(activity.id);
@@ -54,18 +57,27 @@ async function main() {
   const flat = flattenMetrics(metrics);
   if (!flat.size) {
     console.log('  No metrics available for this activity.');
-  } else {
-    console.log('\nActivity metrics:\n');
-    for (const [name, value] of flat) {
-      console.log(`  ${name}: ${formatValue(value)}`);
-    }
-
-    if (await confirm('\nSave metrics as JSON?', false)) {
-      const slug = activityLabel.replace(/ /g, '_');
-      const p = saveFile(`${slug}_metrics.json`, Buffer.from(activityMetricsToJson(metrics), 'utf-8'));
-      console.log(`  Saved ${p}`);
-    }
+    return;
   }
+
+  console.log('\nActivity metrics:\n');
+  for (const [name, value] of flat) {
+    console.log(`  ${name}: ${formatValue(value)}`);
+  }
+
+  if (await confirm('\nSave metrics as JSON?', false)) {
+    const slug = activityLabel.replace(/ /g, '_');
+    const p = saveFile(`${slug}_metrics.json`, Buffer.from(activityMetricsToJson(metrics), 'utf-8'));
+    console.log(`  Saved ${p}`);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const service = await connect(loadApiKey(args[0]));
+  const session = await pickSession(service);
+  const activity = await pickActivity(service, session);
+  await showMetrics(service, activity);
 
   console.log('\nDone.');
 }

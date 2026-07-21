@@ -82,17 +82,22 @@ def _poll_processing(service, activity, interval=10):
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Setup
 # ---------------------------------------------------------------------------
 
-def main(api_key):
+def _connect(api_key):
     print("Connecting...")
     try:
-        service = ModelHealthService(api_key)
+        return ModelHealthService(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # Session
+
+# ---------------------------------------------------------------------------
+# Session / activity selection
+# ---------------------------------------------------------------------------
+
+def _pick_session(service):
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -101,13 +106,14 @@ def main(api_key):
         )
 
     print(f"\n{len(sessions)} session(s):\n")
-    session = pick_one(
+    return pick_one(
         sessions,
         "Select session",
         lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}",
     )
 
-    # Activity
+
+def _pick_activity(service, session):
     print(f"\nFetching activities for session ID: {session.id},  session name: {session.session_name or '(unnamed)'}, subject: {session.name or '(unnamed)'}...")
     all_activities = service.activity_list(session)
     activities = [
@@ -118,13 +124,18 @@ def main(api_key):
         sys.exit("No activities found in this session.")
 
     print(f"\n{len(activities)} activity/activities:\n")
-    activity = pick_one(
+    return pick_one(
         activities,
         "Select activity",
         lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
 
-    # Processing status
+
+# ---------------------------------------------------------------------------
+# Readiness
+# ---------------------------------------------------------------------------
+
+def _ensure_ready(service, activity):
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
     status = service.activity_status(activity)
@@ -140,7 +151,13 @@ def main(api_key):
         )
     print("Activity is ready.")
 
-    # Analysis type — default to the activity's recorded type if available.
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+
+def _start_analysis(service, activity, session):
+    # Default to the activity's recorded type if available.
     default_analysis = next(
         (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
         None,
@@ -153,13 +170,14 @@ def main(api_key):
         default=default_analysis,
     )
 
-    # Run analysis
     print(f"\nStarting '{analysis_label}' analysis...")
     try:
-        task = service.start_analysis(analysis_value, activity, session)
+        return service.start_analysis(analysis_value, activity, session)
     except ModelHealthError as exc:
         sys.exit(f"Failed to start analysis: {exc}")
 
+
+def _wait_for_analysis(service, task, activity):
     print("Waiting for analysis to complete...")
     result_status = poll_analysis(service, task)
 
@@ -168,9 +186,14 @@ def main(api_key):
     print("Analysis complete.")
 
     # Re-fetch the activity so its results field contains the analysis URLs.
-    activity = service.fetch_activity(activity.id)
+    return service.fetch_activity(activity.id)
 
-    # Choose result files to save
+
+# ---------------------------------------------------------------------------
+# Results
+# ---------------------------------------------------------------------------
+
+def _download_results(service, activity):
     print("\nWhich results would you like to save?\n")
     selected = pick_multi(
         RESULT_TYPES,
@@ -187,6 +210,21 @@ def main(api_key):
         ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
         path = save_file(f"{slug}_{r.type}.{ext}", r.data)
         print(f"  Saved {path}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(api_key):
+    service = _connect(api_key)
+    session = _pick_session(service)
+    activity = _pick_activity(service, session)
+    _ensure_ready(service, activity)
+
+    task = _start_analysis(service, activity, session)
+    activity = _wait_for_analysis(service, task, activity)
+    _download_results(service, activity)
 
     print("\nDone.")
 

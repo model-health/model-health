@@ -47,17 +47,22 @@ def _load_activities(service, subject):
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Setup
 # ---------------------------------------------------------------------------
 
-def main(api_key):
+def _connect(api_key):
     print("Connecting...")
     try:
-        service = ModelHealthService(api_key)
+        return ModelHealthService(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # Subject
+
+# ---------------------------------------------------------------------------
+# Subject / activity selection
+# ---------------------------------------------------------------------------
+
+def _pick_subject(service):
     print("\nFetching subjects...")
     try:
         subjects = service.subject_list()
@@ -70,8 +75,10 @@ def main(api_key):
     print()
     subject = pick_one(subjects, "Select subject", lambda s: f"{s.name}  (ID {s.id})")
     print(f"  Selected: {subject.name}")
+    return subject
 
-    # Activities
+
+def _pick_activity(service, subject):
     print(f"\nFetching activities for {subject.name}...")
     try:
         activities = _load_activities(service, subject)
@@ -88,8 +95,15 @@ def main(api_key):
         lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
     )
     print(f"  Selected: {activity.name or activity.id}")
+    return activity
 
-    # Update
+
+# ---------------------------------------------------------------------------
+# Edits
+# ---------------------------------------------------------------------------
+
+def _prompt_edits(activity):
+    """Returns (new_name, add_tags, remove_tags) — all falsy if nothing changed."""
     print("\nUpdate activity (press Enter to keep current value):")
     print(f"  Current activity type: {activity.activity_type or '(none)'}")
     current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
@@ -103,10 +117,10 @@ def main(api_key):
     remove_input = input("  Tags to remove, comma-separated (press Enter to skip): ").strip()
     remove_tags = [t.strip() for t in remove_input.split(",") if t.strip()] if remove_input else []
 
-    if not new_name and not add_tags and not remove_tags:
-        print("No changes — exiting.")
-        return
+    return new_name, add_tags, remove_tags
 
+
+def _apply_edits(service, activity, new_name, add_tags, remove_tags):
     print("\nUpdating activity...")
     try:
         activity = service.update_activity(
@@ -119,6 +133,23 @@ def main(api_key):
     print(f"  Name:  {activity.name or activity.id}")
     updated_tags = ", ".join(activity.tags) if activity.tags else "(none)"
     print(f"  Tags:  {updated_tags}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(api_key):
+    service = _connect(api_key)
+    subject = _pick_subject(service)
+    activity = _pick_activity(service, subject)
+
+    new_name, add_tags, remove_tags = _prompt_edits(activity)
+    if not new_name and not add_tags and not remove_tags:
+        print("No changes — exiting.")
+        return
+
+    _apply_edits(service, activity, new_name, add_tags, remove_tags)
     print("\nDone.")
 
 

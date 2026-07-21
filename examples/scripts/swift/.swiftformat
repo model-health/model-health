@@ -1,0 +1,28 @@
+# Ported from the ../ios app's .swiftformat. Invoked on demand only
+# (`swiftformat .` / `swiftformat . --lint`), never wired into a build.
+--disable all
+
+--swiftversion 5.9
+
+--enable indent
+--indent 4
+--ifdef outdent
+
+--enable braces
+--allman false
+--enable wrapMultilineStatementBraces
+
+--enable wrapGuardStatementBodies
+--enable wrapIfStatementBodies
+
+--enable trailingCommas
+--trailing-commas never
+
+--enable wrapArguments
+--wrap-arguments before-first
+--wrap-parameters before-first
+--wrap-collections before-first
+
+--enable trailingSpace
+
+--exclude .build,Packages

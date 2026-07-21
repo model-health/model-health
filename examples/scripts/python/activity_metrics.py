@@ -26,17 +26,22 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Setup
 # ---------------------------------------------------------------------------
 
-def main(api_key):
+def _connect(api_key):
     print("Connecting to Model Health...")
     try:
-        service = ModelHealthService(api_key=api_key)
+        return ModelHealthService(api_key=api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
-    # Session
+
+# ---------------------------------------------------------------------------
+# Session / activity selection
+# ---------------------------------------------------------------------------
+
+def _pick_session(service):
     print("\nFetching sessions...")
     sessions = service.session_list()
     if not sessions:
@@ -45,13 +50,14 @@ def main(api_key):
         )
 
     print(f"\n{len(sessions)} session(s):\n")
-    session = pick_one(
+    return pick_one(
         sessions,
         "Select session",
         lambda s: f"[session ID: {s.id}]  session name: {s.session_name or '(unnamed)'}  subject: {s.name or '(unnamed)'}",
     )
 
-    # Activities
+
+def _pick_activity(service, session):
     print(f"\nFetching activities for session ID: {session.id}...")
     all_activities = service.activity_list(session)
     activities = [a for a in all_activities if a.name not in _INTERNAL_ACTIVITY_NAMES]
@@ -59,13 +65,18 @@ def main(api_key):
         sys.exit("No activities found in this session.")
 
     print(f"\n{len(activities)} activity/activities:\n")
-    activity = pick_one(
+    return pick_one(
         activities,
         "Select activity",
         lambda a: f"{a.name or a.id}  [{a.status}]",
     )
 
-    # Activity metrics
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+
+def _show_metrics(service, activity):
     activity_label = activity.name or activity.id
     print(f"\nFetching metrics for '{activity_label}'...")
     try:
@@ -76,16 +87,27 @@ def main(api_key):
     flat = _flatten_metrics(metrics)
     if not flat:
         print("  No metrics available for this activity.")
-    else:
-        print("\nActivity metrics:\n")
-        for name, value in flat.items():
-            print(f"  {name}: {_format_value(value)}")
+        return
 
-        if confirm("\nSave metrics as JSON?", default=False):
-            slug = activity_label.replace(" ", "_")
-            path = save_file(f"{slug}_metrics.json", metrics.to_json().encode("utf-8"))
-            print(f"  Saved {path}")
+    print("\nActivity metrics:\n")
+    for name, value in flat.items():
+        print(f"  {name}: {_format_value(value)}")
 
+    if confirm("\nSave metrics as JSON?", default=False):
+        slug = activity_label.replace(" ", "_")
+        path = save_file(f"{slug}_metrics.json", metrics.to_json().encode("utf-8"))
+        print(f"  Saved {path}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(api_key):
+    service = _connect(api_key)
+    session = _pick_session(service)
+    activity = _pick_activity(service, session)
+    _show_metrics(service, activity)
     print("\nDone.")
 
 

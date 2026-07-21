@@ -108,6 +108,15 @@ columns against time.
 python3 plot_kinematics.py [<api_key>]
 ```
 
+### `video_upload_mode.py` — Set video upload mode
+
+Lets you pick and apply a video upload mode (enabled, disabled or flush)
+for your account via `set_video_upload_mode`.
+
+```bash
+python3 video_upload_mode.py [<api_key>]
+```
+
 ### `opencap_import.py` — Import an OpenCap session
 
 Copies data from an OpenCap session into a new Model Health session and processes them. The new session can be configured to leverage the latest settings (e.g. core engine v1.0) and activities are automatically analyzed when an activity type is set. See the example for details.
