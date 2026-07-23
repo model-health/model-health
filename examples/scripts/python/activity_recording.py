@@ -443,12 +443,17 @@ def main(api_key):
     checkerboard = _configure_checkerboard()
     _calibrate_cameras(service, session, checkerboard)
 
-    subject = _pick_or_create_subject(service)
-    _calibrate_subject(service, subject, session)
+    while True:
+        subject = _pick_or_create_subject(service)
+        _calibrate_subject(service, subject, session)
 
-    # Recording loop
-    while _record_one(service, session, subject):
-        pass
+        # Recording loop
+        while _record_one(service, session, subject):
+            pass
+
+        if not confirm("\nCalibrate another subject with the same camera setup?", default=True):
+            break
+        session = service.new_session_from_session(session)
 
     print("\nDone.")
 

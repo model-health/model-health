@@ -223,19 +223,26 @@ async function main() {
   const args = process.argv.slice(2);
   const service = await connect(loadApiKey(args[0]));
 
-  const session = await createSessionAndSaveQrCode(service);
+  let session = await createSessionAndSaveQrCode(service);
   await waitForCameraPairing();
 
   const checkerboard = await configureCheckerboard();
   await calibrateCameras(service, session, checkerboard);
 
-  const subject = await pickOrCreateSubject(service);
-  await calibrateSubject(service, subject, session);
+  for (;;) {
+    const subject = await pickOrCreateSubject(service);
+    await calibrateSubject(service, subject, session);
 
-  // Recording loop
-  do {
-    await recordOne(service, session, subject);
-  } while (await confirm('\nRecord another activity?', true));
+    // Recording loop
+    do {
+      await recordOne(service, session, subject);
+    } while (await confirm('\nRecord another activity?', true));
+
+    if (!(await confirm('\nCalibrate another subject with the same camera setup?', true))) {
+      break;
+    }
+    session = await service.newSessionFromSession(session);
+  }
 
   console.log('\nDone.');
 }

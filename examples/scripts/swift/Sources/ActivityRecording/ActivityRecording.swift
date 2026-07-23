@@ -101,18 +101,30 @@ struct ActivityRecording {
         let apiKey = loadAPIKey()
         let service = connect(apiKey: apiKey)
 
-        let session = await createSessionAndSaveQRCode(service: service)
+        var session = await createSessionAndSaveQRCode(service: service)
         waitForCameraPairing()
 
         let checkerboard = configureCheckerboard()
         await calibrateCameras(service: service, session: session, checkerboard: checkerboard)
 
-        let subject = await pickOrCreateSubject(service: service)
-        await calibrateSubject(service: service, subject: subject, session: session)
-
         repeat {
-            await recordOne(service: service, session: session, subject: subject)
-        } while confirm("\nRecord another activity?", default: true)
+            let subject = await pickOrCreateSubject(service: service)
+            await calibrateSubject(service: service, subject: subject, session: session)
+
+            repeat {
+                await recordOne(service: service, session: session, subject: subject)
+            } while confirm("\nRecord another activity?", default: true)
+
+            guard confirm("\nCalibrate another subject with the same camera setup?", default: true) else {
+                break
+            }
+            do {
+                session = try await service.newSession(from: session)
+            } catch {
+                print("Failed to create new session: \(error)")
+                break
+            }
+        } while true
 
         print("\nDone.")
     }
