@@ -11,59 +11,73 @@ permissions:
 
 jobs:
   publish-npm:
-    name: Publish to npm
+    name: Publish ${{ matrix.package_dir }}
     runs-on: ubuntu-latest
-    
+    strategy:
+      fail-fast: false
+      # Adding a new package here? npm's OIDC trusted publishing does NOT work for a
+      # package's first-ever publish — npmjs.com requires the package to already exist
+      # before you can open its settings page to register a trusted publisher at all
+      # (see https://github.com/npm/cli/issues/8544). Before adding a new entry, publish
+      # that package's first version manually (a personal token, or `npm publish` from a
+      # local machine), THEN register this repo/workflow as its trusted publisher on
+      # npmjs.com. Only after that will a tag-triggered run of this matrix succeed for it.
+      matrix:
+        package_dir:
+          - packages/modelhealth
+          - packages/viewer-react
+
     steps:
       - name: Checkout public repo
         uses: actions/checkout@v6
-      
+
       - name: Get version from tag
         id: version
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Publishing version: $VERSION"
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      
-      - name: Verify dist directory exists
+
+      - name: Verify package directory exists
         run: |
-          if [ ! -d "dist" ]; then
-            echo "❌ Error: dist directory not found"
+          if [ ! -d "${{ matrix.package_dir }}" ]; then
+            echo "❌ Error: ${{ matrix.package_dir }} directory not found"
             echo "This workflow should only run after the build workflow has pushed artifacts"
             ls -la
             exit 1
           fi
-          
-          if [ ! -f "dist/package.json" ]; then
-            echo "❌ Error: package.json not found in dist"
-            ls -la dist/
+
+          if [ ! -f "${{ matrix.package_dir }}/package.json" ]; then
+            echo "❌ Error: package.json not found in ${{ matrix.package_dir }}"
+            ls -la "${{ matrix.package_dir }}"
             exit 1
           fi
-          
-          echo "✅ dist directory verified"
-      
+
+          echo "✅ ${{ matrix.package_dir }} directory verified"
+
       - name: Verify version matches tag
-        working-directory: dist
+        working-directory: ${{ matrix.package_dir }}
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION=${{ steps.version.outputs.version }}
-          
+
           if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
             echo "❌ Error: package.json version ($PACKAGE_VERSION) doesn't match tag ($TAG_VERSION)"
             exit 1
           fi
-          
+
           echo "✅ Version verified: $PACKAGE_VERSION"
-      
+
       - name: Publish to npm with provenance
-        working-directory: dist
+        working-directory: ${{ matrix.package_dir }}
         run: |
-          echo "Publishing @modelhealth/modelhealth@${{ steps.version.outputs.version }} to npm..."
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "Publishing ${PACKAGE_NAME}@${{ steps.version.outputs.version }} to npm..."
           npm publish --access public --provenance
           echo "✅ Successfully published to npm"

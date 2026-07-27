@@ -1,0 +1,26 @@
+#!/bin/sh
+# Auto-formats staged Swift files with SwiftFormat (re-staging the result),
+# then blocks the commit if SwiftLint finds any violation in those files.
+#
+# One-time setup per clone: git config core.hooksPath .githooks
+
+set -e
+
+if [ -z "$(git diff --cached --name-only --diff-filter=ACM -- '*.swift')" ]; then
+  exit 0
+fi
+
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+
+if command -v swiftformat >/dev/null 2>&1; then
+  git diff --cached --name-only --diff-filter=ACM -z -- '*.swift' | xargs -0 swiftformat
+  git diff --cached --name-only --diff-filter=ACM -z -- '*.swift' | xargs -0 git add
+else
+  echo "warning: swiftformat not installed (brew install swiftformat) — skipping format-on-commit" >&2
+fi
+
+if command -v swiftlint >/dev/null 2>&1; then
+  git diff --cached --name-only --diff-filter=ACM -z -- '*.swift' | xargs -0 swiftlint lint --strict
+else
+  echo "warning: swiftlint not installed (brew install swiftlint) — skipping lint-on-commit" >&2
+fi
