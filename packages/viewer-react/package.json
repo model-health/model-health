@@ -1,6 +1,6 @@
 {
   "name": "@modelhealth/viewer-react",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Embeddable React Three Fiber 3D visualizer for the Model Health SDK",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,7 +29,7 @@
     "url": "https://github.com/model-health/model-health"
   },
   "peerDependencies": {
-    "@modelhealth/modelhealth": "^0.7.1",
+    "@modelhealth/modelhealth": "^0.8.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "react": "^19.1.0",
