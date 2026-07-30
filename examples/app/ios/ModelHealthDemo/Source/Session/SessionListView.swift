@@ -67,7 +67,7 @@ struct SessionListView: View {
                 guard case .notStarted = loadingState else {
                     return
                 }
-                
+
                 await loadSessions()
             }
             .refreshable {

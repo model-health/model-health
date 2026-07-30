@@ -74,6 +74,7 @@ export function render(container, state, { setState, navigate }) {
               <div class="activity-actions">
                 <button type="button" class="btn small primary results-btn" data-activity-id="${escapeHtml(a.id)}" ${done ? '' : 'disabled'}>Results</button>
                 <button type="button" class="btn small secondary metrics-btn" data-activity-id="${escapeHtml(a.id)}" ${done ? '' : 'disabled'}>Metrics</button>
+                <button type="button" class="btn small secondary view-3d-btn" data-activity-id="${escapeHtml(a.id)}" ${st.processingStatus ? '' : 'disabled'}>3D View</button>
               </div>
             </li>
           `;
@@ -169,6 +170,21 @@ export function render(container, state, { setState, navigate }) {
       }
     });
   });
+
+  container.querySelectorAll('.view-3d-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-activity-id');
+      const activity = activities.find((a) => a.id === id);
+      if (activity) {
+        navigate('3d-view', {
+          selectedActivity: activity,
+          threeDTransforms: null,
+        });
+      } else {
+        setState({ errorMessage: 'Activity not found.' });
+      }
+    });
+  });
 }
 
 export async function onEnter(container, state, ctx) {
@@ -226,9 +242,12 @@ export async function onEnter(container, state, ctx) {
     const acts = s.activities || [];
     if (!acts.length)
       return;
+    // Only keep polling for activities genuinely in flight — a 'ready' activity
+    // that was never analyzed has nothing left to wait for and would otherwise
+    // poll forever, since analysisCompleted only flips once analysis actually runs.
     const hasInProgress = acts.some((a) => {
-      if (s.analysisCompleted?.[a.id]) return false;
-      return (s.activityStates?.[a.id]?.processingStatus) !== 'failed';
+      const status = s.activityStates?.[a.id]?.processingStatus;
+      return status === 'uploading' || status === 'processing' || status === 'analyzing';
     });
     if (!hasInProgress)
       return;

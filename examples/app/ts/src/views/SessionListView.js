@@ -39,11 +39,13 @@ export function render(container, state, { setState, navigate }) {
         ${sessions.map((s) => {
           const subject = (state.subjects || []).find((sub) => sub.id === s.subject);
           const canOpen = subject != null;
+          const activityCount = recordedActivityCount(s);
           return `
             <li class="session-item" data-session-id="${escapeHtml(s.id)}" data-can-open="${canOpen}">
               <div class="session-item-main">
                 <strong>${escapeHtml(s.id)}</strong>
                 <span class="muted">${escapeHtml(s.name)}</span>
+                <span class="muted">${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}</span>
               </div>
               ${canOpen ? '<span class="session-arrow">→</span>' : ''}
             </li>
@@ -97,6 +99,14 @@ export async function onEnter(container, state, ctx) {
   if (state.loadingState === 'loading')
     return;
   await loadSessions(setState, ctx.navigate);
+}
+
+/**
+ * `activitiesCount` includes this app's own calibration and neutral-pose
+ * setup screens — subtract those to show only user-recorded activities.
+ */
+function recordedActivityCount(session) {
+  return Math.max(0, (session.activitiesCount || 0) - 2);
 }
 
 function escapeHtml(s) {

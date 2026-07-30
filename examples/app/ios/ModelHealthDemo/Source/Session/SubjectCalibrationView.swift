@@ -66,7 +66,7 @@ struct SubjectCalibrationView: View {
             ) { status in
                 print("Calibration status: \(status)")
             }
-            
+
             calibrationComplete = true
         } catch let error as ModelHealthError {
             print("Calibration failed: \(error.message)")

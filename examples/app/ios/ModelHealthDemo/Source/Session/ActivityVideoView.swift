@@ -21,7 +21,7 @@ struct ActivityVideoView: View {
             .pickerStyle(.segmented)
             .padding()
             .onChange(of: videoVersion) { _, _ in
-                if let _ = videosData[videoVersion] {
+                if videosData[videoVersion] != nil {
                     return
                 }
 

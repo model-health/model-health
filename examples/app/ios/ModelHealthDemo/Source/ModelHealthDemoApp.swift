@@ -4,6 +4,7 @@ import ModelHealth
 
 @main
 struct ModelHealthDemoApp: App {
+    // swiftlint:disable:next force_try
     private let service = try! ModelHealthService(apiKey: ExampleConfig.apiKey)
     @State private var showSplash = true
 

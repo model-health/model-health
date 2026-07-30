@@ -13,6 +13,7 @@ import { render as renderNeutralPose } from './views/NeutralPoseView.js';
 import { render as renderRecordActivity, onEnter as onEnterRecordActivity } from './views/RecordActivityView.js';
 import { render as renderAnalysisResult, onEnter as onEnterAnalysisResult } from './views/AnalysisResultView.js';
 import { render as renderMetrics, onEnter as onEnterMetrics } from './views/MetricsView.js';
+import { render as renderThreeDView, onEnter as onEnterThreeDView } from './views/ThreeDView.jsx';
 
 const VIEWS = {
   sessions: { render: renderSessions, onEnter: onEnterSessions },
@@ -23,6 +24,7 @@ const VIEWS = {
   'record-activity': { render: renderRecordActivity, onEnter: onEnterRecordActivity },
   'analysis-result': { render: renderAnalysisResult, onEnter: onEnterAnalysisResult },
   'activity-metrics': { render: renderMetrics, onEnter: onEnterMetrics },
+  '3d-view': { render: renderThreeDView, onEnter: onEnterThreeDView },
 };
 
 const container = document.getElementById('content');

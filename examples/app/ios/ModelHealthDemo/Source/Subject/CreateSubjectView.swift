@@ -204,7 +204,7 @@ struct CreateSubjectView: View {
         guard let year = Int(birthYear) else {
             return false
         }
-        
+
         let currentYear = Calendar.current.component(.year, from: Date())
         return year >= 1900 && year <= currentYear
     }
@@ -226,38 +226,38 @@ struct CreateSubjectView: View {
     private func formatGenderLabel(_ gender: Subject.Gender) -> String {
         switch gender {
         case .woman:
-         return "Woman"
-        
+            return "Woman"
+
         case .man:
-         return "Man"
-        
+            return "Man"
+
         case .transgender:
-         return "Transgender"
-        
+            return "Transgender"
+
         case .nonBinary:
-         return "Non-binary"
-        
+            return "Non-binary"
+
         case .noResponse:
-         return "Prefer not to respond"
+            return "Prefer not to respond"
         }
     }
 
     private func formatSexLabel(_ sex: Subject.Sex) -> String {
         switch sex {
         case .woman:
-         return "Woman"
-        
+            return "Woman"
+
         case .man:
-         return "Man"
-        
+            return "Man"
+
         case .intersex:
-         return "Intersex"
-        
+            return "Intersex"
+
         case .notListed:
-         return "Not listed"
-        
+            return "Not listed"
+
         case .noResponse:
-         return "Prefer not to respond"
+            return "Prefer not to respond"
         }
     }
 
@@ -285,7 +285,9 @@ struct CreateSubjectView: View {
                 birthYear: birthYearValue,
                 sexAtBirth: selectedSex,
                 gender: selectedGender,
-                characteristics: characteristics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines)
+                characteristics: characteristics.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ).isEmpty ? "" : characteristics.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             let subject = try await modelHealth.createSubject(parameters: params)

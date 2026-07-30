@@ -1,0 +1,39 @@
+{
+  "name": "@modelhealth/viewer-react",
+  "version": "0.7.1",
+  "description": "Embeddable React Three Fiber 3D visualizer for the Model Health SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "modelhealth",
+    "biomechanics",
+    "motion-analysis",
+    "3d-view",
+    "three.js"
+  ],
+  "author": "Model Health",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/model-health/model-health"
+  },
+  "peerDependencies": {
+    "@modelhealth/modelhealth": "^0.7.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.182.0"
+  }
+}

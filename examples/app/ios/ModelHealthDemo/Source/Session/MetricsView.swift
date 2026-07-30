@@ -145,16 +145,17 @@ private extension MetricsView {
 
     func formattedValue(_ value: MetricValue) -> String {
         switch value {
-        case .scalar(let v):
-            guard let v else {
+        case .scalar(let value):
+            guard let value else {
                 return "—"
             }
-            return String(format: "%g", v)
+            return String(format: "%g", value)
 
         case .bilateral(let left, let right):
-            let l = left.map { String(format: "%g", $0) } ?? "—"
-            let r = right.map { String(format: "%g", $0) } ?? "—"
-            return "L \(l) / R \(r)"
+            let leftValue = left.map { String(format: "%g", $0) } ?? "—"
+            let rightValue = right.map { String(format: "%g", $0) } ?? "—"
+
+            return "L \(leftValue) / R \(rightValue)"
         }
     }
 

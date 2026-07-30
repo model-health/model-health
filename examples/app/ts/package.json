@@ -1,6 +1,6 @@
 {
   "name": "modelhealth-typescript-sdk-demo",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -8,9 +8,16 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "^0.7.0"
+    "@modelhealth/modelhealth": "^0.7.1",
+    "@modelhealth/viewer-react": "^0.7.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.182.0"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
     "vite": "^5.0.0"
   }
 }

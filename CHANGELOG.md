@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.1
+
+### New UI visualization modules
+
+You can now add 3D visualization of an activity to your own apps. 
+
+- `@modelhealth/viewer-react` — a new npm package providing `View3D`, an embeddable React Three Fiber component that renders an activity as a 3D view, with playback driven through an imperative handle (`play`/`pause`/`seek`/`step`/`setPlaybackSpeed`) rather than built-in controls, so consumers can build their own UI around it.
+
+- `ModelHealthUI` — a new Swift target/product providing `View3D`/`View3DController`, a WKWebView-based wrapper for the 3D view for iOS/macOS apps. Depends on `ModelHealth`; import it separately (`import ModelHealthUI`) so apps that don't need the 3D view don't pay for WebKit/SwiftUI. Supports each of the `play`/`pause`/`seek`/`step`/`setPlaybackSpeed` that the TypeScript viewer supports.
+
+### Added
+
+- `setVideoUploadMode(_:)` / `setVideoUploadMode(mode)` / `set_video_upload_mode(mode)` — sets the video upload mode, controlling whether connected devices upload recorded video.
+
+- `VideoUploadMode` — a new enum with `enabled`, `disabled`, and `flush` values, passed to `setVideoUploadMode`. `flush` re-enables uploads and uploads any videos that were queued locally on the iOS device while upload was disabled.
+
+- `newSession(from:)` / `newSessionFromSession(session)` / `new_session_from_session(session)` — creates a new session from a previous session, inheriting its calibration setup, so a new subject can be calibrated without repeating checkerboard calibration.
+
 ## 0.7.0
 
 ### Added:

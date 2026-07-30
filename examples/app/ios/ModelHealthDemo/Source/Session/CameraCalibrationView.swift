@@ -55,7 +55,7 @@ struct CameraCalibrationView: View {
 
             Spacer()
 
-            LoadingButton (
+            LoadingButton(
                 title: "Calibrate",
                 isLoading: isCalibrating,
                 isDisabled: isCalibrating

@@ -59,6 +59,20 @@ final class MockModelHealthProvider: ModelHealthProvider {
         }
     }
 
+    func newSession(from session: Session) async throws -> Session {
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        return .forPreview { builder in
+            builder.id = "mock-session-\(UUID().uuidString.prefix(8))"
+            builder.name = "Mock Session"
+            builder.sessionName = "Demo Session \(Date().formatted(date: .abbreviated, time: .shortened))"
+            builder.user = 1
+            builder.public = false
+            builder.qrcode = nil
+            builder.subject = session.subject
+            builder.activitiesCount = 0
+        }
+    }
+
     func subjectList() async throws -> [Subject] {
         try? await Task.sleep(nanoseconds: 300_000_000)
         return subjects
@@ -112,8 +126,10 @@ final class MockModelHealthProvider: ModelHealthProvider {
         forSubject subjectId: Int,
         startIndex: Int,
         count: Int,
-        sortedBy sort: ActivitySort
-    ) async throws -> [Activity] {
+        sortedBy sort: ModelHealth.ActivitySort,
+        start: Date?,
+        end: Date?
+    ) async throws -> [ModelHealth.Activity] {
         try await activityList(for: Session.forPreview())
     }
 
@@ -127,7 +143,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
     func activityTags() async throws -> [ActivityTag] {
         [ActivityTag.forPreview()]
     }
-
 
     func videos(for activity: Activity, version: VideoVersion) async -> [Data] {
         try? await Task.sleep(nanoseconds: 300_000_000)
@@ -246,6 +261,9 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func stopRecording(_ session: Session) async throws {
         try? await Task.sleep(nanoseconds: 500_000_000)
+    }
+
+    func setVideoUploadMode(_ mode: ModelHealth.VideoUploadMode) async throws {
     }
 
     func activityStatus(for activity: Activity) async throws -> ActivityStatus {

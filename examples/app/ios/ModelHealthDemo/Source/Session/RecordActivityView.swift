@@ -36,6 +36,7 @@ struct RecordActivityView: View {
     @State private var selectedActivityForVideos: Activity?
     @State private var selectedActivityForData: Activity?
     @State private var selectedActivityForMetrics: Activity?
+    @State private var selectedActivityFor3DView: Activity?
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
@@ -50,6 +51,9 @@ struct RecordActivityView: View {
         currentActivity != nil
     }
 
+    // Only keep polling for activities genuinely in flight — a `.ready` activity
+    // that was never analyzed has nothing left to wait for and would otherwise
+    // poll forever, since `analysisCompleted` only flips once analysis actually runs.
     private var hasActivitiesInProgress: Bool {
         completedActivities.contains { state in
             guard let status = state.processingStatus else {
@@ -60,10 +64,7 @@ struct RecordActivityView: View {
             case .uploading, .processing, .analyzing:
                 return true
 
-            case .ready:
-                return !state.analysisCompleted
-
-            case .failed:
+            case .ready, .failed:
                 return false
             }
         }
@@ -178,6 +179,9 @@ struct RecordActivityView: View {
                                 },
                                 onViewMetrics: {
                                     selectedActivityForMetrics = activityState.activity
+                                },
+                                onView3D: {
+                                    selectedActivityFor3DView = activityState.activity
                                 }
                             )
                         }
@@ -205,6 +209,9 @@ struct RecordActivityView: View {
             }
             .navigationDestination(item: $selectedActivityForMetrics) { activity in
                 MetricsView(activity: activity)
+            }
+            .navigationDestination(item: $selectedActivityFor3DView) { activity in
+                ThreeDView(activity: activity, service: modelHealth)
             }
             .task {
                 guard case .notStarted = loadingState else {
@@ -363,6 +370,7 @@ private struct ActivityRow: View {
     let onViewVideos: () -> Void
     let onViewData: () -> Void
     let onViewMetrics: () -> Void
+    let onView3D: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -390,8 +398,7 @@ private struct ActivityRow: View {
 
     private var buttonGrid: some View {
         VStack(spacing: 4) {
-            HStack
-            {
+            HStack {
                 Button {
                     onViewVideos()
                 } label: {
@@ -429,6 +436,16 @@ private struct ActivityRow: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!activityState.canViewResults)
+
+                Spacer()
+
+                Button {
+                    onView3D()
+                } label: {
+                    Text("3D")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(activityState.processingStatus == nil)
             }
         }
     }
@@ -518,6 +535,7 @@ struct StatusIndicator: View {
 }
 
 // Preview helper with populated data
+// swiftlint:disable:next type_name
 private struct RecordActivityView_Preview: View {
     @State private var completedActivities: [ActivityState] = [
         ActivityState(
@@ -613,7 +631,8 @@ private struct RecordActivityView_Preview: View {
                         onViewResults: {},
                         onViewVideos: {},
                         onViewData: {},
-                        onViewMetrics: {}
+                        onViewMetrics: {},
+                        onView3D: {}
                     )
                 }
             }
