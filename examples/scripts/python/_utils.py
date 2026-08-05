@@ -71,7 +71,7 @@ ANALYSIS_DATA_EXT = {
 }
 
 
-def poll_analysis(service, task, interval=10):
+def poll_analysis(client, task, interval=10):
     """Block until the analysis task finishes.
 
     Returns the final status (AnalysisStatus.completed or AnalysisStatus.failed).
@@ -79,7 +79,7 @@ def poll_analysis(service, task, interval=10):
     from modelhealth import AnalysisStatus
 
     while True:
-        status = service.analysis_status(task)
+        status = client.analysis_status(task)
         if status == AnalysisStatus.processing:
             print("  Analysing...  ", end="\r", flush=True)
         else:

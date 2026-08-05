@@ -18,7 +18,7 @@ import time
 from docopt import docopt
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     ModelHealthError,
     ArchiveStatus,
 )
@@ -29,13 +29,13 @@ from _utils import save_file, load_api_key
 # Polling helper
 # ---------------------------------------------------------------------------
 
-def _poll_archive(service, archive, interval=2):
+def _poll_archive(client, archive, interval=2):
     """Block until the archive is ready or has failed.
 
     Returns the final status (ArchiveStatus.ready or ArchiveStatus.failed).
     """
     while True:
-        status = service.archive_status(archive)
+        status = client.archive_status(archive)
         if status == ArchiveStatus.processing:
             print("  Preparing archive...  ", end="\r", flush=True)
         else:
@@ -51,7 +51,7 @@ def _poll_archive(service, archive, interval=2):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthService(api_key)
+        return ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -60,9 +60,9 @@ def _connect(api_key):
 # Session selection
 # ---------------------------------------------------------------------------
 
-def _pick_session(service):
+def _pick_session(client):
     print("\nFetching sessions...")
-    sessions = service.session_list()
+    sessions = client.session_list()
     if not sessions:
         sys.exit(
             "No sessions found. Create a session using the Model Health mobile app first."
@@ -80,15 +80,15 @@ def _pick_session(service):
 # Archive preparation
 # ---------------------------------------------------------------------------
 
-def _prepare_archive(service, session, with_videos):
+def _prepare_archive(client, session, with_videos):
     print(f"\nRequesting archive for session '{session.id}'...")
     try:
-        archive = service.prepare_archive(session, with_videos=with_videos)
+        archive = client.prepare_archive(session, with_videos=with_videos)
     except ModelHealthError as exc:
         sys.exit(f"Failed to start archive preparation: {exc}")
 
     print("Waiting for archive to be ready...")
-    status = _poll_archive(service, archive)
+    status = _poll_archive(client, archive)
 
     if status != ArchiveStatus.ready:
         sys.exit(f"Archive preparation did not complete (status: {status}).")
@@ -101,10 +101,10 @@ def _prepare_archive(service, session, with_videos):
 # Download
 # ---------------------------------------------------------------------------
 
-def _download_archive(service, archive, session):
+def _download_archive(client, archive, session):
     print("\nDownloading...")
     try:
-        data = service.archive_data(archive)
+        data = client.archive_data(archive)
     except ModelHealthError as exc:
         sys.exit(f"Failed to download archive: {exc}")
 
@@ -117,14 +117,14 @@ def _download_archive(service, archive, session):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
-    session = _pick_session(service)
+    client = _connect(api_key)
+    session = _pick_session(client)
 
     print()
     with_videos = confirm("Include raw video files in the archive?", default=False)
 
-    archive = _prepare_archive(service, session, with_videos)
-    _download_archive(service, archive, session)
+    archive = _prepare_archive(client, session, with_videos)
+    _download_archive(client, archive, session)
     print("\nDone.")
 
 

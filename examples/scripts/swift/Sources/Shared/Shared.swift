@@ -77,9 +77,9 @@ public func saveFile(named filename: String, data: Data) -> String {
 
 // MARK: - Polling
 
-public func pollAnalysis(service: ModelHealthService, task: Analysis) async throws -> AnalysisStatus {
+public func pollAnalysis(client: ModelHealthClient, task: Analysis) async throws -> AnalysisStatus {
     while true {
-        let status = try await service.analysisStatus(for: task)
+        let status = try await client.analysisStatus(for: task)
         if case .processing = status {
             print("  Analysing...  ", terminator: "\r")
             fflush(stdout)

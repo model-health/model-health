@@ -13,21 +13,21 @@ import Shared
 struct ArchiveSession {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let session = await pickSession(service: service)
+        let client = connect(apiKey: apiKey)
+        let session = await pickSession(client: client)
         let withVideos = confirm("\nInclude raw video files in the archive?", default: false)
-        let archive = await prepareArchive(service: service, session: session, withVideos: withVideos)
-        await downloadArchive(service: service, archive: archive, session: session)
+        let archive = await prepareArchive(client: client, session: session, withVideos: withVideos)
+        await downloadArchive(client: client, archive: archive, session: session)
         print("\nDone.")
     }
 }
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -36,11 +36,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session selection
 
-private func pickSession(service: ModelHealthService) async -> Session {
+private func pickSession(client: ModelHealthClient) async -> Session {
     print("\nFetching sessions...")
     let sessions: [Session]
     do {
-        sessions = try await service.sessionList()
+        sessions = try await client.sessionList()
     } catch {
         fputs("Failed to fetch sessions: \(error)\n", stderr)
         exit(1)
@@ -66,18 +66,18 @@ private func pickSession(service: ModelHealthService) async -> Session {
 
 // MARK: - Archive preparation
 
-private func prepareArchive(service: ModelHealthService, session: Session, withVideos: Bool) async -> Archive {
+private func prepareArchive(client: ModelHealthClient, session: Session, withVideos: Bool) async -> Archive {
     print("\nRequesting archive for session '\(session.id)'...")
     let archive: Archive
     do {
-        archive = try await service.prepareArchive(for: session, withVideos: withVideos)
+        archive = try await client.prepareArchive(for: session, withVideos: withVideos)
     } catch {
         fputs("Failed to start archive preparation: \(error)\n", stderr)
         exit(1)
     }
 
     print("Waiting for archive to be ready...")
-    let status = await pollArchive(service: service, archive: archive)
+    let status = await pollArchive(client: client, archive: archive)
 
     guard case .ready = status else {
         fputs("Archive preparation did not complete (status: \(status)).\n", stderr)
@@ -88,11 +88,11 @@ private func prepareArchive(service: ModelHealthService, session: Session, withV
     return archive
 }
 
-private func pollArchive(service: ModelHealthService, archive: Archive) async -> ArchiveStatus {
+private func pollArchive(client: ModelHealthClient, archive: Archive) async -> ArchiveStatus {
     while true {
         let status: ArchiveStatus
         do {
-            status = try await service.archiveStatus(for: archive)
+            status = try await client.archiveStatus(for: archive)
         } catch {
             fputs("Failed to check archive status: \(error)\n", stderr)
             exit(1)
@@ -111,11 +111,11 @@ private func pollArchive(service: ModelHealthService, archive: Archive) async ->
 
 // MARK: - Download
 
-private func downloadArchive(service: ModelHealthService, archive: Archive, session: Session) async {
+private func downloadArchive(client: ModelHealthClient, archive: Archive, session: Session) async {
     print("\nDownloading...")
     let data: Data
     do {
-        data = try await service.archiveData(for: archive)
+        data = try await client.archiveData(for: archive)
     } catch {
         fputs("Failed to download archive: \(error)\n", stderr)
         exit(1)

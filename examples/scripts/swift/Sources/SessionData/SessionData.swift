@@ -37,16 +37,16 @@ private let displayDateFormatter: DateFormatter = {
 struct SessionData {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let session = await pickSession(service: service)
-        let (activity, allActivities) = await pickActivity(service: service, in: session)
-        await ensureReady(service: service, activity: activity)
+        let client = connect(apiKey: apiKey)
+        let session = await pickSession(client: client)
+        let (activity, allActivities) = await pickActivity(client: client, in: session)
+        await ensureReady(client: client, activity: activity)
 
         let slug = (activity.name ?? activity.id).replacingOccurrences(of: " ", with: "_")
-        await downloadVideos(service: service, activity: activity, slug: slug)
-        await downloadMotionData(service: service, activity: activity, slug: slug)
-        await downloadAnalysisData(service: service, activity: activity, slug: slug)
-        await downloadNeutralModel(service: service, allActivities: allActivities)
+        await downloadVideos(client: client, activity: activity, slug: slug)
+        await downloadMotionData(client: client, activity: activity, slug: slug)
+        await downloadAnalysisData(client: client, activity: activity, slug: slug)
+        await downloadNeutralModel(client: client, allActivities: allActivities)
 
         print("\nDone.")
     }
@@ -54,10 +54,10 @@ struct SessionData {
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting to Model Health...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -66,11 +66,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session / activity selection
 
-private func pickSession(service: ModelHealthService) async -> Session {
+private func pickSession(client: ModelHealthClient) async -> Session {
     print("\nFetching sessions...")
     let sessions: [Session]
     do {
-        sessions = try await service.sessionList()
+        sessions = try await client.sessionList()
     } catch {
         fputs("Failed to fetch sessions: \(error)\n", stderr)
         exit(1)
@@ -94,11 +94,11 @@ private func pickSession(service: ModelHealthService) async -> Session {
     )
 }
 
-private func pickActivity(service: ModelHealthService, in session: Session) async -> (Activity, [Activity]) {
+private func pickActivity(client: ModelHealthClient, in session: Session) async -> (Activity, [Activity]) {
     print("\nFetching activities for session ID: \(session.id)...")
     let allActivities: [Activity]
     do {
-        allActivities = try await service.activityList(for: session)
+        allActivities = try await client.activityList(for: session)
     } catch {
         fputs("Failed to fetch activities: \(error)\n", stderr)
         exit(1)
@@ -129,12 +129,12 @@ private func pickActivity(service: ModelHealthService, in session: Session) asyn
     return (activity, allActivities)
 }
 
-private func ensureReady(service: ModelHealthService, activity: Activity) async {
+private func ensureReady(client: ModelHealthClient, activity: Activity) async {
     let activityLabel = activity.name ?? activity.id
     print("\nChecking status of '\(activityLabel)'...")
     let status: ActivityStatus
     do {
-        status = try await service.activityStatus(for: activity)
+        status = try await client.activityStatus(for: activity)
     } catch {
         fputs("Failed to check activity status: \(error)\n", stderr)
         exit(1)
@@ -149,7 +149,7 @@ private func ensureReady(service: ModelHealthService, activity: Activity) async 
 
 // MARK: - Downloads
 
-private func downloadVideos(service: ModelHealthService, activity: Activity, slug: String) async {
+private func downloadVideos(client: ModelHealthClient, activity: Activity, slug: String) async {
     print("\nWhich video versions would you like to download?\n")
     let selectedVersions = pickMulti(from: videoVersions, prompt: "Select video versions", label: { $0.1 })
 
@@ -157,7 +157,7 @@ private func downloadVideos(service: ModelHealthService, activity: Activity, slu
     for (version, versionLabel) in selectedVersions {
         let versionSlug = version == .raw ? "raw" : "synced"
         print("  \(versionLabel.trimmingCharacters(in: .whitespaces))...")
-        let videos = await service.videos(for: activity, version: version)
+        let videos = await client.videos(for: activity, version: version)
         if videos.isEmpty {
             print("  No videos available for this activity.")
         } else {
@@ -169,13 +169,13 @@ private func downloadVideos(service: ModelHealthService, activity: Activity, slu
     }
 }
 
-private func downloadMotionData(service: ModelHealthService, activity: Activity, slug: String) async {
+private func downloadMotionData(client: ModelHealthClient, activity: Activity, slug: String) async {
     print("\nWhich motion data would you like to download?\n")
     let selectedMotion = pickMulti(from: motionDataTypes, prompt: "Select motion data types", label: { $0.1 })
     let motionTypes = Set(selectedMotion.map { $0.0 })
 
     print("\nDownloading motion data...")
-    let motionResults = await service.motionData(ofType: motionTypes, for: activity)
+    let motionResults = await client.motionData(ofType: motionTypes, for: activity)
     guard !motionResults.isEmpty else {
         print("  No motion data available.")
         return
@@ -187,13 +187,13 @@ private func downloadMotionData(service: ModelHealthService, activity: Activity,
     }
 }
 
-private func downloadAnalysisData(service: ModelHealthService, activity: Activity, slug: String) async {
+private func downloadAnalysisData(client: ModelHealthClient, activity: Activity, slug: String) async {
     print("\nWhich analysis results would you like to download?\n")
     let selectedAnalysis = pickMulti(from: analysisDataTypes, prompt: "Select analysis data types", label: { $0.1 })
     let analysisDTypes = Set(selectedAnalysis.map { $0.0 })
 
     print("\nDownloading analysis data...")
-    let analysisResults = await service.analysisData(ofType: analysisDTypes, for: activity)
+    let analysisResults = await client.analysisData(ofType: analysisDTypes, for: activity)
     guard !analysisResults.isEmpty else {
         print("  No analysis data available.")
         return
@@ -205,7 +205,7 @@ private func downloadAnalysisData(service: ModelHealthService, activity: Activit
     }
 }
 
-private func downloadNeutralModel(service: ModelHealthService, allActivities: [Activity]) async {
+private func downloadNeutralModel(client: ModelHealthClient, allActivities: [Activity]) async {
     guard let neutral = allActivities.last(where: { $0.name == "neutral" }) else {
         return
     }
@@ -213,7 +213,7 @@ private func downloadNeutralModel(service: ModelHealthService, allActivities: [A
     print("\nDownloading OpenSim model for neutral activity (id: \(neutral.id))...")
     let neutralStatus: ActivityStatus
     do {
-        neutralStatus = try await service.activityStatus(for: neutral)
+        neutralStatus = try await client.activityStatus(for: neutral)
     } catch {
         print("  Skipping: could not check neutral activity status.")
         return
@@ -224,7 +224,7 @@ private func downloadNeutralModel(service: ModelHealthService, allActivities: [A
         return
     }
 
-    let modelResults = await service.motionData(ofType: [.model], for: neutral)
+    let modelResults = await client.motionData(ofType: [.model], for: neutral)
     for result in modelResults {
         let path = saveFile(named: "neutral_\(result.type.typeLabel).\(result.type.fileExtension)", data: result.data)
         print("  Saved: \(path)")

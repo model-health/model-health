@@ -18,7 +18,7 @@ import time
 from docopt import docopt
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     ModelHealthError,
     ActivityStatus,
     ActivityStatusUploading,
@@ -64,13 +64,13 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 # Polling helpers
 # ---------------------------------------------------------------------------
 
-def _poll_processing(service, activity, interval=10):
+def _poll_processing(client, activity, interval=10):
     """Block until the activity finishes uploading and processing.
 
     Returns the final status (ActivityStatus.ready or ActivityStatus.failed).
     """
     while True:
-        status = service.activity_status(activity)
+        status = client.activity_status(activity)
         if isinstance(status, ActivityStatusUploading):
             print(f"  Uploading ({status.uploaded}/{status.total} cameras)...  ", end="\r", flush=True)
         elif status == ActivityStatus.processing:
@@ -88,7 +88,7 @@ def _poll_processing(service, activity, interval=10):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthService(api_key)
+        return ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -97,9 +97,9 @@ def _connect(api_key):
 # Session / activity selection
 # ---------------------------------------------------------------------------
 
-def _pick_session(service):
+def _pick_session(client):
     print("\nFetching sessions...")
-    sessions = service.session_list()
+    sessions = client.session_list()
     if not sessions:
         sys.exit(
             "No sessions found. Create a session using the Model Health mobile app first."
@@ -113,9 +113,9 @@ def _pick_session(service):
     )
 
 
-def _pick_activity(service, session):
+def _pick_activity(client, session):
     print(f"\nFetching activities for session ID: {session.id},  session name: {session.session_name or '(unnamed)'}, subject: {session.name or '(unnamed)'}...")
-    all_activities = service.activity_list(session)
+    all_activities = client.activity_list(session)
     activities = [
         a for a in all_activities
         if a.name not in _INTERNAL_ACTIVITY_NAMES
@@ -135,14 +135,14 @@ def _pick_activity(service, session):
 # Readiness
 # ---------------------------------------------------------------------------
 
-def _ensure_ready(service, activity):
+def _ensure_ready(client, activity):
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
-    status = service.activity_status(activity)
+    status = client.activity_status(activity)
 
     if isinstance(status, ActivityStatusUploading) or status == ActivityStatus.processing:
         print("Waiting for processing to complete...")
-        status = _poll_processing(service, activity)
+        status = _poll_processing(client, activity)
 
     if status != ActivityStatus.ready:
         sys.exit(
@@ -156,7 +156,7 @@ def _ensure_ready(service, activity):
 # Analysis
 # ---------------------------------------------------------------------------
 
-def _start_analysis(service, activity, session):
+def _start_analysis(client, activity, session):
     # Default to the activity's recorded type if available.
     default_analysis = next(
         (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
@@ -172,28 +172,28 @@ def _start_analysis(service, activity, session):
 
     print(f"\nStarting '{analysis_label}' analysis...")
     try:
-        return service.start_analysis(analysis_value, activity, session)
+        return client.start_analysis(analysis_value, activity, session)
     except ModelHealthError as exc:
         sys.exit(f"Failed to start analysis: {exc}")
 
 
-def _wait_for_analysis(service, task, activity):
+def _wait_for_analysis(client, task, activity):
     print("Waiting for analysis to complete...")
-    result_status = poll_analysis(service, task)
+    result_status = poll_analysis(client, task)
 
     if result_status != AnalysisStatus.completed:
         sys.exit(f"Analysis did not complete (status: {result_status}).")
     print("Analysis complete.")
 
     # Re-fetch the activity so its results field contains the analysis URLs.
-    return service.fetch_activity(activity.id)
+    return client.fetch_activity(activity.id)
 
 
 # ---------------------------------------------------------------------------
 # Results
 # ---------------------------------------------------------------------------
 
-def _download_results(service, activity):
+def _download_results(client, activity):
     print("\nWhich results would you like to save?\n")
     selected = pick_multi(
         RESULT_TYPES,
@@ -205,7 +205,7 @@ def _download_results(service, activity):
     slug = (activity.name or activity.id).replace(" ", "_")
 
     print("\nDownloading...")
-    results = service.analysis_data_for_activity(activity, data_types)
+    results = client.analysis_data_for_activity(activity, data_types)
     for r in results:
         ext = ANALYSIS_DATA_EXT.get(r.type, "bin")
         path = save_file(f"{slug}_{r.type}.{ext}", r.data)
@@ -217,14 +217,14 @@ def _download_results(service, activity):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
-    session = _pick_session(service)
-    activity = _pick_activity(service, session)
-    _ensure_ready(service, activity)
+    client = _connect(api_key)
+    session = _pick_session(client)
+    activity = _pick_activity(client, session)
+    _ensure_ready(client, activity)
 
-    task = _start_analysis(service, activity, session)
-    activity = _wait_for_analysis(service, task, activity)
-    _download_results(service, activity)
+    task = _start_analysis(client, activity, session)
+    activity = _wait_for_analysis(client, task, activity)
+    _download_results(client, activity)
 
     print("\nDone.")
 

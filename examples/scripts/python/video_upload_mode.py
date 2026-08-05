@@ -15,7 +15,7 @@ from docopt import docopt
 
 from modelhealth import (
     ModelHealthError,
-    ModelHealthService,
+    ModelHealthClient,
     VideoUploadMode,
 )
 from _prompts import pick_one
@@ -33,7 +33,7 @@ _MODE_DESCRIPTIONS = {
 def main(api_key):
     print("Connecting...")
     try:
-        service = ModelHealthService(api_key)
+        client = ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -42,7 +42,7 @@ def main(api_key):
 
     print(f"\nSetting video upload mode to '{mode}'...")
     try:
-        service.set_video_upload_mode(mode)
+        client.set_video_upload_mode(mode)
     except ModelHealthError as exc:
         sys.exit(f"Failed to set video upload mode: {exc}")
 

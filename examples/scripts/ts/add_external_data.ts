@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ModelHealthService, type Activity, type ExternalResultFile } from '@modelhealth/modelhealth';
+import { ModelHealthClient, type Activity, type ExternalResultFile } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
   pickOne, prompt, closePrompts,
@@ -16,12 +16,12 @@ import {
 
 async function main() {
   const args = process.argv.slice(2);
-  const service = new ModelHealthService({ apiKey: loadApiKey(args[0]), autoInit: false });
-  await service.init();
+  const client = new ModelHealthClient({ apiKey: loadApiKey(args[0]), autoInit: false });
+  await client.init();
 
   // Session
   console.log('\nFetching sessions...');
-  const sessions = await service.sessionList();
+  const sessions = await client.sessionList();
   if (!sessions.length) { console.error('No sessions found.'); process.exit(1); }
 
   console.log(`\n${sessions.length} session(s):\n`);
@@ -33,7 +33,7 @@ async function main() {
 
   // Activities
   console.log(`\nFetching activities for session ${session.id}...`);
-  const allActivities = await service.activityList(session.id);
+  const allActivities = await client.activityList(session.id);
   const activities = allActivities.filter(a => !INTERNAL_ACTIVITY_NAMES.has(a.name ?? ''));
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
@@ -44,7 +44,7 @@ async function main() {
   const files = await promptFiles();
 
   console.log(`\nUploading ${files.length} file(s)...`);
-  await service.addMotionDataToActivity(activity, files);
+  await client.addMotionDataToActivity(activity, files);
   console.log('\nDone.');
 }
 

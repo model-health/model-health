@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import type { ModelHealthService, Analysis, AnalysisStatus } from '@modelhealth/modelhealth';
+import type { ModelHealthClient, Analysis, AnalysisStatus } from '@modelhealth/modelhealth';
 
 // MARK: - Constants
 
@@ -76,12 +76,12 @@ export function saveFile(filename: string, data: Uint8Array | Buffer): string {
 // MARK: - Polling
 
 export async function pollAnalysis(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   task: Analysis,
   intervalMs = 10_000
 ): Promise<AnalysisStatus> {
   while (true) {
-    const status = await service.analysisStatus(task);
+    const status = await client.analysisStatus(task);
     if (status.type === 'processing') {
       process.stdout.write('  Analysing...  \r');
     } else {

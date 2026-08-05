@@ -16,7 +16,7 @@ from docopt import docopt
 import time
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     SubjectParameters,
     SessionConfig,
     SessionOpenSimModel,
@@ -74,7 +74,7 @@ def _pick_trial(trials, name_filter):
 
 
 def copy_session(
-    mh_service,
+    mh_client,
     session_id_input,
     user_token_input,
     api_url_input="https://api.opencap.ai/",
@@ -85,10 +85,10 @@ def copy_session(
     """Copy an OpenCap session into a ModelHealth account.
 
     Downloads all trials from the given OpenCap session and re-uploads them to
-    a new ModelHealth session via :meth:`ModelHealthService.import_session`.
+    a new ModelHealth session via :meth:`ModelHealthClient.import_session`.
 
     Args:
-        mh_service: An active :class:`ModelHealthService` instance.
+        mh_client: An active :class:`ModelHealthClient` instance.
         session_id_input: UUID of the OpenCap session to copy from.
         user_token_input: OpenCap authentication token.
         api_url_input: Base URL of the OpenCap API.
@@ -134,7 +134,7 @@ def copy_session(
     print("Session settings configured.")
 
     # Step 2: Select or create subject
-    subjects = mh_service.subject_list()
+    subjects = mh_client.subject_list()
     if subjects and confirm(f"Found {len(subjects)} subject(s). Select an existing one?", default=True):
         print()
         subject = pick_one(subjects, "Select subject", lambda s: f"{s.name}  (ID {s.id})")
@@ -149,7 +149,7 @@ def copy_session(
             height=float(subject_data.get("height") or 0) * 100,
             birth_year=subject_data.get("birth_year"),
         )
-        subject = mh_service.create_subject(params)
+        subject = mh_client.create_subject(params)
         print("Subject created successfully.")
 
     # Step 3: Resolve calibration — prefer parent session referenced in meta, fall back to current session
@@ -249,7 +249,7 @@ def copy_session(
         for t in [calibration_trial, neutral_trial, *annotated_trials]
     ]
 
-    session = mh_service.import_session(
+    session = mh_client.import_session(
         json.dumps(import_trials),
         subject,
         session_config=session_config,
@@ -260,11 +260,11 @@ def copy_session(
     return session
 
 
-def wait_for_activities(mh_service, session, poll_interval=5):
+def wait_for_activities(mh_client, session, poll_interval=5):
     """Poll activity status for all dynamic activities until each is ready or failed.
 
     Args:
-        mh_service: An active :class:`ModelHealthService` instance.
+        mh_client: An active :class:`ModelHealthClient` instance.
         session: The Session returned by :func:`copy_session`.
         poll_interval: Seconds between status polls. Default: 5.
     """
@@ -280,7 +280,7 @@ def wait_for_activities(mh_service, session, poll_interval=5):
     while pending:
         still_pending = []
         for activity in pending:
-            status = mh_service.activity_status(activity)
+            status = mh_client.activity_status(activity)
             if isinstance(status, ActivityStatusUploading):
                 print(f"  [{activity.name}] Uploading ({status.uploaded}/{status.total})...")
                 still_pending.append(activity)
@@ -307,7 +307,7 @@ def wait_for_activities(mh_service, session, poll_interval=5):
     while pending_analysis:
         still_pending = []
         for activity, task in pending_analysis:
-            status = mh_service.analysis_status(task)
+            status = mh_client.analysis_status(task)
             if status == AnalysisStatus.processing:
                 print(f"  [{activity.name}] Analyzing...")
                 still_pending.append((activity, task))
@@ -347,13 +347,13 @@ if __name__ == "__main__":
     #     "test1": {"activity_type": ActivityType.counter_movement_jump},
     # }
 
-    mh_service = ModelHealthService(load_api_key(args["--api-key"]))
+    mh_client = ModelHealthClient(load_api_key(args["--api-key"]))
     session = copy_session(
-        mh_service,
+        mh_client,
         session_id_input=args["<opencap_session_id>"],
         user_token_input=load_opencap_token(args["--opencap-token"]),
         meta_overrides=meta_overrides,
         trials_to_import=trials_to_import,
         trial_meta_overrides=trial_meta_overrides,
     )
-    wait_for_activities(mh_service, session)
+    wait_for_activities(mh_client, session)

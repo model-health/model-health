@@ -15,13 +15,13 @@ import Shared
 struct AddExternalData {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let activity = await pickActivity(service: service)
+        let client = connect(apiKey: apiKey)
+        let activity = await pickActivity(client: client)
         let files = promptFiles()
 
         print("\nUploading \(files.count) file(s)...")
         do {
-            _ = try await service.addMotionData(files, to: activity)
+            _ = try await client.addMotionData(files, to: activity)
         } catch {
             fputs("Upload failed: \(error)\n", stderr)
             exit(1)
@@ -32,9 +32,9 @@ struct AddExternalData {
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -43,11 +43,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session / activity selection
 
-private func pickActivity(service: ModelHealthService) async -> Activity {
+private func pickActivity(client: ModelHealthClient) async -> Activity {
     print("\nFetching sessions...")
     let sessions: [Session]
     do {
-        sessions = try await service.sessionList()
+        sessions = try await client.sessionList()
     } catch {
         fputs("Failed to fetch sessions: \(error)\n", stderr)
         exit(1)
@@ -72,7 +72,7 @@ private func pickActivity(service: ModelHealthService) async -> Activity {
     print("\nFetching activities for session \(session.id)...")
     let allActivities: [Activity]
     do {
-        allActivities = try await service.activityList(for: session)
+        allActivities = try await client.activityList(for: session)
     } catch {
         fputs("Failed to fetch activities: \(error)\n", stderr)
         exit(1)

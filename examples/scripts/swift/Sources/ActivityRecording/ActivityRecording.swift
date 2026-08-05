@@ -99,27 +99,27 @@ private let calibrationCallback: @Sendable (CalibrationStatus) -> Void = { statu
 struct ActivityRecording {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
+        let client = connect(apiKey: apiKey)
 
-        var session = await createSessionAndSaveQRCode(service: service)
+        var session = await createSessionAndSaveQRCode(client: client)
         waitForCameraPairing()
 
         let checkerboard = configureCheckerboard()
-        await calibrateCameras(service: service, session: session, checkerboard: checkerboard)
+        await calibrateCameras(client: client, session: session, checkerboard: checkerboard)
 
         repeat {
-            let subject = await pickOrCreateSubject(service: service)
-            await calibrateSubject(service: service, subject: subject, session: session)
+            let subject = await pickOrCreateSubject(client: client)
+            await calibrateSubject(client: client, subject: subject, session: session)
 
             repeat {
-                await recordOne(service: service, session: session, subject: subject)
+                await recordOne(client: client, session: session, subject: subject)
             } while confirm("\nRecord another activity?", default: true)
 
             guard confirm("\nCalibrate another subject with the same camera setup?", default: true) else {
                 break
             }
             do {
-                session = try await service.newSession(from: session)
+                session = try await client.newSession(from: session)
             } catch {
                 print("Failed to create new session: \(error)")
                 break
@@ -132,10 +132,10 @@ struct ActivityRecording {
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -144,11 +144,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session / camera pairing
 
-private func createSessionAndSaveQRCode(service: ModelHealthService) async -> Session {
+private func createSessionAndSaveQRCode(client: ModelHealthClient) async -> Session {
     print("\nCreating session...")
     let session: Session
     do {
-        session = try await service.createSession()
+        session = try await client.createSession()
     } catch {
         fputs("Failed to create session: \(error)\n", stderr)
         exit(1)
@@ -219,12 +219,12 @@ private func configureCheckerboard() -> CheckerboardDetails {
     return CheckerboardDetails(rows: rows, columns: columns, squareSize: squareSize, placement: placement)
 }
 
-private func calibrateCameras(service: ModelHealthService, session: Session, checkerboard: CheckerboardDetails) async {
+private func calibrateCameras(client: ModelHealthClient, session: Session, checkerboard: CheckerboardDetails) async {
     print("\nPress Enter to start camera calibration...", terminator: "")
     _ = readLine()
     print("Calibrating cameras...")
     do {
-        try await service.calibrateCamera(session, checkerboardDetails: checkerboard, statusUpdate: calibrationCallback)
+        try await client.calibrateCamera(session, checkerboardDetails: checkerboard, statusUpdate: calibrationCallback)
     } catch {
         fputs("Camera calibration failed: \(error)\n", stderr)
         exit(1)
@@ -234,11 +234,11 @@ private func calibrateCameras(service: ModelHealthService, session: Session, che
 
 // MARK: - Subject
 
-private func pickOrCreateSubject(service: ModelHealthService) async -> Subject {
+private func pickOrCreateSubject(client: ModelHealthClient) async -> Subject {
     print("\nFetching subjects...")
     let subjects: [Subject]
     do {
-        subjects = try await service.subjectList()
+        subjects = try await client.subjectList()
     } catch {
         fputs("Failed to fetch subjects: \(error)\n", stderr)
         exit(1)
@@ -263,7 +263,7 @@ private func pickOrCreateSubject(service: ModelHealthService) async -> Subject {
     print("Creating subject...")
     let subject: Subject
     do {
-        subject = try await service.createSubject(parameters: params)
+        subject = try await client.createSubject(parameters: params)
     } catch {
         fputs("Failed to create subject: \(error)\n", stderr)
         exit(1)
@@ -272,12 +272,12 @@ private func pickOrCreateSubject(service: ModelHealthService) async -> Subject {
     return subject
 }
 
-private func calibrateSubject(service: ModelHealthService, subject: Subject, session: Session) async {
+private func calibrateSubject(client: ModelHealthClient, subject: Subject, session: Session) async {
     print("\nAsk \(subject.name) to stand in the neutral pose, then press Enter...", terminator: "")
     _ = readLine()
     print("Calibrating subject...")
     do {
-        try await service.calibrateSubject(subject, in: session, statusUpdate: calibrationCallback)
+        try await client.calibrateSubject(subject, in: session, statusUpdate: calibrationCallback)
     } catch {
         fputs("Subject calibration failed: \(error)\n", stderr)
         exit(1)
@@ -293,22 +293,22 @@ private struct RecordingSetup {
     let config: ActivityConfig
 }
 
-private func recordOne(service: ModelHealthService, session: Session, subject: Subject) async {
+private func recordOne(client: ModelHealthClient, session: Session, subject: Subject) async {
     let setup = promptActivityConfig()
 
-    guard let activity = await startRecording(service: service, session: session, subject: subject, setup: setup) else {
+    guard let activity = await startRecording(client: client, session: session, subject: subject, setup: setup) else {
         return
     }
 
-    guard await stopRecording(service: service, session: session) else {
+    guard await stopRecording(client: client, session: session) else {
         return
     }
 
-    guard let currentActivity = await waitAndProcessResults(service: service, activity: activity, selectedType: setup.type) else {
+    guard let currentActivity = await waitAndProcessResults(client: client, activity: activity, selectedType: setup.type) else {
         return
     }
 
-    await promptAndApplyUpdate(service: service, activity: currentActivity)
+    await promptAndApplyUpdate(client: client, activity: currentActivity)
 }
 
 private func promptActivityConfig() -> RecordingSetup {
@@ -334,7 +334,7 @@ private func promptActivityConfig() -> RecordingSetup {
 }
 
 private func startRecording(
-    service: ModelHealthService,
+    client: ModelHealthClient,
     session: Session,
     subject: Subject,
     setup: RecordingSetup
@@ -343,7 +343,7 @@ private func startRecording(
     _ = readLine()
     print("Recording...")
     do {
-        let activity = try await service.startRecording(activityNamed: setup.name, in: session, config: setup.config)
+        let activity = try await client.startRecording(activityNamed: setup.name, in: session, config: setup.config)
         print("  Recording started (activity \(activity.id)).")
         return activity
     } catch {
@@ -352,12 +352,12 @@ private func startRecording(
     }
 }
 
-private func stopRecording(service: ModelHealthService, session: Session) async -> Bool {
+private func stopRecording(client: ModelHealthClient, session: Session) async -> Bool {
     print("\nPress Enter when the movement is complete to stop recording...", terminator: "")
     _ = readLine()
     print("Stopping recording...")
     do {
-        try await service.stopRecording(session)
+        try await client.stopRecording(session)
         print("Recording stopped. Videos are uploading.")
         return true
     } catch {
@@ -373,16 +373,16 @@ private func stopRecording(service: ModelHealthService, session: Session) async 
 /// recording cycle (skipping the trailing metadata-update step); otherwise
 /// returns the most up-to-date copy of the activity.
 private func waitAndProcessResults(
-    service: ModelHealthService,
+    client: ModelHealthClient,
     activity: Activity,
     selectedType: ActivityTypeOption
 ) async -> Activity? {
     print("\nWaiting for upload and processing...")
-    let finalStatus = await pollActivity(service: service, activity: activity)
+    let finalStatus = await pollActivity(client: client, activity: activity)
 
     switch finalStatus {
     case .analyzing(let task):
-        return await waitForAnalysisAndDownloadReport(service: service, activity: activity, task: task, selectedType: selectedType)
+        return await waitForAnalysisAndDownloadReport(client: client, activity: activity, task: task, selectedType: selectedType)
 
     case .ready:
         print("Activity is ready. ID: \(activity.id)")
@@ -396,7 +396,7 @@ private func waitAndProcessResults(
 }
 
 private func waitForAnalysisAndDownloadReport(
-    service: ModelHealthService,
+    client: ModelHealthClient,
     activity: Activity,
     task: Analysis,
     selectedType: ActivityTypeOption
@@ -405,7 +405,7 @@ private func waitForAnalysisAndDownloadReport(
     print("\nWaiting for analysis to complete...")
     let analysisResult: AnalysisStatus
     do {
-        analysisResult = try await pollAnalysis(service: service, task: task)
+        analysisResult = try await pollAnalysis(client: client, task: task)
     } catch {
         fputs("Analysis polling failed: \(error)\n", stderr)
         return nil
@@ -419,13 +419,13 @@ private func waitForAnalysisAndDownloadReport(
 
     let freshActivity: Activity
     do {
-        freshActivity = try await service.fetch(activity: activity.id)
+        freshActivity = try await client.fetch(activity: activity.id)
     } catch {
         fputs("Failed to re-fetch activity: \(error)\n", stderr)
         return nil
     }
 
-    let results = await service.analysisData(ofType: [.report], for: freshActivity)
+    let results = await client.analysisData(ofType: [.report], for: freshActivity)
     let slug = (freshActivity.name ?? freshActivity.id).replacingOccurrences(of: " ", with: "_")
     print("\nDownloading report...")
     for result in results {
@@ -438,13 +438,13 @@ private func waitForAnalysisAndDownloadReport(
 
 // MARK: - Metadata update
 
-private func promptAndApplyUpdate(service: ModelHealthService, activity: Activity) async {
+private func promptAndApplyUpdate(client: ModelHealthClient, activity: Activity) async {
     // Re-fetch first: analysis auto-generates tags server-side, and update(activity:)
     // merges add/remove tags on top of the local activity's tags. Without a fresh
     // fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
     var currentActivity = activity
     do {
-        currentActivity = try await service.fetch(activity: activity.id)
+        currentActivity = try await client.fetch(activity: activity.id)
     } catch {
         fputs("Failed to refresh activity: \(error)\n", stderr)
     }
@@ -467,7 +467,7 @@ private func promptAndApplyUpdate(service: ModelHealthService, activity: Activit
 
     print("Updating activity...")
     do {
-        let updated = try await service.update(
+        let updated = try await client.update(
             activity: currentActivity,
             config: ActivityConfig(addTags: addTags, removeTags: removeTags, name: newName)
         )
@@ -488,11 +488,11 @@ private func promptTagList() -> [String] {
 
 // MARK: - Polling
 
-private func pollActivity(service: ModelHealthService, activity: Activity) async -> ActivityStatus {
+private func pollActivity(client: ModelHealthClient, activity: Activity) async -> ActivityStatus {
     while true {
         let status: ActivityStatus
         do {
-            status = try await service.activityStatus(for: activity)
+            status = try await client.activityStatus(for: activity)
         } catch {
             fputs("Failed to check activity status: \(error)\n", stderr)
             exit(1)

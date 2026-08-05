@@ -14,7 +14,7 @@ import sys
 from docopt import docopt
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     ModelHealthError,
     ActivityStatus,
     MotionDataType,
@@ -56,7 +56,7 @@ ANALYSIS_DATA_TYPES = [
 def _connect(api_key):
     print("Connecting to Model Health...")
     try:
-        return ModelHealthService(api_key=api_key)
+        return ModelHealthClient(api_key=api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -65,9 +65,9 @@ def _connect(api_key):
 # Session / activity selection
 # ---------------------------------------------------------------------------
 
-def _pick_session(service):
+def _pick_session(client):
     print("\nFetching sessions...")
-    sessions = service.session_list()
+    sessions = client.session_list()
     if not sessions:
         sys.exit(
             "No sessions found. Create a session using the Model Health mobile app first."
@@ -81,10 +81,10 @@ def _pick_session(service):
     )
 
 
-def _pick_activity(service, session):
+def _pick_activity(client, session):
     """Returns (activity, all_activities) — all_activities is needed later for the neutral-model lookup."""
     print(f"\nFetching activities for session ID: {session.id}...")
-    all_activities = service.activity_list(session)
+    all_activities = client.activity_list(session)
     activities = [a for a in all_activities if a.name not in _INTERNAL_ACTIVITY_NAMES]
     if not activities:
         sys.exit("No activities found in this session.")
@@ -98,10 +98,10 @@ def _pick_activity(service, session):
     return activity, all_activities
 
 
-def _ensure_ready(service, activity):
+def _ensure_ready(client, activity):
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
-    status = service.activity_status(activity)
+    status = client.activity_status(activity)
     if status != ActivityStatus.ready:
         sys.exit(
             f"Activity '{activity_label}' is not ready (status: {status}). "
@@ -114,7 +114,7 @@ def _ensure_ready(service, activity):
 # Downloads
 # ---------------------------------------------------------------------------
 
-def _download_videos(service, activity, slug):
+def _download_videos(client, activity, slug):
     print("\nWhich video versions would you like to download?\n")
     selected_versions = pick_multi(
         VIDEO_VERSIONS,
@@ -126,7 +126,7 @@ def _download_videos(service, activity, slug):
     for version_value, version_label in selected_versions:
         version_slug = "raw" if version_value == VideoVersion.raw else "synced"
         print(f"  {version_label.strip()}...")
-        videos = service.videos_for_activity(activity, version_value)
+        videos = client.videos_for_activity(activity, version_value)
         if not videos:
             print("  No videos available for this activity.")
         else:
@@ -135,7 +135,7 @@ def _download_videos(service, activity, slug):
                 print(f"  Saved: {path}")
 
 
-def _download_motion_data(service, activity, slug):
+def _download_motion_data(client, activity, slug):
     print("\nWhich motion data would you like to download?\n")
     selected_motion = pick_multi(
         MOTION_DATA_TYPES,
@@ -145,7 +145,7 @@ def _download_motion_data(service, activity, slug):
     motion_types = [t[0] for t in selected_motion]
 
     print("\nDownloading motion data...")
-    results = service.motion_data_for_activity(activity, motion_types)
+    results = client.motion_data_for_activity(activity, motion_types)
     if not results:
         print("  No motion data available.")
         return
@@ -156,7 +156,7 @@ def _download_motion_data(service, activity, slug):
         print(f"  Saved: {path}")
 
 
-def _download_analysis_data(service, activity, slug):
+def _download_analysis_data(client, activity, slug):
     print("\nWhich analysis results would you like to download?\n")
     selected_analysis = pick_multi(
         ANALYSIS_DATA_TYPES,
@@ -166,7 +166,7 @@ def _download_analysis_data(service, activity, slug):
     analysis_types = [t[0] for t in selected_analysis]
 
     print("\nDownloading analysis data...")
-    results = service.analysis_data_for_activity(activity, analysis_types)
+    results = client.analysis_data_for_activity(activity, analysis_types)
     if not results:
         print("  No analysis data available.")
         return
@@ -177,19 +177,19 @@ def _download_analysis_data(service, activity, slug):
         print(f"  Saved: {path}")
 
 
-def _download_neutral_model(service, all_activities):
+def _download_neutral_model(client, all_activities):
     neutral_activities = [a for a in all_activities if a.name == "neutral"]
     if not neutral_activities:
         return
 
     neutral = neutral_activities[-1]
     print(f"\nDownloading OpenSim model for neutral activity (id: {neutral.id})...")
-    status = service.activity_status(neutral)
+    status = client.activity_status(neutral)
     if status != ActivityStatus.ready:
         print(f"  Skipping: neutral activity status is '{status}' (expected 'ready').")
         return
 
-    results = service.motion_data_for_activity(neutral, [MotionDataType.model])
+    results = client.motion_data_for_activity(neutral, [MotionDataType.model])
     for r in results:
         ext = MOTION_DATA_EXT.get(r.type, "bin")
         path = save_file(f"neutral_{r.type}.{ext}", r.data)
@@ -201,16 +201,16 @@ def _download_neutral_model(service, all_activities):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
-    session = _pick_session(service)
-    activity, all_activities = _pick_activity(service, session)
-    _ensure_ready(service, activity)
+    client = _connect(api_key)
+    session = _pick_session(client)
+    activity, all_activities = _pick_activity(client, session)
+    _ensure_ready(client, activity)
 
     slug = (activity.name or activity.id).replace(" ", "_")
-    _download_videos(service, activity, slug)
-    _download_motion_data(service, activity, slug)
-    _download_analysis_data(service, activity, slug)
-    _download_neutral_model(service, all_activities)
+    _download_videos(client, activity, slug)
+    _download_motion_data(client, activity, slug)
+    _download_analysis_data(client, activity, slug)
+    _download_neutral_model(client, all_activities)
 
     print("\nDone.")
 

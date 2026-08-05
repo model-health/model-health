@@ -39,7 +39,7 @@ from modelhealth import (
     CheckerboardPlacement,
     FilterFrequencyHz,
     ModelHealthError,
-    ModelHealthService,
+    ModelHealthClient,
     RecordingConfig,
     SessionFramerate,
     SubjectParameters,
@@ -123,10 +123,10 @@ def _calibration_callback(status):
 # Activity polling helper
 # ---------------------------------------------------------------------------
 
-def _poll_activity(service, activity, interval=5):
+def _poll_activity(client, activity, interval=5):
     """Block until the activity finishes uploading and processing."""
     while True:
-        status = service.activity_status(activity)
+        status = client.activity_status(activity)
         if isinstance(status, ActivityStatusUploading):
             print(
                 f"  Uploading ({status.uploaded}/{status.total} cameras)...  ",
@@ -147,7 +147,7 @@ def _poll_activity(service, activity, interval=5):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthService(api_key)
+        return ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -156,10 +156,10 @@ def _connect(api_key):
 # Session / camera pairing
 # ---------------------------------------------------------------------------
 
-def _create_session_and_save_qr_code(service):
+def _create_session_and_save_qr_code(client):
     print("\nCreating session...")
     try:
-        session = service.create_session()
+        session = client.create_session()
     except ModelHealthError as exc:
         sys.exit(f"Failed to create session: {exc}")
     print(f"  Session ID: {session.id}")
@@ -219,11 +219,11 @@ def _configure_checkerboard():
     )
 
 
-def _calibrate_cameras(service, session, checkerboard):
+def _calibrate_cameras(client, session, checkerboard):
     input("\nPress Enter to start camera calibration...")
     print("Calibrating cameras...")
     try:
-        service.calibrate_camera(session, checkerboard, _calibration_callback)
+        client.calibrate_camera(session, checkerboard, _calibration_callback)
     except ModelHealthError as exc:
         sys.exit(f"Camera calibration failed: {exc}")
     print("Camera calibration complete.")
@@ -233,10 +233,10 @@ def _calibrate_cameras(service, session, checkerboard):
 # Subject
 # ---------------------------------------------------------------------------
 
-def _pick_or_create_subject(service):
+def _pick_or_create_subject(client):
     print("\nFetching subjects...")
     try:
-        subjects = service.subject_list()
+        subjects = client.subject_list()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch subjects: {exc}")
 
@@ -258,18 +258,18 @@ def _pick_or_create_subject(service):
     params = SubjectParameters(name=name, weight=weight, height=height)
     print("Creating subject...")
     try:
-        subject = service.create_subject(params)
+        subject = client.create_subject(params)
     except ModelHealthError as exc:
         sys.exit(f"Failed to create subject: {exc}")
     print(f"  Subject created: {subject.name} (ID {subject.id})")
     return subject
 
 
-def _calibrate_subject(service, subject, session):
+def _calibrate_subject(client, subject, session):
     input(f"\nAsk {subject.name} to stand in the neutral pose, then press Enter...")
     print("Calibrating subject...")
     try:
-        service.calibrate_subject(subject, session, _calibration_callback)
+        client.calibrate_subject(subject, session, _calibration_callback)
     except ModelHealthError as exc:
         sys.exit(f"Subject calibration failed: {exc}")
     print("Subject calibration complete.")
@@ -303,11 +303,11 @@ def _prompt_recording_config():
     return activity_name, activity_type_value, activity_type_label, recording_config
 
 
-def _start_recording(service, session, subject, activity_name, activity_type_value, recording_config):
+def _start_recording(client, session, subject, activity_name, activity_type_value, recording_config):
     input(f"\nAsk {subject.name} to get ready, then press Enter to start recording...")
     print("Recording...")
     try:
-        activity = service.start_recording(
+        activity = client.start_recording(
             activity_name,
             session,
             ActivityConfig(activity_type=activity_type_value, config=recording_config)
@@ -320,11 +320,11 @@ def _start_recording(service, session, subject, activity_name, activity_type_val
     return activity
 
 
-def _stop_recording(service, session):
+def _stop_recording(client, session):
     input("\nPress Enter when the movement is complete to stop recording...")
     print("Stopping recording...")
     try:
-        service.stop_recording(session)
+        client.stop_recording(session)
     except ModelHealthError as exc:
         print(f"Failed to stop recording: {exc}")
         return False
@@ -333,17 +333,17 @@ def _stop_recording(service, session):
     return True
 
 
-def _wait_and_process_results(service, activity, activity_type_label):
+def _wait_and_process_results(client, activity, activity_type_label):
     """Waits for upload/processing and, if automatic analysis was requested,
     waits for it to complete and downloads the report.
 
     Always returns the activity (fresh, if analysis ran and completed).
     """
     print("\nWaiting for upload and processing...")
-    status = _poll_activity(service, activity)
+    status = _poll_activity(client, activity)
 
     if isinstance(status, ActivityStatusAnalyzing):
-        return _wait_for_analysis_and_download_report(service, activity, status.task, activity_type_label)
+        return _wait_for_analysis_and_download_report(client, activity, status.task, activity_type_label)
     elif status == ActivityStatus.ready:
         print(f"Activity is ready. ID: {activity.id}")
         print("Run activity_analysis.py to analyze this activity.")
@@ -353,17 +353,17 @@ def _wait_and_process_results(service, activity, activity_type_label):
         return activity
 
 
-def _wait_for_analysis_and_download_report(service, activity, task, activity_type_label):
+def _wait_for_analysis_and_download_report(client, activity, task, activity_type_label):
     print(f"Activity is ready. Automatic '{activity_type_label}' analysis has started.")
     print("\nWaiting for analysis to complete...")
-    result_status = poll_analysis(service, task)
+    result_status = poll_analysis(client, task)
     if result_status != AnalysisStatus.completed:
         print(f"Analysis did not complete (status: {result_status}).")
         return activity
 
     print("Analysis complete.")
-    activity = service.fetch_activity(activity.id)
-    results = service.analysis_data_for_activity(activity, [AnalysisDataType.report])
+    activity = client.fetch_activity(activity.id)
+    results = client.analysis_data_for_activity(activity, [AnalysisDataType.report])
     slug = (activity.name or activity.id).replace(" ", "_")
     print("\nDownloading report...")
     for r in results:
@@ -374,12 +374,12 @@ def _wait_for_analysis_and_download_report(service, activity, task, activity_typ
     return activity
 
 
-def _update_activity_metadata(service, activity):
+def _update_activity_metadata(client, activity):
     # Re-fetch first: analysis auto-generates tags server-side, and update_activity
     # merges add/remove_tags on top of the local activity's tags. Without a fresh
     # fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
     try:
-        activity = service.fetch_activity(activity.id)
+        activity = client.fetch_activity(activity.id)
     except ModelHealthError as exc:
         print(f"Failed to refresh activity: {exc}")
 
@@ -398,7 +398,7 @@ def _update_activity_metadata(service, activity):
     if new_name or add_tags or remove_tags:
         print("Updating activity...")
         try:
-            activity = service.update_activity(
+            activity = client.update_activity(
                 activity,
                 ActivityConfig(name=new_name, add_tags=add_tags, remove_tags=remove_tags),
             )
@@ -410,22 +410,22 @@ def _update_activity_metadata(service, activity):
     return activity
 
 
-def _record_one(service, session, subject):
+def _record_one(client, session, subject):
     """Run a single record → process → (optionally analyse) → (optionally update) cycle.
 
     Returns True to continue recording, False to quit.
     """
     activity_name, activity_type_value, activity_type_label, recording_config = _prompt_recording_config()
 
-    activity = _start_recording(service, session, subject, activity_name, activity_type_value, recording_config)
+    activity = _start_recording(client, session, subject, activity_name, activity_type_value, recording_config)
     if activity is None:
         return confirm("\nRecord another activity?", default=True)
 
-    if not _stop_recording(service, session):
+    if not _stop_recording(client, session):
         return confirm("\nRecord another activity?", default=True)
 
-    activity = _wait_and_process_results(service, activity, activity_type_label)
-    _update_activity_metadata(service, activity)
+    activity = _wait_and_process_results(client, activity, activity_type_label)
+    _update_activity_metadata(client, activity)
 
     return confirm("\nRecord another activity?", default=True)
 
@@ -435,25 +435,25 @@ def _record_one(service, session, subject):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
+    client = _connect(api_key)
 
-    session = _create_session_and_save_qr_code(service)
+    session = _create_session_and_save_qr_code(client)
     _wait_for_camera_pairing()
 
     checkerboard = _configure_checkerboard()
-    _calibrate_cameras(service, session, checkerboard)
+    _calibrate_cameras(client, session, checkerboard)
 
     while True:
-        subject = _pick_or_create_subject(service)
-        _calibrate_subject(service, subject, session)
+        subject = _pick_or_create_subject(client)
+        _calibrate_subject(client, subject, session)
 
         # Recording loop
-        while _record_one(service, session, subject):
+        while _record_one(client, session, subject):
             pass
 
         if not confirm("\nCalibrate another subject with the same camera setup?", default=True):
             break
-        session = service.new_session_from_session(session)
+        session = client.new_session_from_session(session)
 
     print("\nDone.")
 

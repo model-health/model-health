@@ -6,7 +6,7 @@
  *   npx tsx activity_recording.ts [<api_key>]
  */
 
-import { ModelHealthService, ActivityType } from '@modelhealth/modelhealth';
+import { ModelHealthClient, ActivityType } from '@modelhealth/modelhealth';
 import type {
   CheckerboardDetails, CheckerboardPlacement,
   CalibrationStatus, ActivityStatus, Analysis, RecordingConfig,
@@ -101,11 +101,11 @@ const FILTER_FREQUENCY_OPTIONS: FilterFrequencyOption[] = [
 ];
 
 async function pollActivity(
-  service: ModelHealthService,
-  activity: Parameters<typeof service.activityStatus>[0]
+  client: ModelHealthClient,
+  activity: Parameters<typeof client.activityStatus>[0]
 ): Promise<ActivityStatus> {
   while (true) {
-    const status = await service.activityStatus(activity);
+    const status = await client.activityStatus(activity);
     if (status.type === 'uploading') {
       process.stdout.write(`  Uploading (${status.uploaded}/${status.total} cameras)...  \r`);
     } else if (status.type === 'processing') {
@@ -118,16 +118,16 @@ async function pollActivity(
   }
 }
 
-async function connect(apiKey: string): Promise<ModelHealthService> {
+async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
-  const service = new ModelHealthService({ apiKey, autoInit: false });
-  await service.init();
-  return service;
+  const client = new ModelHealthClient({ apiKey, autoInit: false });
+  await client.init();
+  return client;
 }
 
-async function createSessionAndSaveQrCode(service: ModelHealthService) {
+async function createSessionAndSaveQrCode(client: ModelHealthClient) {
   console.log('\nCreating session...');
-  const session = await service.createSession();
+  const session = await client.createSession();
   console.log(`  Session ID: ${session.id}`);
 
   if (!session.qrcode) {
@@ -177,19 +177,19 @@ async function configureCheckerboard(): Promise<CheckerboardDetails> {
 }
 
 async function calibrateCameras(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>,
   checkerboard: CheckerboardDetails
 ) {
   await prompt('\nPress Enter to start camera calibration...');
   console.log('Calibrating cameras...');
-  await service.calibrateCamera(session, checkerboard, calibrationCallback);
+  await client.calibrateCamera(session, checkerboard, calibrationCallback);
   console.log('Camera calibration complete.');
 }
 
-async function pickOrCreateSubject(service: ModelHealthService) {
+async function pickOrCreateSubject(client: ModelHealthClient) {
   console.log('\nFetching subjects...');
-  const subjects = await service.subjectList();
+  const subjects = await client.subjectList();
 
   if (subjects.length > 0 && await confirm(`Found ${subjects.length} subject(s). Select an existing one?`, true)) {
     console.log();
@@ -203,45 +203,45 @@ async function pickOrCreateSubject(service: ModelHealthService) {
   const weight = parseFloat((await prompt('  Weight (kg): ')).trim());
   const height = parseFloat((await prompt('  Height (cm): ')).trim());
   console.log('Creating subject...');
-  const subject = await service.createSubject({ name, weight, height });
+  const subject = await client.createSubject({ name, weight, height });
   console.log(`  Subject created: ${subject.name} (ID ${subject.id})`);
   return subject;
 }
 
 async function calibrateSubject(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   subject: Awaited<ReturnType<typeof pickOrCreateSubject>>,
   session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>
 ) {
   await prompt(`\nAsk ${subject.name} to stand in the neutral pose, then press Enter...`);
   console.log('Calibrating subject...');
-  await service.calibrateSubject(subject, session, calibrationCallback);
+  await client.calibrateSubject(subject, session, calibrationCallback);
   console.log('Subject calibration complete.');
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const service = await connect(loadApiKey(args[0]));
+  const client = await connect(loadApiKey(args[0]));
 
-  let session = await createSessionAndSaveQrCode(service);
+  let session = await createSessionAndSaveQrCode(client);
   await waitForCameraPairing();
 
   const checkerboard = await configureCheckerboard();
-  await calibrateCameras(service, session, checkerboard);
+  await calibrateCameras(client, session, checkerboard);
 
   for (;;) {
-    const subject = await pickOrCreateSubject(service);
-    await calibrateSubject(service, subject, session);
+    const subject = await pickOrCreateSubject(client);
+    await calibrateSubject(client, subject, session);
 
     // Recording loop
     do {
-      await recordOne(service, session, subject);
+      await recordOne(client, session, subject);
     } while (await confirm('\nRecord another activity?', true));
 
     if (!(await confirm('\nCalibrate another subject with the same camera setup?', true))) {
       break;
     }
-    session = await service.newSessionFromSession(session);
+    session = await client.newSessionFromSession(session);
   }
 
   console.log('\nDone.');
@@ -273,16 +273,16 @@ async function promptRecordingSetup() {
 }
 
 async function startRecording(
-  service: ModelHealthService,
-  session: Parameters<typeof service.startRecording>[1],
+  client: ModelHealthClient,
+  session: Parameters<typeof client.startRecording>[1],
   subject: { name: string },
   activityName: string,
-  config: Parameters<typeof service.startRecording>[2]
+  config: Parameters<typeof client.startRecording>[2]
 ) {
   await prompt(`\nAsk ${subject.name} to get ready, then press Enter to start recording...`);
   console.log('Recording...');
   try {
-    const activity = await service.startRecording(activityName, session, config);
+    const activity = await client.startRecording(activityName, session, config);
     console.log(`  Recording started (activity ${activity.id}).`);
     return activity;
   } catch (err: any) {
@@ -291,11 +291,11 @@ async function startRecording(
   }
 }
 
-async function stopRecording(service: ModelHealthService, session: Parameters<typeof service.stopRecording>[0]) {
+async function stopRecording(client: ModelHealthClient, session: Parameters<typeof client.stopRecording>[0]) {
   await prompt('\nPress Enter when the movement is complete to stop recording...');
   console.log('Stopping recording...');
   try {
-    await service.stopRecording(session);
+    await client.stopRecording(session);
   } catch (err: any) {
     console.error(`Failed to stop recording: ${err.message ?? err}`);
     return false;
@@ -310,16 +310,16 @@ async function stopRecording(service: ModelHealthService, session: Parameters<ty
  * activity (fresh, if analysis ran and completed).
  */
 async function waitAndProcessResults(
-  service: ModelHealthService,
-  activity: Awaited<ReturnType<typeof service.startRecording>>,
+  client: ModelHealthClient,
+  activity: Awaited<ReturnType<typeof client.startRecording>>,
   activityTypeLabel: string
 ) {
   console.log('\nWaiting for upload and processing...');
-  const finalStatus = await pollActivity(service, activity);
+  const finalStatus = await pollActivity(client, activity);
 
   if (finalStatus.type === 'analyzing') {
     const task: Analysis = { taskId: finalStatus.taskId };
-    return waitForAnalysisAndDownloadReport(service, activity, task, activityTypeLabel);
+    return waitForAnalysisAndDownloadReport(client, activity, task, activityTypeLabel);
   } else if (finalStatus.type === 'ready') {
     console.log(`Activity is ready. ID: ${activity.id}`);
     console.log('Run activity_analysis.ts to analyze this activity.');
@@ -331,14 +331,14 @@ async function waitAndProcessResults(
 }
 
 async function waitForAnalysisAndDownloadReport(
-  service: ModelHealthService,
-  activity: Awaited<ReturnType<typeof service.startRecording>>,
+  client: ModelHealthClient,
+  activity: Awaited<ReturnType<typeof client.startRecording>>,
   task: Analysis,
   activityTypeLabel: string
 ) {
   console.log(`Activity is ready. Automatic '${activityTypeLabel}' analysis has started.`);
   console.log('\nWaiting for analysis to complete...');
-  const resultStatus = await pollAnalysis(service, task);
+  const resultStatus = await pollAnalysis(client, task);
 
   if (resultStatus.type !== 'completed') {
     console.log(`Analysis did not complete (status: ${resultStatus.type}).`);
@@ -346,8 +346,8 @@ async function waitForAnalysisAndDownloadReport(
   }
 
   console.log('Analysis complete.');
-  const freshActivity = await service.fetchActivity(activity.id);
-  const results = await service.analysisDataForActivity(freshActivity, ['report']);
+  const freshActivity = await client.fetchActivity(activity.id);
+  const results = await client.analysisDataForActivity(freshActivity, ['report']);
   const slug = (freshActivity.name ?? freshActivity.id).replace(/ /g, '_');
 
   console.log('\nDownloading report...');
@@ -364,12 +364,12 @@ async function waitForAnalysisAndDownloadReport(
 // merges add/remove tags on top of the local activity's tags. Without a fresh
 // fetch, the merge starts from a stale tag set and wipes the auto-generated tags.
 async function updateActivityMetadata(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   activity: Awaited<ReturnType<typeof waitAndProcessResults>>
 ) {
   let currentActivity = activity;
   try {
-    currentActivity = await service.fetchActivity(activity.id);
+    currentActivity = await client.fetchActivity(activity.id);
   } catch (err: any) {
     console.error(`Failed to refresh activity: ${err.message ?? err}`);
   }
@@ -385,7 +385,7 @@ async function updateActivityMetadata(
   if (newName || addTags.length || removeTags.length) {
     console.log('Updating activity...');
     try {
-      const updated = await service.updateActivity(currentActivity, { name: newName, addTags, removeTags });
+      const updated = await client.updateActivity(currentActivity, { name: newName, addTags, removeTags });
       console.log(`  Updated: ${updated.name ?? updated.id}`);
     } catch (err: any) {
       console.error(`Failed to update activity: ${err.message ?? err}`);
@@ -394,19 +394,19 @@ async function updateActivityMetadata(
 }
 
 async function recordOne(
-  service: ModelHealthService,
-  session: Parameters<typeof service.startRecording>[1],
+  client: ModelHealthClient,
+  session: Parameters<typeof client.startRecording>[1],
   subject: { name: string }
 ): Promise<void> {
   const { activityName, selectedType, config } = await promptRecordingSetup();
 
-  const activity = await startRecording(service, session, subject, activityName, config);
+  const activity = await startRecording(client, session, subject, activityName, config);
   if (!activity) return;
 
-  if (!(await stopRecording(service, session))) return;
+  if (!(await stopRecording(client, session))) return;
 
-  const currentActivity = await waitAndProcessResults(service, activity, selectedType.label);
-  await updateActivityMetadata(service, currentActivity);
+  const currentActivity = await waitAndProcessResults(client, activity, selectedType.label);
+  await updateActivityMetadata(client, currentActivity);
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); })

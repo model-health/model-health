@@ -15,20 +15,20 @@ import Shared
 struct ActivityMetricsScript {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let session = await pickSession(service: service)
-        let activity = await pickActivity(service: service, in: session)
-        await showMetrics(service: service, activity: activity)
+        let client = connect(apiKey: apiKey)
+        let session = await pickSession(client: client)
+        let activity = await pickActivity(client: client, in: session)
+        await showMetrics(client: client, activity: activity)
         print("\nDone.")
     }
 }
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting to Model Health...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -37,11 +37,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session / activity selection
 
-private func pickSession(service: ModelHealthService) async -> Session {
+private func pickSession(client: ModelHealthClient) async -> Session {
     print("\nFetching sessions...")
     let sessions: [Session]
     do {
-        sessions = try await service.sessionList()
+        sessions = try await client.sessionList()
     } catch {
         fputs("Failed to fetch sessions: \(error)\n", stderr)
         exit(1)
@@ -64,11 +64,11 @@ private func pickSession(service: ModelHealthService) async -> Session {
     )
 }
 
-private func pickActivity(service: ModelHealthService, in session: Session) async -> Activity {
+private func pickActivity(client: ModelHealthClient, in session: Session) async -> Activity {
     print("\nFetching activities for session ID: \(session.id)...")
     let allActivities: [Activity]
     do {
-        allActivities = try await service.activityList(for: session)
+        allActivities = try await client.activityList(for: session)
     } catch {
         fputs("Failed to fetch activities: \(error)\n", stderr)
         exit(1)
@@ -97,12 +97,12 @@ private func pickActivity(service: ModelHealthService, in session: Session) asyn
 
 // MARK: - Metrics
 
-private func showMetrics(service: ModelHealthService, activity: Activity) async {
+private func showMetrics(client: ModelHealthClient, activity: Activity) async {
     let activityLabel = activity.name ?? activity.id
     print("\nFetching metrics for '\(activityLabel)'...")
     let metricsResult: ActivityMetrics?
     do {
-        metricsResult = try await service.activityMetrics(for: activity.id)
+        metricsResult = try await client.activityMetrics(for: activity.id)
     } catch {
         fputs("Failed to fetch activity metrics: \(error)\n", stderr)
         exit(1)

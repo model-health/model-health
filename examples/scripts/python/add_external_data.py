@@ -16,7 +16,7 @@ from docopt import docopt
 from modelhealth import (
     ExternalResultFile,
     ModelHealthError,
-    ModelHealthService,
+    ModelHealthClient,
 )
 from _prompts import pick_one
 from _utils import load_api_key
@@ -27,15 +27,15 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 
 def _connect(api_key):
     try:
-        return ModelHealthService(api_key)
+        return ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
 
-def _pick_activity(service):
+def _pick_activity(client):
     print("\nFetching sessions...")
     try:
-        sessions = service.session_list()
+        sessions = client.session_list()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch sessions: {exc}")
 
@@ -51,7 +51,7 @@ def _pick_activity(service):
 
     print(f"\nFetching activities for session {session.id}...")
     try:
-        all_activities = service.activity_list(session)
+        all_activities = client.activity_list(session)
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch activities: {exc}")
 
@@ -114,13 +114,13 @@ if __name__ == "__main__":
     args = docopt(__doc__)
     api_key = load_api_key(args["<api_key>"])
 
-    service = _connect(api_key)
-    activity = _pick_activity(service)
+    client = _connect(api_key)
+    activity = _pick_activity(client)
     files = _prompt_files()
 
     print(f"\nUploading {len(files)} file(s)...")
     try:
-        service.add_motion_data_to_activity(activity, files)
+        client.add_motion_data_to_activity(activity, files)
     except ModelHealthError as exc:
         sys.exit(f"Upload failed: {exc}")
 

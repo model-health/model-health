@@ -6,7 +6,7 @@
  *   npx tsx update_activity.ts [<api_key>]
  */
 
-import { ModelHealthService } from '@modelhealth/modelhealth';
+import { ModelHealthClient } from '@modelhealth/modelhealth';
 import type { Activity } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
@@ -16,13 +16,13 @@ import {
 const PAGE_SIZE = 50;
 
 async function loadActivities(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   subject: { id: number }
 ): Promise<Activity[]> {
   const activities: Activity[] = [];
   let offset = 0;
   while (true) {
-    const page = await service.activitiesForSubject(subject.id, offset, PAGE_SIZE, 'updated_at');
+    const page = await client.activitiesForSubject(subject.id, offset, PAGE_SIZE, 'updated_at');
     for (const a of page) {
       if (!INTERNAL_ACTIVITY_NAMES.has((a.name ?? '').toLowerCase())) {
         activities.push(a);
@@ -34,16 +34,16 @@ async function loadActivities(
   return activities;
 }
 
-async function connect(apiKey: string): Promise<ModelHealthService> {
+async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
-  const service = new ModelHealthService({ apiKey, autoInit: false });
-  await service.init();
-  return service;
+  const client = new ModelHealthClient({ apiKey, autoInit: false });
+  await client.init();
+  return client;
 }
 
-async function pickSubject(service: ModelHealthService) {
+async function pickSubject(client: ModelHealthClient) {
   console.log('\nFetching subjects...');
-  const subjects = await service.subjectList();
+  const subjects = await client.subjectList();
 
   if (!subjects.length) {
     console.error('No subjects found.');
@@ -56,9 +56,9 @@ async function pickSubject(service: ModelHealthService) {
   return subject;
 }
 
-async function pickActivity(service: ModelHealthService, subject: Awaited<ReturnType<typeof pickSubject>>) {
+async function pickActivity(client: ModelHealthClient, subject: Awaited<ReturnType<typeof pickSubject>>) {
   console.log(`\nFetching activities for ${subject.name}...`);
-  const activities = await loadActivities(service, subject);
+  const activities = await loadActivities(client, subject);
 
   if (!activities.length) {
     console.error(`No activities found for ${subject.name}.`);
@@ -98,12 +98,12 @@ async function promptEdits(activity: Awaited<ReturnType<typeof pickActivity>>) {
 }
 
 async function applyEdits(
-  service: ModelHealthService,
+  client: ModelHealthClient,
   activity: Awaited<ReturnType<typeof pickActivity>>,
   edits: { name?: string; addTags: string[]; removeTags: string[] }
 ) {
   console.log('\nUpdating activity...');
-  const updated = await service.updateActivity(activity, edits);
+  const updated = await client.updateActivity(activity, edits);
 
   const updatedTags = updated.tags?.length ? updated.tags.join(', ') : '(none)';
   console.log(`  Name:  ${updated.name ?? updated.id}`);
@@ -112,9 +112,9 @@ async function applyEdits(
 
 async function main() {
   const args = process.argv.slice(2);
-  const service = await connect(loadApiKey(args[0]));
-  const subject = await pickSubject(service);
-  const activity = await pickActivity(service, subject);
+  const client = await connect(loadApiKey(args[0]));
+  const subject = await pickSubject(client);
+  const activity = await pickActivity(client, subject);
 
   const edits = await promptEdits(activity);
   if (!edits) {
@@ -122,7 +122,7 @@ async function main() {
     return;
   }
 
-  await applyEdits(service, activity, edits);
+  await applyEdits(client, activity, edits);
   console.log('\nDone.');
 }
 

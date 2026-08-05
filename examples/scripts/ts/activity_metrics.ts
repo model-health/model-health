@@ -8,7 +8,7 @@
  *   npx tsx activity_metrics.ts [<api_key>]
  */
 
-import { ModelHealthService } from '@modelhealth/modelhealth';
+import { ModelHealthClient } from '@modelhealth/modelhealth';
 import type { ActivityMetrics, MetricValue } from '@modelhealth/modelhealth';
 import { activityMetricsToJson } from '@modelhealth/modelhealth';
 import {
@@ -16,16 +16,16 @@ import {
   pickOne, confirm, saveFile, closePrompts,
 } from './_shared.js';
 
-async function connect(apiKey: string): Promise<ModelHealthService> {
+async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting to Model Health...');
-  const service = new ModelHealthService({ apiKey, autoInit: false });
-  await service.init();
-  return service;
+  const client = new ModelHealthClient({ apiKey, autoInit: false });
+  await client.init();
+  return client;
 }
 
-async function pickSession(service: ModelHealthService) {
+async function pickSession(client: ModelHealthClient) {
   console.log('\nFetching sessions...');
-  const sessions = await service.sessionList();
+  const sessions = await client.sessionList();
   if (!sessions.length) {
     console.error('No sessions found. Create a session using the Model Health mobile app first.');
     process.exit(1);
@@ -39,9 +39,9 @@ async function pickSession(service: ModelHealthService) {
   });
 }
 
-async function pickActivity(service: ModelHealthService, session: Awaited<ReturnType<typeof pickSession>>) {
+async function pickActivity(client: ModelHealthClient, session: Awaited<ReturnType<typeof pickSession>>) {
   console.log(`\nFetching activities for session ID: ${session.id}...`);
-  const allActivities = await service.activityList(session.id);
+  const allActivities = await client.activityList(session.id);
   const activities = allActivities.filter(a => !INTERNAL_ACTIVITY_NAMES.has(a.name ?? ''));
   if (!activities.length) { console.error('No activities found in this session.'); process.exit(1); }
 
@@ -49,10 +49,10 @@ async function pickActivity(service: ModelHealthService, session: Awaited<Return
   return pickOne(activities, 'Select activity', a => `${a.name ?? a.id}  [${a.status}]`);
 }
 
-async function showMetrics(service: ModelHealthService, activity: Awaited<ReturnType<typeof pickActivity>>) {
+async function showMetrics(client: ModelHealthClient, activity: Awaited<ReturnType<typeof pickActivity>>) {
   const activityLabel = activity.name ?? activity.id;
   console.log(`\nFetching metrics for '${activityLabel}'...`);
-  const metrics = await service.activityMetrics(activity.id);
+  const metrics = await client.activityMetrics(activity.id);
 
   const flat = flattenMetrics(metrics);
   if (!flat.size) {
@@ -74,10 +74,10 @@ async function showMetrics(service: ModelHealthService, activity: Awaited<Return
 
 async function main() {
   const args = process.argv.slice(2);
-  const service = await connect(loadApiKey(args[0]));
-  const session = await pickSession(service);
-  const activity = await pickActivity(service, session);
-  await showMetrics(service, activity);
+  const client = await connect(loadApiKey(args[0]));
+  const session = await pickSession(client);
+  const activity = await pickActivity(client, session);
+  await showMetrics(client, activity);
 
   console.log('\nDone.');
 }

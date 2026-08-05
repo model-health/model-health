@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from docopt import docopt
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     ModelHealthError,
     ActivityStatus,
     MotionDataType,
@@ -45,7 +45,7 @@ def main(api_key):
 
     print("\nConnecting...")
     try:
-        service = ModelHealthService(api_key)
+        client = ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -53,12 +53,12 @@ def main(api_key):
     if use_demo:
         print(f"\nFetching demo session '{DEMO_SESSION_ID}'...")
         try:
-            session = service.get_session(DEMO_SESSION_ID)
+            session = client.get_session(DEMO_SESSION_ID)
         except ModelHealthError as exc:
             sys.exit(f"Failed to fetch demo session: {exc}")
     else:
         print("\nFetching sessions...")
-        sessions = service.session_list()
+        sessions = client.session_list()
         if not sessions:
             sys.exit(
                 "No sessions found. Create a session using the Model Health mobile app first."
@@ -73,7 +73,7 @@ def main(api_key):
     # Load activities
     session_label = session.session_name or session.name or session.id
     print(f"\nFetching activities for session '{session_label}'...")
-    all_activities = service.activity_list(session)
+    all_activities = client.activity_list(session)
     activities = [a for a in all_activities if a.name not in _INTERNAL_ACTIVITY_NAMES]
     if not activities:
         sys.exit("No activities found in this session.")
@@ -88,7 +88,7 @@ def main(api_key):
     # Check status
     activity_label = activity.name or activity.id
     print(f"\nChecking status of '{activity_label}'...")
-    status = service.activity_status(activity)
+    status = client.activity_status(activity)
     if status != ActivityStatus.ready:
         sys.exit(
             f"Activity '{activity_label}' is not ready (status: {status}). "
@@ -98,7 +98,7 @@ def main(api_key):
 
     # Download kinematics CSV
     print("\nDownloading kinematics CSV...")
-    results = service.motion_data_for_activity(activity, [MotionDataType.kinematics_csv])
+    results = client.motion_data_for_activity(activity, [MotionDataType.kinematics_csv])
     if not results:
         sys.exit("No kinematics CSV data returned for this activity.")
 

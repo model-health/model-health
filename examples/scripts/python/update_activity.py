@@ -18,7 +18,7 @@ from modelhealth import (
     ActivityConfig,
     ActivitySort,
     ModelHealthError,
-    ModelHealthService,
+    ModelHealthClient,
 )
 from _prompts import confirm, pick_one
 from _utils import load_api_key
@@ -29,12 +29,12 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 _PAGE_SIZE = 50
 
 
-def _load_activities(service, subject):
+def _load_activities(client, subject):
     """Fetch all non-internal activities for a subject."""
     activities = []
     offset = 0
     while True:
-        page = service.activities_for_subject(
+        page = client.activities_for_subject(
             subject, start_index=offset, count=_PAGE_SIZE, sort=ActivitySort.updated_at
         )
         for a in page:
@@ -53,7 +53,7 @@ def _load_activities(service, subject):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthService(api_key)
+        return ModelHealthClient(api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -62,10 +62,10 @@ def _connect(api_key):
 # Subject / activity selection
 # ---------------------------------------------------------------------------
 
-def _pick_subject(service):
+def _pick_subject(client):
     print("\nFetching subjects...")
     try:
-        subjects = service.subject_list()
+        subjects = client.subject_list()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch subjects: {exc}")
 
@@ -78,10 +78,10 @@ def _pick_subject(service):
     return subject
 
 
-def _pick_activity(service, subject):
+def _pick_activity(client, subject):
     print(f"\nFetching activities for {subject.name}...")
     try:
-        activities = _load_activities(service, subject)
+        activities = _load_activities(client, subject)
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch activities: {exc}")
 
@@ -120,10 +120,10 @@ def _prompt_edits(activity):
     return new_name, add_tags, remove_tags
 
 
-def _apply_edits(service, activity, new_name, add_tags, remove_tags):
+def _apply_edits(client, activity, new_name, add_tags, remove_tags):
     print("\nUpdating activity...")
     try:
-        activity = service.update_activity(
+        activity = client.update_activity(
             activity,
             ActivityConfig(name=new_name, add_tags=add_tags, remove_tags=remove_tags),
         )
@@ -140,16 +140,16 @@ def _apply_edits(service, activity, new_name, add_tags, remove_tags):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
-    subject = _pick_subject(service)
-    activity = _pick_activity(service, subject)
+    client = _connect(api_key)
+    subject = _pick_subject(client)
+    activity = _pick_activity(client, subject)
 
     new_name, add_tags, remove_tags = _prompt_edits(activity)
     if not new_name and not add_tags and not remove_tags:
         print("No changes — exiting.")
         return
 
-    _apply_edits(service, activity, new_name, add_tags, remove_tags)
+    _apply_edits(client, activity, new_name, add_tags, remove_tags)
     print("\nDone.")
 
 

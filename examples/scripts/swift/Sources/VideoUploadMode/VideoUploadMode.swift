@@ -19,19 +19,19 @@ private let modeDescriptions: [ModelHealth.VideoUploadMode: String] = [
 struct VideoUploadModeExample {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
+        let client = connect(apiKey: apiKey)
         let mode = pickMode()
-        await applyMode(mode, service: service)
+        await applyMode(mode, client: client)
         print("Done.")
     }
 }
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -52,10 +52,10 @@ private func pickMode() -> ModelHealth.VideoUploadMode {
 
 // MARK: - Apply
 
-private func applyMode(_ mode: ModelHealth.VideoUploadMode, service: ModelHealthService) async {
+private func applyMode(_ mode: ModelHealth.VideoUploadMode, client: ModelHealthClient) async {
     print("\nSetting video upload mode to '\(mode)'...")
     do {
-        try await service.setVideoUploadMode(mode)
+        try await client.setVideoUploadMode(mode)
     } catch {
         fputs("Failed to set video upload mode: \(error)\n", stderr)
         exit(1)

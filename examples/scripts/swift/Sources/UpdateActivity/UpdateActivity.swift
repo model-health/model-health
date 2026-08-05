@@ -23,9 +23,9 @@ private struct ActivityEdits {
 struct UpdateActivity {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let subject = await pickSubject(service: service)
-        let activity = await pickActivity(service: service, subject: subject)
+        let client = connect(apiKey: apiKey)
+        let subject = await pickSubject(client: client)
+        let activity = await pickActivity(client: client, subject: subject)
 
         let edits = promptEdits(for: activity)
         guard edits.hasChanges else {
@@ -33,17 +33,17 @@ struct UpdateActivity {
             return
         }
 
-        await applyEdits(edits, to: activity, service: service)
+        await applyEdits(edits, to: activity, client: client)
         print("\nDone.")
     }
 }
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -52,11 +52,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Subject / activity selection
 
-private func pickSubject(service: ModelHealthService) async -> Subject {
+private func pickSubject(client: ModelHealthClient) async -> Subject {
     print("\nFetching subjects...")
     let subjects: [Subject]
     do {
-        subjects = try await service.subjectList()
+        subjects = try await client.subjectList()
     } catch {
         fputs("Failed to fetch subjects: \(error)\n", stderr)
         exit(1)
@@ -73,11 +73,11 @@ private func pickSubject(service: ModelHealthService) async -> Subject {
     return subject
 }
 
-private func loadActivities(service: ModelHealthService, subject: Subject) async throws -> [Activity] {
+private func loadActivities(client: ModelHealthClient, subject: Subject) async throws -> [Activity] {
     var activities: [Activity] = []
     var offset = 0
     while true {
-        let page = try await service.activities(
+        let page = try await client.activities(
             forSubject: subject.id,
             startIndex: offset,
             count: pageSize,
@@ -96,11 +96,11 @@ private func loadActivities(service: ModelHealthService, subject: Subject) async
     return activities
 }
 
-private func pickActivity(service: ModelHealthService, subject: Subject) async -> Activity {
+private func pickActivity(client: ModelHealthClient, subject: Subject) async -> Activity {
     print("\nFetching activities for \(subject.name)...")
     let activities: [Activity]
     do {
-        activities = try await loadActivities(service: service, subject: subject)
+        activities = try await loadActivities(client: client, subject: subject)
     } catch {
         fputs("Failed to fetch activities: \(error)\n", stderr)
         exit(1)
@@ -150,11 +150,11 @@ private func promptTagList() -> [String] {
     return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 }
 
-private func applyEdits(_ edits: ActivityEdits, to activity: Activity, service: ModelHealthService) async {
+private func applyEdits(_ edits: ActivityEdits, to activity: Activity, client: ModelHealthClient) async {
     print("\nUpdating activity...")
     let updated: Activity
     do {
-        updated = try await service.update(
+        updated = try await client.update(
             activity: activity,
             config: ActivityConfig(addTags: edits.addTags, removeTags: edits.removeTags, name: edits.name)
         )

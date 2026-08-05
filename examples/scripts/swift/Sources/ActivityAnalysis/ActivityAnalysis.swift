@@ -36,14 +36,14 @@ private let resultTypes: [(AnalysisDataType, String)] = [
 struct ActivityAnalysis {
     static func main() async {
         let apiKey = loadAPIKey()
-        let service = connect(apiKey: apiKey)
-        let session = await pickSession(service: service)
-        let activity = await pickActivity(service: service, in: session)
-        await ensureReady(service: service, activity: activity)
+        let client = connect(apiKey: apiKey)
+        let session = await pickSession(client: client)
+        let activity = await pickActivity(client: client, in: session)
+        await ensureReady(client: client, activity: activity)
 
-        let task = await startAnalysis(service: service, activity: activity, session: session)
-        let freshActivity = await waitForAnalysis(service: service, task: task, activity: activity)
-        await downloadResults(service: service, activity: freshActivity)
+        let task = await startAnalysis(client: client, activity: activity, session: session)
+        let freshActivity = await waitForAnalysis(client: client, task: task, activity: activity)
+        await downloadResults(client: client, activity: freshActivity)
 
         print("\nDone.")
     }
@@ -51,10 +51,10 @@ struct ActivityAnalysis {
 
 // MARK: - Setup
 
-private func connect(apiKey: String) -> ModelHealthService {
+private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthService(apiKey: apiKey)
+        return try ModelHealthClient(apiKey: apiKey)
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -63,11 +63,11 @@ private func connect(apiKey: String) -> ModelHealthService {
 
 // MARK: - Session / activity selection
 
-private func pickSession(service: ModelHealthService) async -> Session {
+private func pickSession(client: ModelHealthClient) async -> Session {
     print("\nFetching sessions...")
     let sessions: [Session]
     do {
-        sessions = try await service.sessionList()
+        sessions = try await client.sessionList()
     } catch {
         fputs("Failed to fetch sessions: \(error)\n", stderr)
         exit(1)
@@ -90,13 +90,13 @@ private func pickSession(service: ModelHealthService) async -> Session {
     )
 }
 
-private func pickActivity(service: ModelHealthService, in session: Session) async -> Activity {
+private func pickActivity(client: ModelHealthClient, in session: Session) async -> Activity {
     let sessionName = session.sessionName.isEmpty ? "(unnamed)" : session.sessionName
     let subjectName = session.name.isEmpty ? "(unnamed)" : session.name
     print("\nFetching activities for session ID: \(session.id),  session name: \(sessionName), subject: \(subjectName)...")
     let allActivities: [Activity]
     do {
-        allActivities = try await service.activityList(for: session)
+        allActivities = try await client.activityList(for: session)
     } catch {
         fputs("Failed to fetch activities: \(error)\n", stderr)
         exit(1)
@@ -125,12 +125,12 @@ private func pickActivity(service: ModelHealthService, in session: Session) asyn
 
 // MARK: - Readiness
 
-private func ensureReady(service: ModelHealthService, activity: Activity) async {
+private func ensureReady(client: ModelHealthClient, activity: Activity) async {
     let activityLabel = activity.name ?? activity.id
     print("\nChecking status of '\(activityLabel)'...")
     var currentStatus: ActivityStatus
     do {
-        currentStatus = try await service.activityStatus(for: activity)
+        currentStatus = try await client.activityStatus(for: activity)
     } catch {
         fputs("Failed to check activity status: \(error)\n", stderr)
         exit(1)
@@ -139,7 +139,7 @@ private func ensureReady(service: ModelHealthService, activity: Activity) async 
     switch currentStatus {
     case .uploading, .processing:
         print("Waiting for processing to complete...")
-        currentStatus = await pollActivity(service: service, activity: activity)
+        currentStatus = await pollActivity(client: client, activity: activity)
     default:
         break
     }
@@ -151,11 +151,11 @@ private func ensureReady(service: ModelHealthService, activity: Activity) async 
     print("Activity is ready.")
 }
 
-private func pollActivity(service: ModelHealthService, activity: Activity) async -> ActivityStatus {
+private func pollActivity(client: ModelHealthClient, activity: Activity) async -> ActivityStatus {
     while true {
         let status: ActivityStatus
         do {
-            status = try await service.activityStatus(for: activity)
+            status = try await client.activityStatus(for: activity)
         } catch {
             fputs("Failed to check activity status: \(error)\n", stderr)
             exit(1)
@@ -178,7 +178,7 @@ private func pollActivity(service: ModelHealthService, activity: Activity) async
 
 // MARK: - Analysis
 
-private func startAnalysis(service: ModelHealthService, activity: Activity, session: Session) async -> Analysis {
+private func startAnalysis(client: ModelHealthClient, activity: Activity, session: Session) async -> Analysis {
     // Default to the activity's recorded type if available.
     let defaultAnalysisIndex = analysisTypes.firstIndex { $0.0 == activity.activityType }
     print("\nAnalysis type:\n")
@@ -191,18 +191,18 @@ private func startAnalysis(service: ModelHealthService, activity: Activity, sess
 
     print("\nStarting '\(analysisLabel)' analysis...")
     do {
-        return try await service.startAnalysis(analysisType, for: activity, in: session)
+        return try await client.startAnalysis(analysisType, for: activity, in: session)
     } catch {
         fputs("Failed to start analysis: \(error)\n", stderr)
         exit(1)
     }
 }
 
-private func waitForAnalysis(service: ModelHealthService, task: Analysis, activity: Activity) async -> Activity {
+private func waitForAnalysis(client: ModelHealthClient, task: Analysis, activity: Activity) async -> Activity {
     print("Waiting for analysis to complete...")
     let resultStatus: AnalysisStatus
     do {
-        resultStatus = try await pollAnalysis(service: service, task: task)
+        resultStatus = try await pollAnalysis(client: client, task: task)
     } catch {
         fputs("Analysis polling failed: \(error)\n", stderr)
         exit(1)
@@ -215,7 +215,7 @@ private func waitForAnalysis(service: ModelHealthService, task: Analysis, activi
     print("Analysis complete.")
 
     do {
-        return try await service.fetch(activity: activity.id)
+        return try await client.fetch(activity: activity.id)
     } catch {
         fputs("Failed to re-fetch activity: \(error)\n", stderr)
         exit(1)
@@ -224,7 +224,7 @@ private func waitForAnalysis(service: ModelHealthService, task: Analysis, activi
 
 // MARK: - Results
 
-private func downloadResults(service: ModelHealthService, activity: Activity) async {
+private func downloadResults(client: ModelHealthClient, activity: Activity) async {
     print("\nWhich results would you like to save?\n")
     let selected = pickMulti(from: resultTypes, prompt: "Select result types", label: { $0.1 })
     let dataTypes = Set(selected.map { $0.0 })
@@ -232,7 +232,7 @@ private func downloadResults(service: ModelHealthService, activity: Activity) as
     let slug = (activity.name ?? activity.id).replacingOccurrences(of: " ", with: "_")
 
     print("\nDownloading...")
-    let results = await service.analysisData(ofType: dataTypes, for: activity)
+    let results = await client.analysisData(ofType: dataTypes, for: activity)
     for result in results {
         let path = saveFile(named: "\(slug)_\(result.type.typeLabel).\(result.type.fileExtension)", data: result.data)
         print("  Saved \(path)")

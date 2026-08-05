@@ -13,7 +13,7 @@ from datetime import date, timedelta
 from docopt import docopt
 
 from modelhealth import (
-    ModelHealthService,
+    ModelHealthClient,
     ModelHealthError,
     MetricValueScalar,
     MetricValueBilateral,
@@ -32,7 +32,7 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 def _connect(api_key):
     print("Connecting to Model Health...")
     try:
-        return ModelHealthService(api_key=api_key)
+        return ModelHealthClient(api_key=api_key)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -41,9 +41,9 @@ def _connect(api_key):
 # Session / activity selection
 # ---------------------------------------------------------------------------
 
-def _pick_session(service):
+def _pick_session(client):
     print("\nFetching sessions...")
-    sessions = service.session_list()
+    sessions = client.session_list()
     if not sessions:
         sys.exit(
             "No sessions found. Create a session using the Model Health mobile app first."
@@ -57,9 +57,9 @@ def _pick_session(service):
     )
 
 
-def _pick_activity(service, session):
+def _pick_activity(client, session):
     print(f"\nFetching activities for session ID: {session.id}...")
-    all_activities = service.activity_list(session)
+    all_activities = client.activity_list(session)
     activities = [a for a in all_activities if a.name not in _INTERNAL_ACTIVITY_NAMES]
     if not activities:
         sys.exit("No activities found in this session.")
@@ -76,11 +76,11 @@ def _pick_activity(service, session):
 # Metrics
 # ---------------------------------------------------------------------------
 
-def _show_metrics(service, activity):
+def _show_metrics(client, activity):
     activity_label = activity.name or activity.id
     print(f"\nFetching metrics for '{activity_label}'...")
     try:
-        metrics = service.activity_metrics(activity.id)
+        metrics = client.activity_metrics(activity.id)
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch activity metrics: {exc}")
 
@@ -104,10 +104,10 @@ def _show_metrics(service, activity):
 # ---------------------------------------------------------------------------
 
 def main(api_key):
-    service = _connect(api_key)
-    session = _pick_session(service)
-    activity = _pick_activity(service, session)
-    _show_metrics(service, activity)
+    client = _connect(api_key)
+    session = _pick_session(client)
+    activity = _pick_activity(client, session)
+    _show_metrics(client, activity)
     print("\nDone.")
 
 
