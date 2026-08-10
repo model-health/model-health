@@ -2,7 +2,7 @@ import SwiftUI
 import ModelHealth
 
 struct SessionListView: View {
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     enum LoadingState {
         case notStarted
@@ -201,5 +201,5 @@ struct SessionRow: View {
 
 #Preview {
     SessionListView()
-        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+        .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
 }

@@ -40,7 +40,7 @@ struct RecordActivityView: View {
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
 
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     init(subject: Subject, session: Session) {
         self.subject = subject
@@ -211,7 +211,7 @@ struct RecordActivityView: View {
                 MetricsView(activity: activity)
             }
             .navigationDestination(item: $selectedActivityFor3DView) { activity in
-                ThreeDView(activity: activity, service: modelHealth)
+                ThreeDView(activity: activity, client: modelHealth)
             }
             .task {
                 guard case .notStarted = loadingState else {
@@ -524,7 +524,7 @@ struct StatusIndicator: View {
             subject: .forPreview(),
             session: .forPreview()
         )
-        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+        .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }
 
@@ -676,6 +676,6 @@ extension ActivityState {
         AnalysisDataView(
             activity: .forPreview()
         )
-        .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+        .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }

@@ -7,18 +7,18 @@ private let syncTagSuffix = "-sync"
 /// Demonstrates embedding the WKWebView-based 3D view.
 struct ThreeDView: View {
     let activity: Activity
-    let service: ModelHealthService
+    let client: ModelHealthClient
 
     @StateObject private var controller: View3DController
     @State private var playbackSpeed: Double = 1.0
 
-    init(activity: Activity, service: ModelHealthService) {
+    init(activity: Activity, client: ModelHealthClient) {
         self.activity = activity
-        self.service = service
+        self.client = client
         _controller = StateObject(
             wrappedValue: View3DController(
                 for: activity,
-                using: service,
+                using: client,
                 externalDataTag: ThreeDView.detectExternalDataTag(for: activity)
             )
         )
@@ -162,7 +162,7 @@ private extension ThreeDView {
     NavigationStack {
         ThreeDView(
             activity: .forPreview(),
-            service: ModelHealthService(serviceProvider: MockModelHealthProvider())
+            client: ModelHealthClient(serviceProvider: MockModelHealthProvider())
         )
     }
 }

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.0
+
+### Added
+
+- `ModelHealthClient` — the new entrypoint for the SDK, available in all three bindings (Swift, TypeScript, Python), replacing `ModelHealthService`. Takes your API key as a required argument, and adds configurable `timeout` and `maxRetries`/`max_retries` options (previously not honored).
+
+- `accountInfo()` / `account_info()` — returns identity and licensing information for the authenticated account.
+
+- `AccountInfo` — new model type with `username`, `email`, `firstName`/`first_name`, `lastName`/`last_name`, `institution`, `profession`, `country`.
+
+### Changed
+
+- `ModelHealthService` is now deprecated in favor of `ModelHealthClient` (all three bindings). It continues to work unchanged but emits a deprecation warning on construction (Python `DeprecationWarning`, TypeScript `console.warn`, Swift compiler warning via `@available(*, deprecated, renamed:)`).
+
+- `timeout` applies to regular API calls only; archive downloads and video uploads are not bounded by it. It is not enforced on the web (WebAssembly).
+
+### Fixed
+
+- Python: creating more than one client in the same process no longer causes the second client's first request to hang until it times out.
+
 ## 0.8.0
 
 ### New UI visualization modules

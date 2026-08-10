@@ -3,7 +3,7 @@ import ModelHealth
 
 struct CreateSubjectView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     @State private var name = ""
     @State private var weight = ""
@@ -387,6 +387,6 @@ struct FlowLayout: Layout {
     CreateSubjectView { subject in
         print("Created subject: \(subject.name)")
     }
-    .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+    .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
 }
 #endif

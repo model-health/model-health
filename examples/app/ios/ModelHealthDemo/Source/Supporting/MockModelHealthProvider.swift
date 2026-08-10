@@ -30,6 +30,11 @@ final class MockModelHealthProvider: ModelHealthProvider {
         }
     ]
 
+    func accountInfo() async throws -> AccountInfo {
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        return .forPreview()
+    }
+
     func sessionList() async throws -> [Session] {
         try? await Task.sleep(nanoseconds: 400_000_000)
         return [

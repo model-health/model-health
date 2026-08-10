@@ -2,7 +2,7 @@ import SwiftUI
 import ModelHealth
 
 struct MetricsView: View {
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     let activity: Activity
 
@@ -176,6 +176,6 @@ private extension MetricsView {
 #Preview {
     NavigationStack {
         MetricsView(activity: .forPreview())
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }

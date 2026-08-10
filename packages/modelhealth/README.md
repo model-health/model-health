@@ -18,9 +18,9 @@ npm install @modelhealth/modelhealth
 ## Quick Start
 
 ```typescript
-import { ModelHealthService } from '@modelhealth/modelhealth';
+import { ModelHealthClient } from '@modelhealth/modelhealth';
 
-const client = new ModelHealthService({
+const client = new ModelHealthClient({
   apiKey: 'your-api-key-here',
 });
 await client.init();
@@ -34,7 +34,7 @@ console.log(sessions);
 ### Optional: Disable auto-init
 
 ```typescript
-const client = new ModelHealthService({
+const client = new ModelHealthClient({
   apiKey: 'your-api-key',
   autoInit: false, // Call init() manually when ready
 });
@@ -85,11 +85,11 @@ const results = await client.downloadActivityResultData(
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { ModelHealthService, Session } from '@modelhealth/modelhealth';
+import { ModelHealthClient, Session } from '@modelhealth/modelhealth';
 
 function App() {
   const [client] = useState(
-    () => new ModelHealthService({ apiKey: 'your-api-key' })
+    () => new ModelHealthClient({ apiKey: 'your-api-key' })
   );
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);

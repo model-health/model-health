@@ -1,7 +1,7 @@
 /**
  * Model Health SDK client singleton and init.
  */
-import { ModelHealthService } from '@modelhealth/modelhealth';
+import { ModelHealthClient } from '@modelhealth/modelhealth';
 import { DEFAULT_API_KEY } from './constants.js';
 
 let client = null;
@@ -10,7 +10,7 @@ let initPromise = null;
 /**
  * Initialize the SDK with an API key. Safe to call multiple times.
  * @param {string} [apiKey]
- * @returns {Promise<ModelHealthService>}
+ * @returns {Promise<ModelHealthClient>}
  */
 export async function initClient(apiKey = DEFAULT_API_KEY) {
   if (client)
@@ -19,7 +19,7 @@ export async function initClient(apiKey = DEFAULT_API_KEY) {
     return initPromise;
 
   initPromise = (async () => {
-    const c = new ModelHealthService({ apiKey });
+    const c = new ModelHealthClient({ apiKey });
     await c.init();
     client = c;
     return c;
@@ -29,7 +29,7 @@ export async function initClient(apiKey = DEFAULT_API_KEY) {
 }
 
 /**
- * @returns {ModelHealthService | null}
+ * @returns {ModelHealthClient | null}
  */
 export function getClient() {
   return client;

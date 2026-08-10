@@ -798,4 +798,18 @@ export interface ActivityMetrics {
     activityTypeId: number;
     groups: MetricsGroup[];
 }
+/**
+ * Identity information for the authenticated account.
+ *
+ * Returned by `ModelHealthClient.accountInfo()`.
+ */
+export interface AccountInfo {
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    institution?: string;
+    profession?: string;
+    country?: string;
+}
 //# sourceMappingURL=types.d.ts.map

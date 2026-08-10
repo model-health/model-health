@@ -8,7 +8,7 @@ struct SubjectCalibrationView: View {
     @State private var isCalibrating = false
     @State private var calibrationComplete = false
 
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     var body: some View {
         VStack(spacing: 20) {
@@ -82,7 +82,7 @@ struct SubjectCalibrationView: View {
 #Preview {
     NavigationStack {
         SubjectCalibrationView(subject: .forPreview(), session: .forPreview())
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }
 #endif

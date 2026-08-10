@@ -2,7 +2,7 @@ import SwiftUI
 import ModelHealth
 
 struct ActivityDataView: View {
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     let activity: Activity
 
@@ -267,6 +267,6 @@ private extension MotionData {
 #Preview {
     NavigationStack {
         ActivityDataView(activity: .forPreview())
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }

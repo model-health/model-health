@@ -1,4 +1,4 @@
-import type { Activity, ModelHealthService } from '@modelhealth/modelhealth';
+import type { Activity, ModelHealthClient } from '@modelhealth/modelhealth';
 import type { OverlayTransforms, MarkerTransforms, VisualizerTransforms } from './types.js';
 /**
  * Parses the wide-format marker CSV produced by the SDK's `markers_csv` motion
@@ -29,14 +29,14 @@ export declare function parseExternalSto(sto: string): OverlayTransforms;
  *
  * @throws If the activity has no `animation` result available.
  */
-export declare function fetchAnimationTransforms(client: ModelHealthService, activity: Activity): Promise<VisualizerTransforms>;
+export declare function fetchAnimationTransforms(client: ModelHealthClient, activity: Activity): Promise<VisualizerTransforms>;
 /**
  * Downloads and parses an activity's augmented marker positions.
  *
  * Returns `null` if no marker data is available, rather than throwing —
  * marker data is a supplementary overlay, not required for 3D playback.
  */
-export declare function fetchMarkerTransforms(client: ModelHealthService, activity: Activity): Promise<MarkerTransforms | null>;
+export declare function fetchMarkerTransforms(client: ModelHealthClient, activity: Activity): Promise<MarkerTransforms | null>;
 /**
  * Downloads the raw text of a `.sto` file tagged `` `${filename}-sync` `` for
  * an activity — `filename` is the tag you originally uploaded the file under;
@@ -45,5 +45,5 @@ export declare function fetchMarkerTransforms(client: ModelHealthService, activi
  * Returns `null` rather than throwing if it doesn't exist (or any other fetch
  * failure) — pair it with a specific parser, e.g. `parseExternalSto`.
  */
-export declare function fetchExternalSto(client: ModelHealthService, activity: Activity, filename: string): Promise<string | null>;
+export declare function fetchExternalSto(client: ModelHealthClient, activity: Activity, filename: string): Promise<string | null>;
 //# sourceMappingURL=adapters.d.ts.map

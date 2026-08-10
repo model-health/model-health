@@ -11,7 +11,7 @@ struct SubjectSelectionView: View {
     @State private var error: Error?
     @State private var showingCreateSubject = false
 
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     var body: some View {
         VStack(spacing: 0) {
@@ -187,7 +187,7 @@ struct SubjectRow: View {
 #Preview("List") {
     NavigationStack {
         SubjectSelectionView(session: .forPreview())
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }
 

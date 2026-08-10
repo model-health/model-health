@@ -2,7 +2,7 @@ import SwiftUI
 import ModelHealth
 
 struct CreateSessionView: View {
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     @State private var createdSession: Session?
     @State private var sessionForNavigation: Session?
@@ -115,6 +115,6 @@ private extension CreateSessionView {
 #Preview {
     NavigationStack {
         CreateSessionView()
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }

@@ -8,28 +8,37 @@
  *
  * @example Basic usage
  * ```typescript
- * import { ModelHealthService } from '@modelhealth/modelhealth';
+ * import { ModelHealthClient } from '@modelhealth/modelhealth';
  *
- * const client = new ModelHealthService({ apiKey: "your-api-key-here" });
+ * const client = new ModelHealthClient({ apiKey: 'your-api-key' });
  * await client.init();
  *
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, VideoUploadMode } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, VideoUploadMode } from "./types.js";
 /**
  * Configuration options for the Model Health client.
  */
 export interface ModelHealthConfig {
     /**
      * Your ModelHealth API key for authentication.
-     *
-     * This is required to use the SDK. Get your API key from the
-     * ModelHealth dashboard.
-     *
-     * Required.
      */
     apiKey: string;
+    /**
+     * Per-request timeout, in seconds, for JSON API calls.
+     *
+     * Bulk transfers (archive downloads, video uploads) are not bounded by it.
+     * When omitted, the build's default is used: 30s in production builds, 60s in
+     * development builds.
+     */
+    timeout?: number;
+    /**
+     * Number of retries on network/server errors.
+     *
+     * When omitted, the build's default is used (3).
+     */
+    maxRetries?: number;
     /**
      * Automatically initialize WASM on construction.
      *
@@ -46,47 +55,52 @@ export interface ModelHealthConfig {
  * Provides authentication, session management, data download,
  * and analysis capabilities.
  *
- * @example Create with API key
+ * @example
  * ```typescript
- * const client = new ModelHealthService({
- *   apiKey: "your-api-key-here"
- * });
+ * const client = new ModelHealthClient({ apiKey: 'your-api-key' });
  * await client.init();
  *
- * // SDK is ready to use
  * const sessions = await client.sessionList();
  * ```
  *
- * @example With custom configuration
+ * @example With an explicit key and custom configuration
  * ```typescript
- * const client = new ModelHealthService({
- *   apiKey: "your-api-key"
+ * const client = new ModelHealthClient({
+ *   apiKey: "your-api-key",
+ *   timeout: 10,
+ *   maxRetries: 1,
  * });
  * await client.init();
  * ```
  */
-export declare class ModelHealthService {
+export declare class ModelHealthClient {
     private wasmClient;
     private config;
     private initialized;
     /**
+     * Failure from a background `init()` started by `autoInit`, kept so the original
+     * error can be re-thrown from {@link ModelHealthClient.ensureInitialized} instead
+     * of a generic "not initialized" message.
+     */
+    private initError;
+    /**
      * Create a new Model Health client.
      *
-     * @param config Configuration options including API key
-     * @throws If API key is not provided
+     * @param config Configuration options. `apiKey` is required.
+     * @throws If the API key is empty.
      *
-     * @example Default configuration
+     * @example
      * ```typescript
-     * const client = new ModelHealthService({
-     *   apiKey: "your-api-key-here"
-     * });
+     * const client = new ModelHealthClient({ apiKey: "your-api-key" });
      * ```
      *
      * @example Custom configuration
      * ```typescript
-     * const client = new ModelHealthService({
+     * const client = new ModelHealthClient({
      *   apiKey: "your-api-key",
-     *   autoInit: false
+     *   timeout: 10,
+     *   maxRetries: 1,
+     *   autoInit: false,
      * });
      * ```
      */
@@ -97,14 +111,11 @@ export declare class ModelHealthService {
      * Must be called before using any other methods if `autoInit: false`
      * was specified in the configuration. Safe to call multiple times.
      *
-     * @throws If WASM initialization fails
+     * @throws If WASM initialization fails.
      *
      * @example
      * ```typescript
-     * const client = new ModelHealthService({
-     *   apiKey: "your-key",
-     *   autoInit: false
-     * });
+     * const client = new ModelHealthClient({ apiKey: "your-api-key", autoInit: false });
      * await client.init();
      * ```
      */
@@ -113,9 +124,26 @@ export declare class ModelHealthService {
      * Ensure the client is initialized.
      *
      * @private
-     * @throws If client is not initialized
+     * @throws The original failure if a background `autoInit` initialization failed,
+     *   otherwise a generic not-initialized error.
      */
     private ensureInitialized;
+    /**
+     * Verifies the API key and returns information about the authenticated account.
+     *
+     * A cheap way to check that the API key is valid without performing a domain
+     * operation.
+     *
+     * @returns Identity and licensing details for the authenticated account.
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const info = await client.accountInfo();
+     * console.log(`Authenticated as ${info.email}`);
+     * ```
+     */
+    accountInfo(): Promise<AccountInfo>;
     /**
      * Retrieves all sessions for the account associated with the API key.
      *
@@ -838,6 +866,16 @@ export declare class ModelHealthService {
      * @returns Parsed, camelised TypeScript object
      */
     private parseResponse;
+}
+/**
+ * Deprecated alias for {@link ModelHealthClient}.
+ *
+ * @deprecated Use {@link ModelHealthClient} instead. Kept for backward
+ * compatibility; will be removed no sooner than two minor releases and six
+ * months after this deprecation.
+ */
+export declare class ModelHealthService extends ModelHealthClient {
+    constructor(config: ModelHealthConfig);
 }
 /**
  * Serialise activity metrics to a JSON string (snake_case keys, matching the

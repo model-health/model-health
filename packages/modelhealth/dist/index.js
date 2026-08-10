@@ -8,9 +8,9 @@
  *
  * @example Basic usage
  * ```typescript
- * import { ModelHealthService } from '@modelhealth/modelhealth';
+ * import { ModelHealthClient } from '@modelhealth/modelhealth';
  *
- * const client = new ModelHealthService({ apiKey: "your-api-key-here" });
+ * const client = new ModelHealthClient({ apiKey: 'your-api-key' });
  * await client.init();
  *
  * const sessions = await client.sessionList();
@@ -175,6 +175,38 @@ async function detectOsVersion() {
         return undefined;
     }
 }
+// MARK: - API Key Resolution
+/**
+ * Applies the development-only key override, if this is a development build.
+ *
+ * Gathers the raw inputs available in Node — the `MODEL_HEALTH_API_KEY` environment value and
+ * the verbatim contents of a `.env` file in the working directory — and hands them to the
+ * shared Rust resolver, which decides which one wins. No precedence logic and no `.env`
+ * parsing lives here; the same function serves every binding.
+ *
+ * In a production build `isDevelopmentBuild()` is false and the `resolveApiKey` export does
+ * not exist, so the key is returned exactly as given. A browser has no `process.env` and no
+ * filesystem, so nothing is gathered there either.
+ * @internal
+ */
+async function applyDevKeyOverride(explicit) {
+    if (!wasmModule?.isDevelopmentBuild?.())
+        return explicit;
+    const isNode = typeof process !== "undefined" && Boolean(process.versions?.node);
+    if (!isNode)
+        return explicit;
+    const envValue = process.env.MODEL_HEALTH_API_KEY;
+    let dotEnvContents;
+    try {
+        const { readFile } = await import("fs/promises");
+        const path = await import("path");
+        dotEnvContents = await readFile(path.join(process.cwd(), ".env"), "utf-8");
+    }
+    catch {
+        dotEnvContents = undefined; // no .env, or unreadable — not an error
+    }
+    return wasmModule.resolveApiKey(explicit, envValue, dotEnvContents);
+}
 // MARK: - Key Transformation Utilities
 /**
  * Convert a single snake_case string to camelCase.
@@ -229,60 +261,72 @@ function decamelizeKeys(value) {
  * Provides authentication, session management, data download,
  * and analysis capabilities.
  *
- * @example Create with API key
+ * @example
  * ```typescript
- * const client = new ModelHealthService({
- *   apiKey: "your-api-key-here"
- * });
+ * const client = new ModelHealthClient({ apiKey: 'your-api-key' });
  * await client.init();
  *
- * // SDK is ready to use
  * const sessions = await client.sessionList();
  * ```
  *
- * @example With custom configuration
+ * @example With an explicit key and custom configuration
  * ```typescript
- * const client = new ModelHealthService({
- *   apiKey: "your-api-key"
+ * const client = new ModelHealthClient({
+ *   apiKey: "your-api-key",
+ *   timeout: 10,
+ *   maxRetries: 1,
  * });
  * await client.init();
  * ```
  */
-export class ModelHealthService {
+export class ModelHealthClient {
     /**
      * Create a new Model Health client.
      *
-     * @param config Configuration options including API key
-     * @throws If API key is not provided
+     * @param config Configuration options. `apiKey` is required.
+     * @throws If the API key is empty.
      *
-     * @example Default configuration
+     * @example
      * ```typescript
-     * const client = new ModelHealthService({
-     *   apiKey: "your-api-key-here"
-     * });
+     * const client = new ModelHealthClient({ apiKey: "your-api-key" });
      * ```
      *
      * @example Custom configuration
      * ```typescript
-     * const client = new ModelHealthService({
+     * const client = new ModelHealthClient({
      *   apiKey: "your-api-key",
-     *   autoInit: false
+     *   timeout: 10,
+     *   maxRetries: 1,
+     *   autoInit: false,
      * });
      * ```
      */
     constructor(config) {
         this.wasmClient = null;
         this.initialized = false;
+        /**
+         * Failure from a background `init()` started by `autoInit`, kept so the original
+         * error can be re-thrown from {@link ModelHealthClient.ensureInitialized} instead
+         * of a generic "not initialized" message.
+         */
+        this.initError = null;
         if (!config.apiKey) {
-            throw new ModelHealthError("API key is required. Provide it in the config: { apiKey: 'your-key' }");
+            throw new ModelHealthError("An API key is required. Pass apiKey in the config.");
         }
         this.config = {
             apiKey: config.apiKey,
+            // Left undefined when omitted so the core picks the build's default — hardcoding
+            // a value here would make the development build's 60s timeout unreachable.
+            timeout: config.timeout,
+            maxRetries: config.maxRetries,
             autoInit: config.autoInit ?? true,
         };
-        // Auto-initialize if requested
+        // Auto-initialize if requested. The rejection is retained (not just logged) so the
+        // real cause — e.g. a WASM load failure — surfaces from the first method
+        // call instead of being replaced by a generic "not initialized" error.
         if (this.config.autoInit) {
             this.init().catch((error) => {
+                this.initError = error;
                 console.error("Failed to auto-initialize Model Health client:", error);
             });
         }
@@ -293,14 +337,11 @@ export class ModelHealthService {
      * Must be called before using any other methods if `autoInit: false`
      * was specified in the configuration. Safe to call multiple times.
      *
-     * @throws If WASM initialization fails
+     * @throws If WASM initialization fails.
      *
      * @example
      * ```typescript
-     * const client = new ModelHealthService({
-     *   apiKey: "your-key",
-     *   autoInit: false
-     * });
+     * const client = new ModelHealthClient({ apiKey: "your-api-key", autoInit: false });
      * await client.init();
      * ```
      */
@@ -308,31 +349,59 @@ export class ModelHealthService {
         if (this.initialized)
             return;
         await initWasm();
-        // Create the WASM client with API key. The remaining arguments are best-effort
-        // environment detection used only for a one-shot "SDK initialized" telemetry beacon.
+        // No-op in a production build; see `applyDevKeyOverride`.
+        this.config.apiKey = await applyDevKeyOverride(this.config.apiKey);
+        // Create the WASM client with API key + transport config. The telemetry-related
+        // arguments are best-effort environment detection used only for a one-shot
+        // "SDK initialized" beacon.
         try {
             const runtime = detectRuntime();
             const platform = detectPlatform(runtime);
             const runtimeVersion = runtime === "node" ? detectNodeVersion() : detectBrowser().version;
             const browser = runtime === "browser" ? detectBrowser().browser : undefined;
             const osVersion = await detectOsVersion();
-            this.wasmClient = wrapWasmErrors(new wasmModule.ModelHealthService(this.config.apiKey, "typescript", platform, runtime, runtimeVersion, browser, osVersion));
+            this.wasmClient = wrapWasmErrors(new wasmModule.ModelHealthClient(this.config.apiKey, "typescript", platform, runtime, runtimeVersion, browser, osVersion, this.config.timeout, this.config.maxRetries));
         }
         catch (error) {
             throw mapModelHealthError(error);
         }
         this.initialized = true;
+        this.initError = null; // a manual retry succeeded — drop any earlier autoInit failure
     }
     /**
      * Ensure the client is initialized.
      *
      * @private
-     * @throws If client is not initialized
+     * @throws The original failure if a background `autoInit` initialization failed,
+     *   otherwise a generic not-initialized error.
      */
     ensureInitialized() {
         if (!this.initialized) {
+            if (this.initError !== null) {
+                throw this.initError;
+            }
             throw new ModelHealthError("Model Health client not initialized. Call init() before using the client.");
         }
+    }
+    /**
+     * Verifies the API key and returns information about the authenticated account.
+     *
+     * A cheap way to check that the API key is valid without performing a domain
+     * operation.
+     *
+     * @returns Identity and licensing details for the authenticated account.
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const info = await client.accountInfo();
+     * console.log(`Authenticated as ${info.email}`);
+     * ```
+     */
+    async accountInfo() {
+        this.ensureInitialized();
+        const result = await this.wasmClient.accountInfo();
+        return this.parseResponse(result);
     }
     // MARK: - Authentication
     // MARK: - Sessions
@@ -1230,6 +1299,29 @@ export class ModelHealthService {
     parseResponse(value) {
         const parsed = typeof value === "string" ? JSON.parse(value) : value;
         return camelizeKeys(parsed);
+    }
+}
+/**
+ * Whether the `ModelHealthService` deprecation notice has already been printed.
+ *
+ * Warning once per process mirrors Python's `warnings.warn`, which dedupes by default,
+ * and keeps a loop that constructs many clients from flooding the console.
+ */
+let hasWarnedServiceDeprecated = false;
+/**
+ * Deprecated alias for {@link ModelHealthClient}.
+ *
+ * @deprecated Use {@link ModelHealthClient} instead. Kept for backward
+ * compatibility; will be removed no sooner than two minor releases and six
+ * months after this deprecation.
+ */
+export class ModelHealthService extends ModelHealthClient {
+    constructor(config) {
+        super(config);
+        if (!hasWarnedServiceDeprecated) {
+            hasWarnedServiceDeprecated = true;
+            console.warn("ModelHealthService is deprecated and will be removed in a future release; use ModelHealthClient instead.");
+        }
     }
 }
 /**

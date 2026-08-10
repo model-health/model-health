@@ -3,7 +3,7 @@ import AVKit
 import ModelHealth
 
 struct ActivityVideoView: View {
-    @EnvironmentObject private var modelHealth: ModelHealthService
+    @EnvironmentObject private var modelHealth: ModelHealthClient
 
     let activity: Activity
 
@@ -195,6 +195,6 @@ struct VideoPlayerCard: View {
 #Preview {
     NavigationStack {
         ActivityVideoView(activity: .forPreview())
-            .environmentObject(ModelHealthService(serviceProvider: MockModelHealthProvider()))
+            .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
     }
 }
