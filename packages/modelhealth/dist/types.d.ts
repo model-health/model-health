@@ -748,10 +748,10 @@ export type SessionDataSharing =
  * @example
  * ```typescript
  * // All defaults
- * await service.configureSession(session, {});
+ * await client.configureSession(session, {});
  *
  * // Override frame rate and data sharing only
- * await service.configureSession(session, {
+ * await client.configureSession(session, {
  *   framerate: 60,
  *   dataSharing: "Share no data"
  * });

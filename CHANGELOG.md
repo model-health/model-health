@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1
+
+### Changed
+
+- The API reference for all three bindings now refers to `ModelHealthClient` rather than the deprecated `ModelHealthService`, including code examples and the Python `UnsupportedOperationError` description.
+
+### Fixed
+
+- Swift: the 0.9.x line is now installable via SwiftPM. 0.9.0 shipped to npm and PyPI but was never tagged in the Swift package repository, so `from: "0.9.0"` could not resolve — it now resolves to 0.9.1.
+
 ## 0.9.0
 
 ### Added

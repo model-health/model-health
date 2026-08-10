@@ -5,7 +5,7 @@ import ModelHealth
 @main
 struct ModelHealthDemoApp: App {
     // swiftlint:disable:next force_try
-    private let service = try! ModelHealthClient(apiKey: ExampleConfig.apiKey)
+    private let client = try! ModelHealthClient(apiKey: ExampleConfig.apiKey)
 
     @State private var showSplash = true
 
@@ -15,7 +15,7 @@ struct ModelHealthDemoApp: App {
                 NavigationStack {
                     SessionListView()
                 }
-                .environmentObject(service)
+                .environmentObject(client)
 
                 if showSplash {
                     SplashView()

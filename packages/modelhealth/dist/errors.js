@@ -65,7 +65,7 @@ export class CalibrationError extends ModelHealthError {
         this.name = "CalibrationError";
     }
 }
-/** The requested operation isn't supported by this service configuration. */
+/** The requested operation isn't supported by this client configuration. */
 export class UnsupportedOperationError extends ModelHealthError {
     constructor(message, code, subCode, statusCode) {
         super(message, code, subCode, statusCode);

@@ -43,7 +43,7 @@ export declare class NetworkError extends ModelHealthError {
 export declare class CalibrationError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
-/** The requested operation isn't supported by this service configuration. */
+/** The requested operation isn't supported by this client configuration. */
 export declare class UnsupportedOperationError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
