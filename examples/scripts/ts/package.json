@@ -9,6 +9,7 @@
     "activity-analysis": "tsx activity_analysis.ts",
     "archive-session": "tsx archive_session.ts",
     "update-activity": "tsx update_activity.ts",
+    "fetch-subject": "tsx fetch_subject.ts",
     "activity-metrics": "tsx activity_metrics.ts",
     "video-upload-mode": "tsx video_upload_mode.ts"
   },
