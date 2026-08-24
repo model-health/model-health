@@ -79,6 +79,15 @@ activity name and/or tags via `update_activity`.
 python3 update_activity.py [<api_key>]
 ```
 
+### `fetch_subject.py` — Fetch a subject by ID
+
+Selects a subject, then re-fetches it by ID via `fetch_subject` and prints
+its details.
+
+```bash
+python3 fetch_subject.py [<api_key>]
+```
+
 ### `archive_session.py` — Session archive download
 
 Requests preparation of a session archive and downloads the resulting ZIP file.

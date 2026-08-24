@@ -34,6 +34,7 @@ let package = Package(
         script("ActivityAnalysis"),
         script("ActivityMetrics"),
         script("UpdateActivity"),
+        script("FetchSubject"),
         script("ArchiveSession"),
         script("VideoUploadMode")
     ]
