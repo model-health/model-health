@@ -23,15 +23,15 @@ export declare class ModelHealthError extends Error {
 export declare class AuthenticationError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
-/** The requested resource (session, activity, subject, etc.) does not exist (HTTP 404). */
+/** The requested resource (session, activity, subject, etc.) does not exist. */
 export declare class NotFoundError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
-/** The server rejected the request (HTTP 400–499, other than 401/403/404). */
+/** The request was rejected (status 400–499, other than 401/403/404). */
 export declare class ClientError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
-/** The server failed to process the request (HTTP 500–599). */
+/** The request could not be completed (status 500–599). */
 export declare class ServerError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }

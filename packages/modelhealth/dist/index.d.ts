@@ -18,6 +18,39 @@
  */
 import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, VideoUploadMode } from "./types.js";
 /**
+ * Recursively convert all object keys from snake_case to camelCase.
+ * Used to normalize WASM responses to idiomatic TypeScript.
+ * @internal
+ */
+declare function camelizeKeys(value: unknown): unknown;
+/**
+ * Recursively converts known timestamp fields found anywhere in the response tree to
+ * `Date`, in place.
+ *
+ * A field is skipped if it isn't a string, or doesn't parse as a valid date — nothing
+ * here throws.
+ *
+ * `Date` only has millisecond resolution, so a timestamp with microseconds
+ * (`"...804362Z"`) loses precision (`"...804Z"`) — a JS platform limit, not something
+ * this function can avoid.
+ * @internal
+ */
+declare function parseDates(value: unknown): unknown;
+/**
+ * Recursively convert all object keys from camelCase to snake_case.
+ * Used to convert TypeScript inputs back to the format expected by the WASM layer.
+ *
+ * `Date` is serialized to its ISO-8601 string before the generic object branch would
+ * otherwise flatten it to `{}` — `Object.entries(new Date())` is `[]`, since a `Date`
+ * stores its value internally rather than as an enumerable own property. Without this,
+ * any response object obtained from the SDK (whose date fields are converted to `Date`
+ * in place by `parseDates`) would fail to round-trip through
+ * `calibrateSubject`/`importSession`: the `Date` field arrives at core as `{}`, which
+ * fails to deserialize as an RFC-3339 timestamp.
+ * @internal
+ */
+declare function decamelizeKeys(value: unknown): unknown;
+/**
  * Configuration options for the Model Health client.
  */
 export interface ModelHealthConfig {
@@ -34,7 +67,7 @@ export interface ModelHealthConfig {
      */
     timeout?: number;
     /**
-     * Number of retries on network/server errors.
+     * Number of retries on transient network or request failures.
      *
      * When omitted, the build's default is used (3).
      */
@@ -318,6 +351,23 @@ export declare class ModelHealthClient {
      */
     subjectList(): Promise<Subject[]>;
     /**
+     * Retrieves a subject by its ID.
+     *
+     * Use this to resolve a subject ID (e.g. from `Session.subject`) into full
+     * subject details without fetching the entire subject list.
+     *
+     * @param subjectId The unique identifier of the subject.
+     * @returns The `Subject` with its current details.
+     * @throws If the subject doesn't exist or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const subject = await client.fetchSubject(session.subject);
+     * console.log(`Subject: ${subject.name}`);
+     * ```
+     */
+    fetchSubject(subjectId: number): Promise<Subject>;
+    /**
      * Creates a subject profile.
      *
      * Height and weight are required for biomechanical analysis. Once created, the subject
@@ -358,7 +408,6 @@ export declare class ModelHealthClient {
      * @param start Optional start date (`YYYY-MM-DD`) to filter the results to a date range.
      * @param end Optional end date (`YYYY-MM-DD`) to filter the results to a date range.
      * @returns An array of `Activity` objects, or an empty array if none exist.
-     * @throws If `start` or `end` is set and the client isn't configured for API v2.
      * @throws If the request fails due to network or authentication issues.
      *
      * @example
@@ -402,12 +451,12 @@ export declare class ModelHealthClient {
     /**
      * Updates an activity.
      *
-     * Only mutable fields (such as `name`) are applied on the server. The server-side
+     * Only mutable fields (such as `name`) are applied. The stored
      * state is returned, so use the result rather than the input going forward.
      *
      * @param activity The activity to update, with modified properties.
      * @param config Optional config to apply alongside the update (e.g. `addTags`/`removeTags` to modify tags).
-     * @returns The updated `Activity` as stored on the server.
+     * @returns The updated `Activity` as stored.
      * @throws If the update fails or the request fails.
      *
      * @example
@@ -688,7 +737,7 @@ export declare class ModelHealthClient {
      * @param activity The activity to attach files to.
      * @param files The external files to attach, with tag, file extension and data.
      * @returns The refreshed `Activity` containing the newly created result entries.
-     * @throws If any upload fails, a tag is reserved or duplicated, or the server is unreachable.
+     * @throws If any upload fails, a tag is reserved or duplicated, or the network is unavailable.
      *
      * @example
      * ```typescript
@@ -744,7 +793,7 @@ export declare class ModelHealthClient {
     /**
      * Begins preparing a session archive.
      *
-     * Kicks off a server-side task that packages the session data into a ZIP file.
+     * Packaging the session data into a ZIP file starts in the background.
      * Poll `archiveStatus` until the status is `ready`, then download the archive
      * with `archiveData`.
      *
@@ -815,7 +864,7 @@ export declare class ModelHealthClient {
      * Fetch dashboard metrics for a single activity.
      *
      * @param activityId UUID of the activity.
-     * @returns The dashboard metrics organised into category groups.
+     * @returns The dashboard metrics organized into category groups.
      * @throws On network failure or if the activity is not found.
      *
      * @example
@@ -855,9 +904,9 @@ export declare class ModelHealthClient {
      */
     setVideoUploadMode(mode: VideoUploadMode): Promise<void>;
     /**
-     * Parse a WASM response and normalise object keys to camelCase.
+     * Parse a WASM response and normalize object keys to camelCase.
      *
-     * Normalises snake_case field names from the WASM layer to idiomatic
+     * Normalizes snake_case field names from the WASM layer to idiomatic
      * TypeScript camelCase before
      * returning to the caller.
      *
@@ -878,7 +927,7 @@ export declare class ModelHealthService extends ModelHealthClient {
     constructor(config: ModelHealthConfig);
 }
 /**
- * Serialise activity metrics to a JSON string (snake_case keys, matching the
+ * Serialize activity metrics to a JSON string (snake_case keys, matching the
  * wire format shared with the Python and Swift SDKs).
  *
  * Pretty-printed (indented) by default; pass `pretty=false` for compact output.
@@ -886,4 +935,16 @@ export declare class ModelHealthService extends ModelHealthClient {
 export declare function activityMetricsToJson(metrics: ActivityMetrics, pretty?: boolean): string;
 export * from "./types.js";
 export * from "./errors.js";
+/**
+ * Internal response-transform pipeline, exported only so `tests/` can exercise it
+ * directly and in the same order `parseResponse` uses in practice — see
+ * `parseResponse` above for the composition. Not part of the public API: no
+ * compatibility guarantee, may change or disappear without notice.
+ * @internal
+ */
+export declare const __internal: {
+    camelizeKeys: typeof camelizeKeys;
+    decamelizeKeys: typeof decamelizeKeys;
+    parseDates: typeof parseDates;
+};
 //# sourceMappingURL=index.d.ts.map
