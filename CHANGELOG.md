@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.10.0
+
+### Added
+
+- `fetch(subject:)` / `fetchSubject` / `fetch_subject` — retrieves a single subject by ID, without fetching the full subject list.
+
+### Breaking
+
+- The default OpenSim model is now `laiUhlrich2022`/`LaiUhlrich2022`/`lai_uhlrich_2022`. Sessions created without an explicit
+  `opensimModel` / `opensim_model` are processed without the ISB shoulder complex. 
+  
+  Pass `laiUhlrich2022Shoulder`/`LaiUhlrich2022_shoulder`/`lai_uhlrich_2022_shoulder` explicitly to `SessionConfig` to keep the
+  previous behavior.
+
+- `Activity.created_at`/`createdAt` and `updated_at`/`updatedAt` (Python, TypeScript) are now real `datetime`/`Date`
+  objects instead of strings, matching Swift, which already used `Date`. `Session.created_at`/`createdAt` and
+  `updated_at`/`updatedAt` change the same way.
+
+- `Subject.gender`/`gender` and `sex_at_birth`/`sexAtBirth` are now optional (`None`/`nil`/`undefined` when the subject
+  declined to answer or no value is available), instead of collapsing that case into a `no_response` value. All three
+  bindings.
+
+- `Subject.height` now returns centimeters, matching `SubjectParameters.height` (the value you write) and its own
+  documentation. It previously returned meters — a long-standing bug, not an intentional unit change. Code that compensated
+  by multiplying the result by 100 will now silently get a value 100x too large.
+
+- `Activity.activity_type`/`activityType` is now the full record as reported (`{id, name, display_name}`) instead of
+  a fixed string enum — it survives a type this SDK build doesn't otherwise recognize, and code reading it as a string needs
+  to switch to reading `.name`/`.id`/`.display_name` instead. All three bindings.
+
+- TypeScript: `Activity.tags`, `Activity.trashed`, and `Subject.tags` are non-optional. Code that builds an
+  `Activity`/`Session`/`Subject` object literal (rather than only reading one the SDK returned) now needs to supply them
+  to type-check.
+
+### Added
+
+- `Activity`: `notes`, `created_by`/`createdBy`, `analysis_status`/`analysisStatus`, `trashed`. All three bindings.
+
+- `Subject`: `first_name`/`firstName`, `last_name`/`lastName`, `tags`, `activity_count`/`activityCount`, `last_activity`/`lastActivity`, `created_at`/`createdAt`, `updated_at`/`updatedAt`. All three bindings. The three timestamps are real `datetime`/`Date` objects, not strings.
+
+- Python: `Gender`, `Sex` enum types.
+
+### Fixed
+
+- TypeScript: `Activity` was missing `tags` in its type definition — `updateActivity` wiped stored tags on every call.
+
+- Python: `Subject.age` was dropped when calibrating a subject or importing a session.
+
+- Swift: two memory leaks freeing `created_at`/`updated_at` in the activity and session arrays.
+
 ## 0.9.1
 
 ### Changed

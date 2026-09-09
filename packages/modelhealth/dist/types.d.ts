@@ -31,10 +31,14 @@ export interface Session {
     sessionName: string;
     qrcode?: string;
     activities: Activity[];
+    /** ID of the subject this session belongs to, if assigned. A bare ID, not a
+     * {@link Subject} object. */
     subject?: number;
     activitiesCount: number;
-    createdAt: string;
-    updatedAt: string;
+    /** When this session was created. */
+    createdAt: Date;
+    /** When this session was last updated. */
+    updatedAt: Date;
 }
 /**
  * Gender identity options for subject demographics.
@@ -60,12 +64,32 @@ export interface Subject {
     id: number;
     name: string;
     weight?: number;
+    /** Centimeters. */
     height?: number;
     age?: number;
     birthYear?: number;
-    gender: Gender;
-    sexAtBirth: Sex;
+    /** Gender identity as reported, or `undefined` if the subject declined to answer or no value is available. */
+    gender?: Gender;
+    /** Sex assigned at birth as reported, or `undefined` if the subject declined to answer or no value is available. */
+    sexAtBirth?: Sex;
     characteristics: string;
+    /** Given name, if reported. Not always available. */
+    firstName?: string;
+    /** Family name, if reported. Not always available. */
+    lastName?: string;
+    /** Tags attached to the subject. */
+    tags: string[];
+    /** Number of activities recorded, excluding calibration and neutral trials.
+     * `undefined` if not reported.
+     */
+    activityCount?: number;
+    /** Timestamp of the subject's most recent activity, if they have one and it was
+     * reported. */
+    lastActivity?: Date;
+    /** When this subject record was created, if reported. */
+    createdAt?: Date;
+    /** When this subject record was last modified, if reported. */
+    updatedAt?: Date;
 }
 /**
  * Parameters for creating a new subject.
@@ -121,15 +145,45 @@ export interface Video {
  */
 export interface Activity {
     id: string;
+    /** ID of the parent session. A bare ID, not a {@link Session} object. */
     session: string;
     name?: string;
     status: string;
     videos: Video[];
     results: ActivityResult[];
-    /** The activity type associated with this recording, if one was set. */
-    activityType?: ActivityType;
-    createdAt: string;
-    updatedAt: string;
+    /** The activity type as reported, if one was set.
+     *
+     * Carries `{id, name, displayName}` through unchanged — including a type this
+     * SDK build doesn't recognize.
+     */
+    activityType?: ActivityTypeInfo;
+    /** Tags attached to the activity. */
+    tags: string[];
+    /** Free-text notes attached to the activity, if any. */
+    notes?: string;
+    /** Username of the account that owns the parent session, if known. */
+    createdBy?: string;
+    /** State of the analysis pipeline: `"processing"`, `"done"`, `"error"`, or
+     * `undefined` when this activity was not loaded through a path that reports it
+     * (for example, nested inside a session).
+     */
+    analysisStatus?: string;
+    /** Whether the activity is in the trash. */
+    trashed: boolean;
+    /** When this activity was created. */
+    createdAt: Date;
+    /** When this activity was last updated. */
+    updatedAt: Date;
+}
+/** The activity type as reported, carrying `{id, name, displayName}` through
+ * unchanged — including a type this SDK build doesn't otherwise recognize.
+ */
+export interface ActivityTypeInfo {
+    id: number;
+    /** Machine name, e.g. `"counter_movement_jump"`. */
+    name: string;
+    /** Human-readable label, e.g. `"Counter Movement Jump"`. */
+    displayName: string;
 }
 /**
  * Sort order for activity lists.
@@ -162,7 +216,7 @@ export type ActivitySort = "updated_at";
  * ```
  */
 export interface ActivityTag {
-    /** The API value used to identify the tag. */
+    /** Machine-readable tag identifier. */
     value: string;
     /** The human-readable display label. */
     label: string;
@@ -290,7 +344,7 @@ export interface MotionData {
  * ```
  */
 export interface ExternalResultFile {
-    /** Identifies the data source on the server. */
+    /** Identifies the data source. */
     tag: string;
     /** Bare file extension without a leading dot (e.g. `"csv"`, `"bin"`, `"json"`). */
     extension: string;
@@ -435,7 +489,7 @@ export type CalibrationStatus =
     uploaded: number;
     total: number;
 }
-/** The server is processing the uploaded videos. */
+/** The uploaded videos are being processed. */
  | {
     type: "processing";
     percent?: number;
@@ -627,7 +681,7 @@ export type ArchiveStatus =
  * ```
  */
 export type ImportStatus = 
-/** A new session is being created on the server. */
+/** A new session is being created. */
 {
     type: "creating_session";
 }
@@ -643,7 +697,7 @@ export type ImportStatus =
     uploaded: number;
     total: number;
 }
-/** Videos have been uploaded and the server is processing the trial. */
+/** Videos have been uploaded and the trial is being processed. */
  | {
     type: "processing";
 };
@@ -663,10 +717,10 @@ export type SessionFramerate = 60 | 120 | 240;
 /**
  * OpenSim musculoskeletal model used for biomechanical analysis.
  *
- * - `"LaiUhlrich2022_shoulder"` (default) — Full-body model with 33 degrees of freedom
+ * - `"LaiUhlrich2022_shoulder"` — Full-body model with 33 degrees of freedom
  *   plus a 6-DoF shoulder complex with a scapulothoracic body and a glenohumeral joint
  *   using the ISB-recommended Y-X-Y rotation sequence.
- * - `"LaiUhlrich2022"` — Same full-body model without the ISB shoulder complex.
+ * - `"LaiUhlrich2022"` (default) — Same full-body model without the ISB shoulder complex.
  *
  * @group Enumerations
  */
@@ -693,15 +747,15 @@ export type SessionCoreEngine = "v0.2" | "v0.3" | "v1.0";
 /**
  * Frequency of the low-pass Butterworth filter applied to 2D video keypoints.
  *
- * Use `{ type: "default" }` to let the server choose the optimal frequency
- * (20 Hz by default), or `{ type: "hz", value: N }` to specify a frequency in Hz.
+ * Use `{ type: "default" }` for the automatically chosen optimal frequency
+ * (usually 20 Hz), or `{ type: "hz", value: N }` to specify a frequency in Hz.
  * A custom value applies to all motion trials in the session. Per the Nyquist
- * theorem the value must be less than half the session framerate; if it exceeds
- * that the server clamps it automatically.
+ * theorem the value must be less than half the session framerate; a higher
+ * value is clamped automatically.
  *
  * @example
  * ```typescript
- * // Server-chosen frequency
+ * // Automatically chosen frequency
  * const freq: FilterFrequency = { type: "default" };
  *
  * // Explicit 6 Hz
@@ -711,7 +765,7 @@ export type SessionCoreEngine = "v0.2" | "v0.3" | "v1.0";
  * @group Enumerations
  */
 export type FilterFrequency = 
-/** Let the server choose the optimal filter frequency. The server uses 20 Hz by default. */
+/** Use the automatically chosen optimal filter frequency. Usually 20 Hz. */
 {
     type: "default";
 }
@@ -723,7 +777,7 @@ export type FilterFrequency =
 /**
  * Data-sharing preference for a session.
  *
- * Session data and videos are uploaded to a secure cloud server for processing.
+ * Session data and videos are uploaded securely to Model Health for processing.
  * This setting controls what Model Health can use for internal development.
  * Identified videos contain original footage with faces unblurred; de-identified
  * videos have faces blurred. Processed data (e.g. joint angles) is always
@@ -760,7 +814,7 @@ export type SessionDataSharing =
 export interface SessionConfig {
     /** Camera frame rate in fps. Default: `120`. */
     framerate?: SessionFramerate;
-    /** OpenSim musculoskeletal model. Default: `"LaiUhlrich2022_shoulder"`. */
+    /** OpenSim musculoskeletal model. Default: `"LaiUhlrich2022"`. */
     opensimModel?: SessionOpenSimModel;
     /** Pose used for subject scaling. Default: `"upright_standing_pose"`. */
     scalingSetup?: SessionScalingSetup;
@@ -786,13 +840,13 @@ export interface Metric {
     description?: string;
     value: MetricValue;
 }
-/** A category group that organises related metrics on a dashboard. */
+/** A category group that organizes related metrics on a dashboard. */
 export interface MetricsGroup {
     name: string;
     description?: string;
     metrics: Metric[];
 }
-/** All dashboard metrics for a single activity, organised into category groups. */
+/** All dashboard metrics for a single activity, organized into category groups. */
 export interface ActivityMetrics {
     activityId: string;
     activityTypeId: number;
