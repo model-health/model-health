@@ -13,7 +13,7 @@ import type {
 } from '@modelhealth/modelhealth';
 import {
   loadApiKey, ANALYSIS_DATA_EXT,
-  pickOne, confirm, prompt, saveFile, pollAnalysis, sleep, closePrompts,
+  pickOne, confirm, prompt, saveFile, pollAnalysis, sleep, closePrompts, attachLogging,
 } from './_shared.js';
 
 const CB_WIDTH = 48;
@@ -122,6 +122,7 @@ async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 
@@ -189,7 +190,7 @@ async function calibrateCameras(
 
 async function pickOrCreateSubject(client: ModelHealthClient) {
   console.log('\nFetching subjects...');
-  const subjects = await client.subjectList();
+  const subjects = await client.subjects.list().all();
 
   if (subjects.length > 0 && await confirm(`Found ${subjects.length} subject(s). Select an existing one?`, true)) {
     console.log();

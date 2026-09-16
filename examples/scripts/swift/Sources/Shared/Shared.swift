@@ -75,6 +75,22 @@ public func saveFile(named filename: String, data: Data) -> String {
     return url.path
 }
 
+// MARK: - Logging
+
+/// Registers a log handler that prints SDK log events to stdout.
+///
+/// Call this right after constructing a client to see session, recording,
+/// calibration, and analysis lifecycle events as they happen.
+public func attachLogging(_ client: ModelHealthClient) {
+    do {
+        try client.setLogHandler { event in
+            print("[modelhealth] \(event.code): \(event.message)")
+        }
+    } catch {
+        fputs("Could not attach log handler: \(error)\n", stderr)
+    }
+}
+
 // MARK: - Polling
 
 public func pollAnalysis(client: ModelHealthClient, task: Analysis) async throws -> AnalysisStatus {

@@ -9,8 +9,8 @@
 import { ModelHealthClient, ActivityType } from '@modelhealth/modelhealth';
 import type { VideoVersion, MotionDataType, AnalysisDataType } from '@modelhealth/modelhealth';
 import {
-  loadApiKey, INTERNAL_ACTIVITY_NAMES, MOTION_DATA_EXT, ANALYSIS_DATA_EXT,
-  pickOne, pickMulti, saveFile, closePrompts,
+  loadApiKey, INTERNAL_ACTIVITY_NAMES, motionDataFile, ANALYSIS_DATA_EXT,
+  pickOne, pickMulti, saveFile, closePrompts, attachLogging,
 } from './_shared.js';
 
 const VIDEO_VERSIONS: [VideoVersion, string][] = [
@@ -34,6 +34,7 @@ async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting to Model Health...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 
@@ -64,7 +65,7 @@ async function pickActivity(client: ModelHealthClient, session: Awaited<ReturnTy
   const activity = await pickOne(
     activities,
     'Select activity',
-    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '') + `  updated: ${a.updatedAt}`
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType.displayName}` : '') + `  updated: ${a.updatedAt}`
   );
   return { activity, allActivities };
 }
@@ -121,8 +122,8 @@ async function downloadMotionData(
   }
 
   for (const r of motionResults) {
-    const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
-    const p = saveFile(`${slug}_${r.type}.${ext}`, r.data);
+    const { name, extension } = motionDataFile(r.type);
+    const p = saveFile(`${slug}_${name}.${extension}`, r.data);
     console.log(`  Saved: ${p}`);
   }
 }
@@ -167,8 +168,8 @@ async function downloadNeutralModel(
 
   const modelResults = await client.motionDataForActivity(neutral, ['model']);
   for (const r of modelResults) {
-    const ext = MOTION_DATA_EXT[r.type] ?? 'bin';
-    const p = saveFile(`neutral_${r.type}.${ext}`, r.data);
+    const { name, extension } = motionDataFile(r.type);
+    const p = saveFile(`neutral_${name}.${extension}`, r.data);
     console.log(`  Saved: ${p}`);
   }
 }

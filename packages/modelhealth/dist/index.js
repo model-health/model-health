@@ -17,6 +17,7 @@
  * ```
  */
 import { ModelHealthError, mapModelHealthError } from "./errors.js";
+import { ItemStream } from "./streams.js";
 let wasmModule = null;
 let wasmInitialized = false;
 let wasmInitPromise = null;
@@ -243,7 +244,7 @@ function camelizeKeys(value) {
  * `Date` in place.
  * @internal
  */
-const DATE_FIELDS = ["createdAt", "updatedAt", "lastActivity"];
+const DATE_FIELDS = ["createdAt", "updatedAt", "lastActivity", "trashedAt"];
 /**
  * Recursively converts known timestamp fields found anywhere in the response tree to
  * `Date`, in place.
@@ -303,6 +304,34 @@ function decamelizeKeys(value) {
     return value;
 }
 /**
+ * Formats a filter date param as a bare `YYYY-MM-DD` string, the shape every
+ * date-range filter expects.
+ *
+ * Read off the date's own components rather than through `toISOString()`, which
+ * would answer in UTC: `new Date(2025, 0, 1)` is written to mean the first of
+ * January, and east of UTC that instant lands on the previous day — so the
+ * filter would quietly start a day early, with a well-formed date nothing
+ * downstream could object to.
+ * @internal
+ */
+function formatFilterDate(value) {
+    if (value === undefined || typeof value === "string") {
+        return value;
+    }
+    const pad = (part) => String(part).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+/**
+ * Converts a customer-facing `orderBy` value (camelCase, optionally `-`-prefixed)
+ * to the snake_case field name the core layer validates against.
+ * @internal
+ */
+function formatOrderBy(orderBy) {
+    if (orderBy === undefined)
+        return undefined;
+    return orderBy.startsWith("-") ? `-${camelToSnake(orderBy.slice(1))}` : camelToSnake(orderBy);
+}
+/**
  * Model Health SDK Client for biomechanical analysis.
  *
  * Main entry point for interacting with the Model Health SDK.
@@ -327,6 +356,155 @@ function decamelizeKeys(value) {
  * await client.init();
  * ```
  */
+/**
+ * Filtered access to activities.
+ *
+ * Returned by {@link ModelHealthClient.activities} — do not construct directly.
+ */
+export class ActivitiesResource {
+    /** @internal */
+    constructor(client) {
+        this.client = client;
+    }
+    /**
+     * Lazily lists activities matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * const activities = client.activities.list({
+     *   subject,
+     *   activityType: ActivityType.Squats,
+     *   createdAfter: new Date("2026-01-01"),
+     *   orderBy: "-createdAt",
+     * });
+     * for await (const activity of activities) {
+     *   console.log(activity.name);
+     * }
+     *
+     * const total = await client.activities.list({ tags: ["study-a"] }).total;
+     * const all = await client.activities.list({ tags: ["study-a"] }).all();
+     * ```
+     */
+    list(options = {}) {
+        const subjectId = typeof options.subject === "object" ? options.subject.id : options.subject;
+        const calibrationSessionId = typeof options.calibrationSession === "object" ? options.calibrationSession.id : options.calibrationSession;
+        const excludeCalibration = options.excludeCalibration ?? true;
+        const createdAfter = formatFilterDate(options.createdAfter);
+        const createdBefore = formatFilterDate(options.createdBefore);
+        const orderBy = formatOrderBy(options.orderBy);
+        return this.client._activitiesStream({
+            subject_id: subjectId,
+            calibration_session_id: calibrationSessionId,
+            activity_type: options.activityType,
+            exclude_calibrate: excludeCalibration,
+            exclude_neutral: excludeCalibration,
+            created_after: createdAfter,
+            created_before: createdBefore,
+            search: options.search,
+            tags: options.tags,
+            created_by: options.createdBy,
+            only_completed: options.onlyCompleted ?? false,
+            exclude_analysis_error: options.excludeAnalysisError ?? false,
+        }, orderBy, options.limit);
+    }
+}
+/**
+ * Filtered access to subjects.
+ *
+ * Returned by {@link ModelHealthClient.subjects} — do not construct directly.
+ */
+export class SubjectsResource {
+    /** @internal */
+    constructor(client) {
+        this.client = client;
+    }
+    /**
+     * Lazily lists subjects matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * const subjects = client.subjects.list({ search: "Falisse", tags: ["study-a"] });
+     * for await (const subject of subjects) {
+     *   console.log(subject.name);
+     * }
+     *
+     * const total = await client.subjects.list({ tags: ["study-a"] }).total;
+     * const all = await client.subjects.list({ tags: ["study-a"] }).all();
+     * ```
+     */
+    list(options = {}) {
+        const sessionId = typeof options.session === "object" ? options.session.id : options.session;
+        const createdAfter = formatFilterDate(options.createdAfter);
+        const createdBefore = formatFilterDate(options.createdBefore);
+        const orderBy = formatOrderBy(options.orderBy);
+        return this.client._subjectsStream({
+            search: options.search,
+            created_after: createdAfter,
+            created_before: createdBefore,
+            groups: options.groups,
+            tags: options.tags,
+            created_by: options.createdBy,
+            activity_type: options.activityType,
+            activity_complete: options.activityComplete,
+            session_id: sessionId,
+        }, orderBy, options.limit);
+    }
+}
+/**
+ * Filtered access to sessions.
+ *
+ * Returned by {@link ModelHealthClient.sessions} — do not construct directly.
+ */
+export class SessionsResource {
+    /** @internal */
+    constructor(client) {
+        this.client = client;
+    }
+    /**
+     * Lazily lists sessions matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * for await (const session of client.sessions.list({ subject })) {
+     *   console.log(session.id);
+     * }
+     *
+     * const total = await client.sessions.list({ subject }).total;
+     * ```
+     */
+    list(options = {}) {
+        const subjectId = typeof options.subject === "object" ? options.subject.id : options.subject;
+        const orderBy = formatOrderBy(options.orderBy);
+        return this.client._sessionsStream({ subject_id: subjectId }, orderBy, options.limit);
+    }
+}
+/**
+ * Filtered access to subject groups.
+ *
+ * Returned by {@link ModelHealthClient.groups} — do not construct directly.
+ */
+export class GroupsResource {
+    /** @internal */
+    constructor(client) {
+        this.client = client;
+    }
+    /**
+     * Lazily lists subject groups matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * for await (const group of client.groups.list({ search: "cohort" })) {
+     *   console.log(group.name);
+     * }
+     *
+     * const total = await client.groups.list().total;
+     * ```
+     */
+    list(options = {}) {
+        const orderBy = formatOrderBy(options.orderBy);
+        return this.client._groupsStream({ search: options.search }, orderBy, options.limit);
+    }
+}
 export class ModelHealthClient {
     /**
      * Create a new Model Health client.
@@ -369,6 +547,10 @@ export class ModelHealthClient {
             maxRetries: config.maxRetries,
             autoInit: config.autoInit ?? true,
         };
+        this.activities = new ActivitiesResource(this);
+        this.subjects = new SubjectsResource(this);
+        this.sessions = new SessionsResource(this);
+        this.groups = new GroupsResource(this);
         // Auto-initialize if requested. The rejection is retained (not just logged) so the
         // real cause — e.g. a WASM load failure — surfaces from the first method
         // call instead of being replaced by a generic "not initialized" error.
@@ -641,28 +823,6 @@ export class ModelHealthClient {
     }
     // MARK: - Subjects
     /**
-     * Retrieves all subjects associated with the API key.
-     *
-     * Subjects represent individuals being monitored or assessed. Each subject may
-     * contain demographic information, physical measurements and categorization tags.
-     *
-     * @returns An array of `Subject` objects, or an empty array if none exist.
-     * @throws If the request fails due to network or authentication issues.
-     *
-     * @example
-     * ```typescript
-     * const subjects = await client.subjectList();
-     * for (const subject of subjects) {
-     *   console.log(`${subject.name}: ${subject.height ?? 0}cm, ${subject.weight ?? 0}kg`);
-     * }
-     * ```
-     */
-    async subjectList() {
-        this.ensureInitialized();
-        const result = await this.wasmClient.subjectList();
-        return this.parseResponse(result);
-    }
-    /**
      * Retrieves a subject by its ID.
      *
      * Use this to resolve a subject ID (e.g. from `Session.subject`) into full
@@ -718,42 +878,48 @@ export class ModelHealthClient {
     }
     // MARK: - Activity Management
     /**
-     * Retrieves activities for a specific subject with pagination and sorting.
+     * Opens a filtered list of activities.
      *
-     * Use this to display a subject's activity history or implement paginated list interfaces.
-     *
-     * @param subjectId The ID of the subject whose activities to retrieve.
-     * @param startIndex Zero-based index to start from. Use `0` for the first page.
-     * @param count Number of activities to retrieve per request.
-     * @param sort Sort order for the results (for example, `"updated_at"` for most recent first).
-     * @param start Optional start date (`YYYY-MM-DD`) to filter the results to a date range.
-     * @param end Optional end date (`YYYY-MM-DD`) to filter the results to a date range.
-     * @returns An array of `Activity` objects, or an empty array if none exist.
-     * @throws If the request fails due to network or authentication issues.
-     *
-     * @example
-     * ```typescript
-     * // First page
-     * const page1 = await client.activitiesForSubject(
-     *   subject.id,
-     *   0,
-     *   20,
-     *   "updated_at"
-     * );
-     *
-     * // Next page
-     * const page2 = await client.activitiesForSubject(
-     *   subject.id,
-     *   20,
-     *   20,
-     *   "updated_at"
-     * );
-     * ```
+     * Not part of the SDK's public surface — {@link ActivitiesResource} calls it for you.
+     * @internal
      */
-    async activitiesForSubject(subjectId, startIndex, count, sort, start, end) {
+    _activitiesStream(filter, orderBy, limit) {
         this.ensureInitialized();
-        const result = await this.wasmClient.activitiesForSubject(subjectId, startIndex, count, sort, start ?? null, end ?? null);
-        return this.parseResponse(result);
+        const source = this.wasmClient.activitiesStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
+        return new ItemStream(this.shapeItems(source));
+    }
+    /**
+     * Opens a filtered list of subjects.
+     *
+     * Not part of the SDK's public surface — {@link SubjectsResource} calls it for you.
+     * @internal
+     */
+    _subjectsStream(filter, orderBy, limit) {
+        this.ensureInitialized();
+        const source = this.wasmClient.subjectsStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
+        return new ItemStream(this.shapeItems(source));
+    }
+    /**
+     * Opens a filtered list of sessions.
+     *
+     * Not part of the SDK's public surface — {@link SessionsResource} calls it for you.
+     * @internal
+     */
+    _sessionsStream(filter, orderBy, limit) {
+        this.ensureInitialized();
+        const source = this.wasmClient.sessionsStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
+        return new ItemStream(this.shapeItems(source));
+    }
+    /**
+     * Opens a filtered list of groups.
+     *
+     * Not part of the SDK's public surface — {@link GroupsResource} calls it for you.
+     * @internal
+     */
+    _groupsStream(filter, orderBy, limit) {
+        this.ensureInitialized();
+        const source = this.wasmClient.groupsStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
+        return new ItemStream(this.shapeItems(source));
     }
     /**
      * Retrieves an activity by its ID.
@@ -1301,20 +1467,27 @@ export class ModelHealthClient {
      * Fetch dashboard metrics for a single activity.
      *
      * @param activityId UUID of the activity.
-     * @returns The dashboard metrics organized into category groups.
+     * @returns The dashboard metrics organized into category groups, or `null` if the
+     *   activity has not been analyzed yet.
      * @throws On network failure or if the activity is not found.
      *
      * @example
      * ```typescript
      * const metrics = await client.activityMetrics(activity.id);
-     * for (const group of metrics.groups) {
-     *   console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     * if (metrics === null) {
+     *   console.log("No metrics yet — this activity has not been analyzed.");
+     * } else {
+     *   for (const group of metrics.groups) {
+     *     console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     *   }
      * }
      * ```
      */
     async activityMetrics(activityId) {
         this.ensureInitialized();
         const result = await this.wasmClient.activityMetrics(activityId);
+        if (result == null)
+            return null;
         return this.parseResponse(result);
     }
     /**
@@ -1352,6 +1525,60 @@ export class ModelHealthClient {
         this.ensureInitialized();
         await this.wasmClient.setVideoUploadMode(mode);
     }
+    // MARK: - Logging
+    /**
+     * Adjusts the log level without touching the registered handler.
+     *
+     * @param level How verbose the log event stream should be.
+     * @throws {string} If the level cannot be applied.
+     *
+     * @example
+     * ```typescript
+     * client.setLogLevel("warn");
+     * ```
+     */
+    setLogLevel(level) {
+        this.ensureInitialized();
+        this.wasmClient.setLogLevel(level);
+    }
+    /**
+     * Registers or clears the persistent log handler.
+     *
+     * Passing `null` for the handler clears it regardless of `level`.
+     *
+     * @param handler Called with a {@link LogEvent} for each event at or below `level`.
+     *   Pass `null` to stop receiving events.
+     * @param level How verbose the log event stream should be. Ignored when `handler`
+     *   is `null`.
+     * @throws {string} If the handler cannot be registered.
+     *
+     * @example
+     * ```typescript
+     * client.setLogHandler((event) => {
+     *   console.log(`[modelhealth] ${event.code}: ${event.message}`);
+     * });
+     *
+     * // Stop receiving events
+     * client.setLogHandler(null);
+     * ```
+     */
+    setLogHandler(handler, level = "info") {
+        this.ensureInitialized();
+        this.wasmClient.setLogHandler(handler, level);
+    }
+    /**
+     * Releases resources held by this client, including deregistering any log handler.
+     *
+     * The client cannot be used after calling this.
+     *
+     * @example
+     * ```typescript
+     * client.dispose();
+     * ```
+     */
+    dispose() {
+        this.wasmClient?.free();
+    }
     // MARK: - Utilities
     /**
      * Parse a WASM response and normalize object keys to camelCase.
@@ -1367,6 +1594,22 @@ export class ModelHealthClient {
     parseResponse(value) {
         const parsed = typeof value === "string" ? JSON.parse(value) : value;
         return parseDates(camelizeKeys(parsed));
+    }
+    /**
+     * Applies the SDK's usual response shaping to every item a list hands over.
+     *
+     * The core layer speaks `snake_case` and ISO strings; the same conversion every other
+     * method goes through has to apply here too, item by item as they arrive.
+     */
+    shapeItems(source) {
+        const shape = (items) => this.parseResponse(items);
+        return {
+            nextItems: async () => shape(await source.nextItems()),
+            total: () => source.total(),
+            cachedTotal: () => source.cachedTotal(),
+            all: async () => shape(await source.all()),
+            free: () => source.free(),
+        };
     }
 }
 /**
@@ -1404,6 +1647,7 @@ export function activityMetricsToJson(metrics, pretty = true) {
 // MARK: - Exports
 export * from "./types.js";
 export * from "./errors.js";
+export * from "./streams.js";
 /**
  * Internal response-transform pipeline, exported only so `tests/` can exercise it
  * directly and in the same order `parseResponse` uses in practice — see

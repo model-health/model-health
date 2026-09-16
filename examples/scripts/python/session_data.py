@@ -22,7 +22,7 @@ from modelhealth import (
     VideoVersion,
 )
 from _prompts import pick_one, pick_multi
-from _utils import save_file, MOTION_DATA_EXT, ANALYSIS_DATA_EXT, load_api_key
+from _utils import save_file, MOTION_DATA_EXT, ANALYSIS_DATA_EXT, load_api_key, attach_logging
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -56,7 +56,9 @@ ANALYSIS_DATA_TYPES = [
 def _connect(api_key):
     print("Connecting to Model Health...")
     try:
-        return ModelHealthClient(api_key=api_key)
+        client = ModelHealthClient(api_key=api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -93,7 +95,9 @@ def _pick_activity(client, session):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else "") + f"  updated: {a.updated_at}",
+        lambda a: f"{a.name or a.id}  [{a.status}]"
+        + (f"  {a.activity_type.display_name}" if a.activity_type else "")
+        + f"  updated: {a.updated_at}",
     )
     return activity, all_activities
 

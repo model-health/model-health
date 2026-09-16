@@ -31,7 +31,9 @@ struct VideoUploadModeExample {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)

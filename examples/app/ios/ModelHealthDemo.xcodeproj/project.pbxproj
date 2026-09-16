@@ -119,7 +119,7 @@
 			mainGroup = 801D65F02EBA415A00FB51D7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				804C254C3012AA4000463ACF /* XCLocalSwiftPackageReference "../../../swift" */,
+				804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 801D65FA2EBA415A00FB51D7 /* Products */;
@@ -322,7 +322,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -366,7 +366,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 0.10.0;
+				MARKETING_VERSION = 0.11.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -404,36 +404,46 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		804C254C3012AA4000463ACF /* XCLocalSwiftPackageReference "../../../swift" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../swift;
+/* Begin XCRemoteSwiftPackageReference section */
+		804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/model-health/model-health-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 0.11.0;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		802955F22EF151CE000C2B72 /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 		804C254D3012AA4000463ACF /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 		804C254F3012AA4000463ACF /* ModelHealthUI */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealthUI;
 		};
 		805EFA822EEE9C14006B9AEE /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 		806BCA482FFBEC3A009D8585 /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 		806BCB6B2FFD3460009D8585 /* ModelHealth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 804C254C3012AA4000463ACF /* XCRemoteSwiftPackageReference "model-health-swift" */;
 			productName = ModelHealth;
 		};
 /* End XCSwiftPackageProductDependency section */

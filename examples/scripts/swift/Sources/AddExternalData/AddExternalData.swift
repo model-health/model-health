@@ -34,7 +34,9 @@ struct AddExternalData {
 
 private func connect(apiKey: String) -> ModelHealthClient {
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)

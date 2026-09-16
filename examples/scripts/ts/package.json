@@ -1,6 +1,6 @@
 {
   "name": "modelhealth-ts-scripts",
-  "version": "0.5.6",
+  "version": "0.11.0",
   "type": "module",
   "scripts": {
     "add-external-data": "tsx add_external_data.ts",
@@ -11,10 +11,14 @@
     "update-activity": "tsx update_activity.ts",
     "fetch-subject": "tsx fetch_subject.ts",
     "activity-metrics": "tsx activity_metrics.ts",
-    "video-upload-mode": "tsx video_upload_mode.ts"
+    "video-upload-mode": "tsx video_upload_mode.ts",
+    "list-activities": "tsx list_activities.ts",
+    "list-subjects": "tsx list_subjects.ts",
+    "list-sessions": "tsx list_sessions.ts",
+    "list-groups": "tsx list_groups.ts"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "^0.5.6"
+    "@modelhealth/modelhealth": "^0.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

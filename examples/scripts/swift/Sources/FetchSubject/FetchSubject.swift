@@ -27,7 +27,9 @@ struct FetchSubject {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -40,7 +42,7 @@ private func pickSubject(client: ModelHealthClient) async -> Subject {
     print("\nFetching subjects...")
     let subjects: [Subject]
     do {
-        subjects = try await client.subjectList()
+        subjects = try await client.subjects.list().all()
     } catch {
         fputs("Failed to fetch subjects: \(error)\n", stderr)
         exit(1)
@@ -75,7 +77,7 @@ private func printSubject(_ subject: Subject) {
     print("  Height:           \(subject.height.map { "\($0)" } ?? "(none)")")
     print("  Birth year:       \(subject.birthYear.map { "\($0)" } ?? "(none)")")
     print("  Age:              \(subject.age.map { "\($0)" } ?? "(none)")")
-    print("  Gender:           \(subject.gender)")
-    print("  Sex at birth:     \(subject.sexAtBirth)")
+    print("  Gender:           \(subject.gender.map { "\($0)" } ?? "(none)")")
+    print("  Sex at birth:     \(subject.sexAtBirth.map { "\($0)" } ?? "(none)")")
     print("  Characteristics:  \(subject.characteristics.isEmpty ? "(none)" : subject.characteristics)")
 }

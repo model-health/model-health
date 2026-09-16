@@ -19,6 +19,13 @@ export function render(container, state, { setState, navigate }) {
         New Session
       </button>
     </div>
+    <div class="toolbar browse-entries">
+      <span class="muted">Browse:</span>
+      <button type="button" class="btn small secondary" id="browse-activities-btn">Activities</button>
+      <button type="button" class="btn small secondary" id="browse-subjects-btn">Subjects</button>
+      <button type="button" class="btn small secondary" id="browse-sessions-btn">Sessions</button>
+      <button type="button" class="btn small secondary" id="browse-groups-btn">Groups</button>
+    </div>
     ${loading ? `
       <div class="loading-state">
         <div class="spinner"></div>
@@ -58,6 +65,10 @@ export function render(container, state, { setState, navigate }) {
   container.querySelector('#create-session-btn')?.addEventListener('click', () => {
     navigate('create-session', { newSession: null });
   });
+  for (const resource of ['activities', 'subjects', 'sessions', 'groups']) {
+    container.querySelector(`#browse-${resource}-btn`)
+      ?.addEventListener('click', () => navigate(`browse-${resource}`));
+  }
   container.querySelector('#retry-sessions')?.addEventListener('click', () => loadSessions(setState, navigate));
   container.querySelectorAll('.session-item[data-can-open="true"]').forEach((el) => {
     el.addEventListener('click', () => {
@@ -75,9 +86,10 @@ async function loadSessions(setState, navigate) {
     return;
   setState({ loadingState: 'loading', errorMessage: null });
   try {
+    // Newest first, because the session you want is almost always the one you just made.
     const [sessions, subjects] = await Promise.all([
-      client.sessionList(),
-      client.subjectList(),
+      client.sessions.list({ orderBy: '-createdAt' }).all(),
+      client.subjects.list().all(),
     ]);
     const withSubject = (sessions || []).filter((s) => s.subject != null);
     setState({

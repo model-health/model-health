@@ -7,7 +7,6 @@ import Foundation
 import ModelHealth
 import Shared
 
-private let pageSize = 50
 
 private struct ActivityEdits {
     let name: String?
@@ -43,7 +42,9 @@ struct UpdateActivity {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -56,7 +57,7 @@ private func pickSubject(client: ModelHealthClient) async -> Subject {
     print("\nFetching subjects...")
     let subjects: [Subject]
     do {
-        subjects = try await client.subjectList()
+        subjects = try await client.subjects.list().all()
     } catch {
         fputs("Failed to fetch subjects: \(error)\n", stderr)
         exit(1)
@@ -73,27 +74,12 @@ private func pickSubject(client: ModelHealthClient) async -> Subject {
     return subject
 }
 
+/// Every activity recorded for this subject, newest first.
+///
+/// `list(...)` returns a sequence that fetches as it is read; `all()` collects it. Calibration
+/// and neutral-pose activities are left out by default, so there is nothing to filter here.
 private func loadActivities(client: ModelHealthClient, subject: Subject) async throws -> [Activity] {
-    var activities: [Activity] = []
-    var offset = 0
-    while true {
-        let page = try await client.activities(
-            forSubject: subject.id,
-            startIndex: offset,
-            count: pageSize,
-            sortedBy: .updatedAt
-        )
-
-        for activity in page where !internalActivityNames.contains((activity.name ?? "").lowercased()) {
-            activities.append(activity)
-        }
-
-        if page.count < pageSize {
-            break
-        }
-        offset += pageSize
-    }
-    return activities
+    try await client.activities.list(subject: subject, orderBy: .createdAtDescending).all()
 }
 
 private func pickActivity(client: ModelHealthClient, subject: Subject) async -> Activity {
@@ -115,7 +101,7 @@ private func pickActivity(client: ModelHealthClient, subject: Subject) async -> 
     let activity = pickOne(
         from: activities,
         prompt: "Select activity",
-        label: { "\($0.name ?? $0.id)  [\($0.status)]" + ($0.activityType.map { "  \($0)" } ?? "") }
+        label: { "\($0.name ?? $0.id)  [\($0.status)]" + ($0.activityType.map { "  \($0.displayName)" } ?? "") }
     )
     print("  Selected: \(activity.name ?? activity.id)")
     return activity
@@ -125,7 +111,7 @@ private func pickActivity(client: ModelHealthClient, subject: Subject) async -> 
 
 private func promptEdits(for activity: Activity) -> ActivityEdits {
     print("\nUpdate activity (press Enter to keep current value):")
-    print("  Current activity type: \(activity.activityType.map { "\($0)" } ?? "(none)")")
+    print("  Current activity type: \(activity.activityType?.displayName ?? "(none)")")
     let currentTags = activity.tags.isEmpty ? "(none)" : activity.tags.joined(separator: ", ")
     print("  Current tags: \(currentTags)")
 

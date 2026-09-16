@@ -10,6 +10,7 @@ struct SubjectSelectionView: View {
     @State private var isLoading = false
     @State private var error: Error?
     @State private var showingCreateSubject = false
+    @State private var search = ""
 
     @EnvironmentObject private var modelHealth: ModelHealthClient
 
@@ -58,6 +59,10 @@ struct SubjectSelectionView: View {
         .navigationDestination(item: $subjectForNavigation) { subject in
             SubjectCalibrationView(subject: subject, session: session)
         }
+        .searchable(text: $search, prompt: "Search subjects by name")
+        .onSubmit(of: .search) {
+            Task { await loadSubjects() }
+        }
         .sheet(isPresented: $showingCreateSubject) {
             CreateSubjectView { newSubject in
                 // Add the new subject to the list and select it
@@ -77,11 +82,13 @@ struct SubjectSelectionView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
 
-            Text("No Subjects")
+            Text(search.isEmpty ? "No Subjects" : "No Match")
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Create your first subject to begin recording movement data")
+            Text(search.isEmpty
+                ? "Create your first subject to begin recording movement data"
+                : "No subject is named like \"\(search)\". Clear the search to see them all.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -131,12 +138,19 @@ struct SubjectSelectionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Reads the subjects matching `search`, or every subject when it is empty.
+    ///
+    /// The server does the searching: `search` narrows the list before it is sent, so what comes
+    /// back is already the answer. `list(...)` hands back a sequence; `all()` collects it, which
+    /// is what a picker this size wants.
     private func loadSubjects() async {
         isLoading = true
         error = nil
 
         do {
-            subjects = try await modelHealth.subjectList()
+            subjects = try await modelHealth.subjects
+                .list(search: search.isEmpty ? nil : search)
+                .all()
         } catch {
             self.error = error
         }

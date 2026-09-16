@@ -9,41 +9,34 @@
 import { ModelHealthClient } from '@modelhealth/modelhealth';
 import type { Activity } from '@modelhealth/modelhealth';
 import {
-  loadApiKey, INTERNAL_ACTIVITY_NAMES,
-  pickOne, prompt, closePrompts,
+  loadApiKey,
+  pickOne, prompt, closePrompts, attachLogging,
 } from './_shared.js';
 
-const PAGE_SIZE = 50;
-
+/**
+ * Every activity recorded for this subject, newest first.
+ *
+ * `list(...)` returns a sequence that fetches as it is read; `all()` collects it. Calibration
+ * and neutral-pose activities are left out by default, so there is nothing to filter here.
+ */
 async function loadActivities(
   client: ModelHealthClient,
   subject: { id: number }
 ): Promise<Activity[]> {
-  const activities: Activity[] = [];
-  let offset = 0;
-  while (true) {
-    const page = await client.activitiesForSubject(subject.id, offset, PAGE_SIZE, 'updated_at');
-    for (const a of page) {
-      if (!INTERNAL_ACTIVITY_NAMES.has((a.name ?? '').toLowerCase())) {
-        activities.push(a);
-      }
-    }
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return activities;
+  return client.activities.list({ subject: subject.id, orderBy: '-createdAt' }).all();
 }
 
 async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 
 async function pickSubject(client: ModelHealthClient) {
   console.log('\nFetching subjects...');
-  const subjects = await client.subjectList();
+  const subjects = await client.subjects.list().all();
 
   if (!subjects.length) {
     console.error('No subjects found.');
@@ -69,7 +62,7 @@ async function pickActivity(client: ModelHealthClient, subject: Awaited<ReturnTy
   const activity = await pickOne(
     activities,
     'Select activity',
-    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType.displayName}` : '')
   );
   console.log(`  Selected: ${activity.name ?? activity.id}`);
   return activity;
@@ -78,7 +71,7 @@ async function pickActivity(client: ModelHealthClient, subject: Awaited<ReturnTy
 /** Returns undefined if the user made no changes. */
 async function promptEdits(activity: Awaited<ReturnType<typeof pickActivity>>) {
   console.log('\nUpdate activity (press Enter to keep current value):');
-  console.log(`  Current activity type: ${activity.activityType ?? '(none)'}`);
+  console.log(`  Current activity type: ${activity.activityType?.displayName ?? '(none)'}`);
   const currentTags = activity.tags?.length ? activity.tags.join(', ') : '(none)';
   console.log(`  Current tags: ${currentTags}`);
 

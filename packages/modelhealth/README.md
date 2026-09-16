@@ -58,8 +58,13 @@ const newSession = await client.createSession();
 ### Subjects
 
 ```typescript
-// Get all subjects
-const subjects = await client.subjectList();
+// Iterate every subject, newest first
+for await (const subject of client.subjects.list({ orderBy: "-createdAt" })) {
+  console.log(subject.name);
+}
+
+// Or collect them, when a list is what you want
+const subjects = await client.subjects.list().all();
 ```
 
 ### Activities

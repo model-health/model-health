@@ -54,7 +54,9 @@ struct ActivityAnalysis {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -119,7 +121,7 @@ private func pickActivity(client: ModelHealthClient, in session: Session) async 
     return pickOne(
         from: activities,
         prompt: "Select activity",
-        label: { activity in "\(activity.name ?? activity.id)  [\(activity.status)]" + (activity.activityType.map { "  \($0)" } ?? "") }
+        label: { activity in "\(activity.name ?? activity.id)  [\(activity.status)]" + (activity.activityType.map { "  \($0.displayName)" } ?? "") }
     )
 }
 
@@ -180,7 +182,7 @@ private func pollActivity(client: ModelHealthClient, activity: Activity) async -
 
 private func startAnalysis(client: ModelHealthClient, activity: Activity, session: Session) async -> Analysis {
     // Default to the activity's recorded type if available.
-    let defaultAnalysisIndex = analysisTypes.firstIndex { $0.0 == activity.activityType }
+    let defaultAnalysisIndex = analysisTypes.firstIndex { $0.0.rawValue == activity.activityType?.displayName }
     print("\nAnalysis type:\n")
     let (analysisType, analysisLabel) = pickOne(
         from: analysisTypes,

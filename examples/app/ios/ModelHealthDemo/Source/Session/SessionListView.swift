@@ -55,6 +55,10 @@ struct SessionListView: View {
             }
             .navigationTitle("Sessions")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    browseMenu
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         CreateSessionView()
@@ -78,6 +82,18 @@ struct SessionListView: View {
 }
 
 private extension SessionListView {
+    /// A way into the four browse screens, which read lists rather than record them.
+    var browseMenu: some View {
+        Menu {
+            NavigationLink("Activities") { BrowseActivitiesView() }
+            NavigationLink("Subjects") { BrowseSubjectsView() }
+            NavigationLink("Sessions") { BrowseSessionsView() }
+            NavigationLink("Subject groups") { BrowseGroupsView() }
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+        }
+    }
+
     var sessionList: some View {
         List {
             ForEach(loadingState.sessions) { session in
@@ -148,8 +164,9 @@ private extension SessionListView {
         loadingState = .loading
 
         do {
-            async let sessionsAsync = try await modelHealth.sessionList()
-            async let subjectsAsync = try await modelHealth.subjectList()
+            // Newest first, because the session you want is almost always the one you just made.
+            async let sessionsAsync = try await modelHealth.sessions.list(orderBy: .createdAtDescending).all()
+            async let subjectsAsync = try await modelHealth.subjects.list().all()
 
             let (sessions, subjects) = try await (sessionsAsync, subjectsAsync)
             loadingState = .loaded(sessions.filter { $0.subject != nil }, subjects)

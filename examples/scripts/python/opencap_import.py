@@ -34,7 +34,7 @@ from modelhealth import (
 )
 from _opencap_api import fetch_session, fetch_subject, load_opencap_token
 from _prompts import confirm, pick_one
-from _utils import load_api_key
+from _utils import load_api_key, attach_logging
 
 
 _OPENSIM_MODEL_MAP = {
@@ -134,7 +134,7 @@ def copy_session(
     print("Session settings configured.")
 
     # Step 2: Select or create subject
-    subjects = mh_client.subject_list()
+    subjects = mh_client.subjects.list().all()
     if subjects and confirm(f"Found {len(subjects)} subject(s). Select an existing one?", default=True):
         print()
         subject = pick_one(subjects, "Select subject", lambda s: f"{s.name}  (ID {s.id})")
@@ -348,6 +348,7 @@ if __name__ == "__main__":
     # }
 
     mh_client = ModelHealthClient(load_api_key(args["--api-key"]))
+    attach_logging(mh_client)
     session = copy_session(
         mh_client,
         session_id_input=args["<opencap_session_id>"],

@@ -19,7 +19,7 @@ from modelhealth import (
     MetricValueBilateral,
 )
 from _prompts import pick_one, confirm
-from _utils import load_api_key, save_file
+from _utils import load_api_key, save_file, attach_logging
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
@@ -32,7 +32,9 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 def _connect(api_key):
     print("Connecting to Model Health...")
     try:
-        return ModelHealthClient(api_key=api_key)
+        client = ModelHealthClient(api_key=api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -83,6 +85,10 @@ def _show_metrics(client, activity):
         metrics = client.activity_metrics(activity.id)
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch activity metrics: {exc}")
+
+    if metrics is None:
+        print("  No metrics available for this activity.")
+        return
 
     flat = _flatten_metrics(metrics)
     if not flat:

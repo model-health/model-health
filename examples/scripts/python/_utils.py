@@ -71,6 +71,18 @@ ANALYSIS_DATA_EXT = {
 }
 
 
+def attach_logging(client):
+    """Register a log handler that prints SDK log events to stdout.
+
+    Call this right after constructing a client to see session, recording,
+    calibration, and analysis lifecycle events as they happen.
+    """
+    def _on_log(event):
+        print(f"[modelhealth] {event.code}: {event.message}")
+
+    client.set_log_handler(_on_log)
+
+
 def poll_analysis(client, task, interval=10):
     """Block until the analysis task finishes.
 

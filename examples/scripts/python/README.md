@@ -133,3 +133,38 @@ Copies data from an OpenCap session into a new Model Health session and processe
 ```bash
 python3 opencap_import.py [--api-key=<key>] [--opencap-token=<token>] <opencap_session_id>
 ```
+
+### `list_activities.py` — Browse activities
+
+Shows what an activity list can be asked for: how many match, what the first
+few look like, how each filter changes the count without reading anything, and
+which activity comes first under each order.
+
+```bash
+python3 list_activities.py [<api_key>]
+```
+
+### `list_subjects.py` — Browse subjects
+
+The same for subjects, with the filters a subject list takes.
+
+```bash
+python3 list_subjects.py [<api_key>]
+```
+
+### `list_sessions.py` — Browse sessions
+
+The same for sessions. Narrowing to one subject is the only filter a session
+list takes.
+
+```bash
+python3 list_sessions.py [<api_key>]
+```
+
+### `list_groups.py` — Browse subject groups
+
+The same for subject groups. Search is the only filter a group list takes.
+
+```bash
+python3 list_groups.py [<api_key>]
+```

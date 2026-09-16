@@ -13,13 +13,14 @@ import type { ActivityMetrics, MetricValue } from '@modelhealth/modelhealth';
 import { activityMetricsToJson } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
-  pickOne, confirm, saveFile, closePrompts,
+  pickOne, confirm, saveFile, closePrompts, attachLogging,
 } from './_shared.js';
 
 async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting to Model Health...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 
@@ -53,6 +54,10 @@ async function showMetrics(client: ModelHealthClient, activity: Awaited<ReturnTy
   const activityLabel = activity.name ?? activity.id;
   console.log(`\nFetching metrics for '${activityLabel}'...`);
   const metrics = await client.activityMetrics(activity.id);
+  if (metrics === null) {
+    console.log('  No metrics yet — this activity has not been analysed.');
+    return;
+  }
 
   const flat = flattenMetrics(metrics);
   if (!flat.size) {

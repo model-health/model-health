@@ -23,7 +23,7 @@ from modelhealth import (
     ArchiveStatus,
 )
 from _prompts import pick_one, confirm
-from _utils import save_file, load_api_key
+from _utils import save_file, load_api_key, attach_logging
 
 # ---------------------------------------------------------------------------
 # Polling helper
@@ -51,7 +51,9 @@ def _poll_archive(client, archive, interval=2):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 

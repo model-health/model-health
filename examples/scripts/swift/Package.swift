@@ -20,7 +20,7 @@ let package = Package(
     name: "ModelHealthExamples",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/model-health/model-health-swift", from: "0.5.0")
+        .package(url: "https://github.com/model-health/model-health-swift", from: "0.11.0")
     ],
     targets: [
         .target(
@@ -36,6 +36,10 @@ let package = Package(
         script("UpdateActivity"),
         script("FetchSubject"),
         script("ArchiveSession"),
-        script("VideoUploadMode")
+        script("VideoUploadMode"),
+        script("ListActivities"),
+        script("ListSubjects"),
+        script("ListSessions"),
+        script("ListGroups")
     ]
 )

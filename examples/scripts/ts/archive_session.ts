@@ -8,12 +8,13 @@
 
 import { ModelHealthClient } from '@modelhealth/modelhealth';
 import type { Archive } from '@modelhealth/modelhealth';
-import { loadApiKey, pickOne, confirm, saveFile, sleep, closePrompts } from './_shared.js';
+import { loadApiKey, pickOne, confirm, saveFile, sleep, closePrompts, attachLogging } from './_shared.js';
 
 async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 

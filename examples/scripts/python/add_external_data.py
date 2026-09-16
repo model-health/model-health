@@ -19,7 +19,7 @@ from modelhealth import (
     ModelHealthClient,
 )
 from _prompts import pick_one
-from _utils import load_api_key
+from _utils import load_api_key, attach_logging
 
 # Activities created by the mobile app for internal use — exclude from lists.
 _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
@@ -27,7 +27,9 @@ _INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
 
 def _connect(api_key):
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 

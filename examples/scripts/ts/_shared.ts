@@ -6,11 +6,24 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import type { ModelHealthClient, Analysis, AnalysisStatus } from '@modelhealth/modelhealth';
+import type { ModelHealthClient, Analysis, AnalysisStatus, MotionDataType } from '@modelhealth/modelhealth';
 
 // MARK: - Constants
 
 export const INTERNAL_ACTIVITY_NAMES = new Set(['calibration', 'neutral']);
+
+/**
+ * The name and file extension to save one piece of motion data under.
+ *
+ * A motion data type is either one of the known kinds or a tagged one carrying its own
+ * extension, so it cannot be used as a plain key.
+ */
+export function motionDataFile(type: MotionDataType): { name: string; extension: string } {
+  if (typeof type === 'object') {
+    return { name: type.tag, extension: type.extension };
+  }
+  return { name: type, extension: MOTION_DATA_EXT[type] ?? 'bin' };
+}
 
 export const MOTION_DATA_EXT: Record<string, string> = {
   animation:      'json',
@@ -71,6 +84,20 @@ export function saveFile(filename: string, data: Uint8Array | Buffer): string {
   const filePath = path.join(downloadsDir, filename);
   fs.writeFileSync(filePath, data);
   return filePath;
+}
+
+// MARK: - Logging
+
+/**
+ * Register a log handler that prints SDK log events to stdout.
+ *
+ * Call this right after constructing a client to see session, recording,
+ * calibration, and analysis lifecycle events as they happen.
+ */
+export function attachLogging(client: ModelHealthClient): void {
+  client.setLogHandler((event) => {
+    console.log(`[modelhealth] ${event.code}: ${event.message}`);
+  });
 }
 
 // MARK: - Polling

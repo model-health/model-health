@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.11.0
+
+### Added
+
+- `setLogHandler(level:_:)` / `setLogHandler` / `set_log_handler` and `setLogLevel(_:)` / `setLogLevel` / `set_log_level` — register a handler to receive a stream of leveled log events (`LogEvent`, with `LogLevel` and `LogCategory`) describing session, recording, calibration, and analysis lifecycle milestones as they happen. Off by default until a handler is registered.
+
+- `client.activities.list(...)` — the activities matching a filter, as a sequence you iterate.
+  Accepts `subject`, `calibrationSession`/`calibration_session`, `activityType`/`activity_type`,
+  `excludeCalibration`/`exclude_calibration`, `createdAfter`/`createdBefore` (`created_after`/`created_before`),
+  `search`, `tags`, `createdBy`/`created_by`, `onlyCompleted`/`only_completed`,
+  `excludeAnalysisError`/`exclude_analysis_error`, `orderBy`/`order_by` and `limit`.
+  `activityList(for:)` (Swift) / `activityList()` (TypeScript) / `activity_list()` (Python) is
+  unchanged.
+
+- `client.subjects.list(...)` — the subjects matching a filter, as a sequence you iterate. Accepts
+  `search`, `createdAfter`/`createdBefore` (`created_after`/`created_before`), `groups`, `tags`,
+  `createdBy`/`created_by`, `activityType`/`activity_type`, `activityComplete`/`activity_complete`,
+  `session`, `orderBy`/`order_by` and `limit`.
+
+- `client.sessions.list(...)` — the sessions matching a filter, as a sequence you iterate. Accepts
+  `subject`, `orderBy`/`order_by` and `limit`. Lists your own sessions that are ready to work with.
+  `sessionList()` (Swift and TypeScript) / `session_list()` (Python) is unchanged.
+
+- `client.groups.list(...)` — the subject groups matching a filter, as a sequence you iterate.
+  Accepts `search`, `orderBy`/`order_by` and `limit`.
+
+- Every sequence a `list(...)` returns carries `total`, the number of items matching the filter, and
+  `all()`, which collects the rest into an array. Swift's conform to `AsyncSequence` and are iterated
+  with `for try await`; TypeScript's are `AsyncIterable` and iterated with `for await`; Python's
+  follow the iterator protocol.
+
+- `list(...)` refuses an `orderBy`/`order_by` value that names a field it cannot sort by, with an
+  error naming the ones it accepts.
+
+- `SubjectGroup` — a named collection of subjects, with
+  `id`, `name`, `description`, `subjectCount`/`subject_count`, `totalActivities`/`total_activities`,
+  `lastActivity`/`last_activity`, `createdBy`/`created_by`, `isOwner`/`is_owner`,
+  `canEdit`/`can_edit`, `createdAt`/`created_at`, `updatedAt`/`updated_at`, `trashed` and
+  `trashedAt`/`trashed_at`.
+
+- `ActivityStream(_:)`, `SubjectStream(_:)`, `SessionStream(_:)` and `GroupStream(_:)` (Swift) build
+  a sequence over values you already have, for a mock, a preview or a test double.
+
+- `close()` on a TypeScript sequence releases what it reads from. Reading to the end does this for
+  you; call it if you open a sequence and stop before finishing it.
+
+### Fixed
+
+- `activityMetrics` (TypeScript) / `activity_metrics` (Python) — now correctly return `null` / `None` (matching Swift's existing behavior) when an activity has not yet been analyzed, instead of a non-null value that could crash calling code.
+
+### Breaking
+
+- `subjectList()` (Swift and TypeScript) / `subject_list()` (Python) is removed.
+  Use `client.subjects.list(...)` instead.
+
+- `activities(forSubject:startIndex:count:)` / `activitiesForSubject()` /
+  `activities_for_subject()` is removed. Use `client.activities.list(subject:)`
+  instead.
+
+- The `ActivitySort` enum is removed. Sort with `orderBy`/`order_by` on the new `list(...)` methods.
+
+
 ## 0.10.0
 
 ### Added

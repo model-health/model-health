@@ -23,7 +23,7 @@ from modelhealth import (
     MotionDataType,
 )
 from _prompts import confirm, pick_one, pick_multi
-from _utils import save_file, MOTION_DATA_EXT, load_api_key
+from _utils import save_file, MOTION_DATA_EXT, load_api_key, attach_logging
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -46,6 +46,7 @@ def main(api_key):
     print("\nConnecting...")
     try:
         client = ModelHealthClient(api_key)
+        attach_logging(client)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 

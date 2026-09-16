@@ -57,7 +57,9 @@ struct SessionData {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting to Model Health...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -123,7 +125,7 @@ private func pickActivity(client: ModelHealthClient, in session: Session) async 
         prompt: "Select activity",
         label: { activity in
             let updated = displayDateFormatter.string(from: activity.updatedAt)
-            return "\(activity.name ?? activity.id)  [\(activity.status)]" + (activity.activityType.map { "  \($0)" } ?? "") + "  updated: \(updated)"
+            return "\(activity.name ?? activity.id)  [\(activity.status)]" + (activity.activityType.map { "  \($0.displayName)" } ?? "") + "  updated: \(updated)"
         }
     )
     return (activity, allActivities)

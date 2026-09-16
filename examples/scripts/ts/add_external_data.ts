@@ -11,13 +11,14 @@ import * as path from 'path';
 import { ModelHealthClient, type Activity, type ExternalResultFile } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES,
-  pickOne, prompt, closePrompts,
+  pickOne, prompt, closePrompts, attachLogging,
 } from './_shared.js';
 
 async function main() {
   const args = process.argv.slice(2);
   const client = new ModelHealthClient({ apiKey: loadApiKey(args[0]), autoInit: false });
   await client.init();
+  attachLogging(client);
 
   // Session
   console.log('\nFetching sessions...');

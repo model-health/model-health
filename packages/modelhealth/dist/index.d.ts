@@ -16,7 +16,8 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivitySort, ActivityTag, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, VideoUploadMode } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivityListOptions, ActivityTag, GroupListOptions, SubjectListOptions, SessionListOptions, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, VideoUploadMode, LogLevel, LogEvent } from "./types.js";
+import type { ActivityStream, GroupStream, SessionStream, SubjectStream } from "./streams.js";
 /**
  * Recursively convert all object keys from snake_case to camelCase.
  * Used to normalize WASM responses to idiomatic TypeScript.
@@ -106,6 +107,107 @@ export interface ModelHealthConfig {
  * await client.init();
  * ```
  */
+/**
+ * Filtered access to activities.
+ *
+ * Returned by {@link ModelHealthClient.activities} — do not construct directly.
+ */
+export declare class ActivitiesResource {
+    private readonly client;
+    /** @internal */
+    constructor(client: ModelHealthClient);
+    /**
+     * Lazily lists activities matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * const activities = client.activities.list({
+     *   subject,
+     *   activityType: ActivityType.Squats,
+     *   createdAfter: new Date("2026-01-01"),
+     *   orderBy: "-createdAt",
+     * });
+     * for await (const activity of activities) {
+     *   console.log(activity.name);
+     * }
+     *
+     * const total = await client.activities.list({ tags: ["study-a"] }).total;
+     * const all = await client.activities.list({ tags: ["study-a"] }).all();
+     * ```
+     */
+    list(options?: ActivityListOptions): ActivityStream;
+}
+/**
+ * Filtered access to subjects.
+ *
+ * Returned by {@link ModelHealthClient.subjects} — do not construct directly.
+ */
+export declare class SubjectsResource {
+    private readonly client;
+    /** @internal */
+    constructor(client: ModelHealthClient);
+    /**
+     * Lazily lists subjects matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * const subjects = client.subjects.list({ search: "Falisse", tags: ["study-a"] });
+     * for await (const subject of subjects) {
+     *   console.log(subject.name);
+     * }
+     *
+     * const total = await client.subjects.list({ tags: ["study-a"] }).total;
+     * const all = await client.subjects.list({ tags: ["study-a"] }).all();
+     * ```
+     */
+    list(options?: SubjectListOptions): SubjectStream;
+}
+/**
+ * Filtered access to sessions.
+ *
+ * Returned by {@link ModelHealthClient.sessions} — do not construct directly.
+ */
+export declare class SessionsResource {
+    private readonly client;
+    /** @internal */
+    constructor(client: ModelHealthClient);
+    /**
+     * Lazily lists sessions matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * for await (const session of client.sessions.list({ subject })) {
+     *   console.log(session.id);
+     * }
+     *
+     * const total = await client.sessions.list({ subject }).total;
+     * ```
+     */
+    list(options?: SessionListOptions): SessionStream;
+}
+/**
+ * Filtered access to subject groups.
+ *
+ * Returned by {@link ModelHealthClient.groups} — do not construct directly.
+ */
+export declare class GroupsResource {
+    private readonly client;
+    /** @internal */
+    constructor(client: ModelHealthClient);
+    /**
+     * Lazily lists subject groups matching the given filters.
+     *
+     * @example
+     * ```typescript
+     * for await (const group of client.groups.list({ search: "cohort" })) {
+     *   console.log(group.name);
+     * }
+     *
+     * const total = await client.groups.list().total;
+     * ```
+     */
+    list(options?: GroupListOptions): GroupStream;
+}
 export declare class ModelHealthClient {
     private wasmClient;
     private config;
@@ -116,6 +218,14 @@ export declare class ModelHealthClient {
      * of a generic "not initialized" message.
      */
     private initError;
+    /** Filtered access to activities. */
+    readonly activities: ActivitiesResource;
+    /** Filtered access to subjects. */
+    readonly subjects: SubjectsResource;
+    /** Filtered access to sessions. */
+    readonly sessions: SessionsResource;
+    /** Filtered access to subject groups. */
+    readonly groups: GroupsResource;
     /**
      * Create a new Model Health client.
      *
@@ -333,24 +443,6 @@ export declare class ModelHealthClient {
      */
     calibrateSubject(subject: Subject, session: Session, statusCallback: (status: CalibrationStatus) => void): Promise<void>;
     /**
-     * Retrieves all subjects associated with the API key.
-     *
-     * Subjects represent individuals being monitored or assessed. Each subject may
-     * contain demographic information, physical measurements and categorization tags.
-     *
-     * @returns An array of `Subject` objects, or an empty array if none exist.
-     * @throws If the request fails due to network or authentication issues.
-     *
-     * @example
-     * ```typescript
-     * const subjects = await client.subjectList();
-     * for (const subject of subjects) {
-     *   console.log(`${subject.name}: ${subject.height ?? 0}cm, ${subject.weight ?? 0}kg`);
-     * }
-     * ```
-     */
-    subjectList(): Promise<Subject[]>;
-    /**
      * Retrieves a subject by its ID.
      *
      * Use this to resolve a subject ID (e.g. from `Session.subject`) into full
@@ -397,39 +489,33 @@ export declare class ModelHealthClient {
      */
     createSubject(parameters: SubjectParameters): Promise<Subject>;
     /**
-     * Retrieves activities for a specific subject with pagination and sorting.
+     * Opens a filtered list of activities.
      *
-     * Use this to display a subject's activity history or implement paginated list interfaces.
-     *
-     * @param subjectId The ID of the subject whose activities to retrieve.
-     * @param startIndex Zero-based index to start from. Use `0` for the first page.
-     * @param count Number of activities to retrieve per request.
-     * @param sort Sort order for the results (for example, `"updated_at"` for most recent first).
-     * @param start Optional start date (`YYYY-MM-DD`) to filter the results to a date range.
-     * @param end Optional end date (`YYYY-MM-DD`) to filter the results to a date range.
-     * @returns An array of `Activity` objects, or an empty array if none exist.
-     * @throws If the request fails due to network or authentication issues.
-     *
-     * @example
-     * ```typescript
-     * // First page
-     * const page1 = await client.activitiesForSubject(
-     *   subject.id,
-     *   0,
-     *   20,
-     *   "updated_at"
-     * );
-     *
-     * // Next page
-     * const page2 = await client.activitiesForSubject(
-     *   subject.id,
-     *   20,
-     *   20,
-     *   "updated_at"
-     * );
-     * ```
+     * Not part of the SDK's public surface — {@link ActivitiesResource} calls it for you.
+     * @internal
      */
-    activitiesForSubject(subjectId: number, startIndex: number, count: number, sort: ActivitySort, start?: string, end?: string): Promise<Activity[]>;
+    _activitiesStream(filter: Record<string, unknown>, orderBy: string | undefined, limit: number | undefined): ActivityStream;
+    /**
+     * Opens a filtered list of subjects.
+     *
+     * Not part of the SDK's public surface — {@link SubjectsResource} calls it for you.
+     * @internal
+     */
+    _subjectsStream(filter: Record<string, unknown>, orderBy: string | undefined, limit: number | undefined): SubjectStream;
+    /**
+     * Opens a filtered list of sessions.
+     *
+     * Not part of the SDK's public surface — {@link SessionsResource} calls it for you.
+     * @internal
+     */
+    _sessionsStream(filter: Record<string, unknown>, orderBy: string | undefined, limit: number | undefined): SessionStream;
+    /**
+     * Opens a filtered list of groups.
+     *
+     * Not part of the SDK's public surface — {@link GroupsResource} calls it for you.
+     * @internal
+     */
+    _groupsStream(filter: Record<string, unknown>, orderBy: string | undefined, limit: number | undefined): GroupStream;
     /**
      * Retrieves an activity by its ID.
      *
@@ -864,18 +950,23 @@ export declare class ModelHealthClient {
      * Fetch dashboard metrics for a single activity.
      *
      * @param activityId UUID of the activity.
-     * @returns The dashboard metrics organized into category groups.
+     * @returns The dashboard metrics organized into category groups, or `null` if the
+     *   activity has not been analyzed yet.
      * @throws On network failure or if the activity is not found.
      *
      * @example
      * ```typescript
      * const metrics = await client.activityMetrics(activity.id);
-     * for (const group of metrics.groups) {
-     *   console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     * if (metrics === null) {
+     *   console.log("No metrics yet — this activity has not been analyzed.");
+     * } else {
+     *   for (const group of metrics.groups) {
+     *     console.log(group.name, group.metrics.map(m => `${m.name}: ${m.value}`));
+     *   }
      * }
      * ```
      */
-    activityMetrics(activityId: string): Promise<ActivityMetrics>;
+    activityMetrics(activityId: string): Promise<ActivityMetrics | null>;
     /**
      * Fetch dashboard metrics for all activities belonging to a subject.
      *
@@ -904,6 +995,51 @@ export declare class ModelHealthClient {
      */
     setVideoUploadMode(mode: VideoUploadMode): Promise<void>;
     /**
+     * Adjusts the log level without touching the registered handler.
+     *
+     * @param level How verbose the log event stream should be.
+     * @throws {string} If the level cannot be applied.
+     *
+     * @example
+     * ```typescript
+     * client.setLogLevel("warn");
+     * ```
+     */
+    setLogLevel(level: LogLevel): void;
+    /**
+     * Registers or clears the persistent log handler.
+     *
+     * Passing `null` for the handler clears it regardless of `level`.
+     *
+     * @param handler Called with a {@link LogEvent} for each event at or below `level`.
+     *   Pass `null` to stop receiving events.
+     * @param level How verbose the log event stream should be. Ignored when `handler`
+     *   is `null`.
+     * @throws {string} If the handler cannot be registered.
+     *
+     * @example
+     * ```typescript
+     * client.setLogHandler((event) => {
+     *   console.log(`[modelhealth] ${event.code}: ${event.message}`);
+     * });
+     *
+     * // Stop receiving events
+     * client.setLogHandler(null);
+     * ```
+     */
+    setLogHandler(handler: ((event: LogEvent) => void) | null, level?: LogLevel): void;
+    /**
+     * Releases resources held by this client, including deregistering any log handler.
+     *
+     * The client cannot be used after calling this.
+     *
+     * @example
+     * ```typescript
+     * client.dispose();
+     * ```
+     */
+    dispose(): void;
+    /**
      * Parse a WASM response and normalize object keys to camelCase.
      *
      * Normalizes snake_case field names from the WASM layer to idiomatic
@@ -915,6 +1051,13 @@ export declare class ModelHealthClient {
      * @returns Parsed, camelised TypeScript object
      */
     private parseResponse;
+    /**
+     * Applies the SDK's usual response shaping to every item a list hands over.
+     *
+     * The core layer speaks `snake_case` and ISO strings; the same conversion every other
+     * method goes through has to apply here too, item by item as they arrive.
+     */
+    private shapeItems;
 }
 /**
  * Deprecated alias for {@link ModelHealthClient}.
@@ -935,6 +1078,7 @@ export declare class ModelHealthService extends ModelHealthClient {
 export declare function activityMetricsToJson(metrics: ActivityMetrics, pretty?: boolean): string;
 export * from "./types.js";
 export * from "./errors.js";
+export * from "./streams.js";
 /**
  * Internal response-transform pipeline, exported only so `tests/` can exercise it
  * directly and in the same order `parseResponse` uses in practice — see

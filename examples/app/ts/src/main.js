@@ -14,6 +14,10 @@ import { render as renderRecordActivity, onEnter as onEnterRecordActivity } from
 import { render as renderAnalysisResult, onEnter as onEnterAnalysisResult } from './views/AnalysisResultView.js';
 import { render as renderMetrics, onEnter as onEnterMetrics } from './views/MetricsView.js';
 import { render as renderThreeDView, onEnter as onEnterThreeDView } from './views/ThreeDView.jsx';
+import { render as renderBrowseActivities, onEnter as onEnterBrowseActivities } from './views/BrowseActivitiesView.js';
+import { render as renderBrowseSubjects, onEnter as onEnterBrowseSubjects } from './views/BrowseSubjectsView.js';
+import { render as renderBrowseSessions, onEnter as onEnterBrowseSessions } from './views/BrowseSessionsView.js';
+import { render as renderBrowseGroups, onEnter as onEnterBrowseGroups } from './views/BrowseGroupsView.js';
 
 const VIEWS = {
   sessions: { render: renderSessions, onEnter: onEnterSessions },
@@ -25,6 +29,10 @@ const VIEWS = {
   'analysis-result': { render: renderAnalysisResult, onEnter: onEnterAnalysisResult },
   'activity-metrics': { render: renderMetrics, onEnter: onEnterMetrics },
   '3d-view': { render: renderThreeDView, onEnter: onEnterThreeDView },
+  'browse-activities': { render: renderBrowseActivities, onEnter: onEnterBrowseActivities },
+  'browse-subjects': { render: renderBrowseSubjects, onEnter: onEnterBrowseSubjects },
+  'browse-sessions': { render: renderBrowseSessions, onEnter: onEnterBrowseSessions },
+  'browse-groups': { render: renderBrowseGroups, onEnter: onEnterBrowseGroups },
 };
 
 const container = document.getElementById('content');

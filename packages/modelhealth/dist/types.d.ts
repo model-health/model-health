@@ -41,6 +41,28 @@ export interface Session {
     updatedAt: Date;
 }
 /**
+ * Sort field for {@link SessionsResource.list}, optionally `-`-prefixed for descending.
+ *
+ * @group Enumerations
+ */
+export type SessionOrderBy = "name" | "-name" | "createdAt" | "-createdAt";
+/**
+ * Named filters for {@link SessionsResource.list}.
+ *
+ * All fields are optional — omit any to leave that filter unconstrained.
+ *
+ * @group Enumerations
+ */
+export interface SessionListOptions {
+    /** Only the session(s) belonging to this subject. Accepts a {@link Subject} or its id. */
+    subject?: Subject | number;
+    /** Field to sort by. Defaults to `"-createdAt"`. */
+    orderBy?: SessionOrderBy;
+    /** Caps the total number of sessions the stream yields across the whole
+     * iteration. Omit to iterate every match. */
+    limit?: number;
+}
+/**
  * Gender identity options for subject demographics.
  *
  * @group Enumerations
@@ -57,7 +79,9 @@ export type Sex = "woman" | "man" | "intersex" | "not_listed" | "no_response";
  *
  * @example
  * ```typescript
- * const subjects = await client.subjectList();
+ * for await (const subject of client.subjects.list()) {
+ *   console.log(subject.name);
+ * }
  * ```
  */
 export interface Subject {
@@ -116,6 +140,107 @@ export interface SubjectParameters {
     sexAtBirth?: Sex;
     gender?: Gender;
     characteristics?: string;
+}
+/**
+ * Sort field for {@link SubjectsResource.list}, optionally `-`-prefixed for descending.
+ *
+ * @group Enumerations
+ */
+export type SubjectOrderBy = "name" | "-name" | "createdAt" | "-createdAt" | "updatedAt" | "-updatedAt";
+/**
+ * Named filters for {@link SubjectsResource.list}.
+ *
+ * All fields are optional — omit any to leave that filter unconstrained.
+ *
+ * @group Enumerations
+ */
+export interface SubjectListOptions {
+    /** Free-text search against the subject's name. */
+    search?: string;
+    /** Only subjects created on or after this date (inclusive). A `Date` counts as
+     * the day it falls on in the local time zone, not in UTC. A string must read
+     * `YYYY-MM-DD`. */
+    createdAfter?: Date | string;
+    /** Only subjects created on or before this date (inclusive). A `Date` counts as
+     * the day it falls on in the local time zone, not in UTC. A string must read
+     * `YYYY-MM-DD`. */
+    createdBefore?: Date | string;
+    /** Only subjects belonging to one of these subject groups (group ids as strings). */
+    groups?: string[];
+    /** Only subjects carrying every tag in this list. */
+    tags?: string[];
+    /** Only subjects belonging to one of these accounts, by numeric account id. */
+    createdBy?: number[];
+    /** Only subjects with at least one activity of this type. */
+    activityType?: ActivityType;
+    /** Only subjects whose activities have (`true`) or have not (`false`) all
+     * finished analysis. */
+    activityComplete?: boolean;
+    /** Only the subject calibrated under this session. Accepts a {@link Session} or its id. */
+    session?: Session | string;
+    /** Field to sort by. Defaults to `"name"`. */
+    orderBy?: SubjectOrderBy;
+    /** Caps the total number of subjects the stream yields across the whole
+     * iteration. Omit to iterate every match. */
+    limit?: number;
+}
+/**
+ * A named collection of subjects.
+ *
+ * @example
+ * ```typescript
+ * for await (const group of client.groups.list()) {
+ *   console.log(group.name, group.subjectCount);
+ * }
+ * ```
+ */
+export interface SubjectGroup {
+    id: number;
+    name: string;
+    /** Freeform description, or an empty string if none was set. */
+    description: string;
+    /** Number of subjects in this group. */
+    subjectCount: number;
+    /** Total activities recorded across every subject in this group. */
+    totalActivities: number;
+    /** Timestamp of the most recent activity across the group, if there is one. */
+    lastActivity?: Date;
+    /** Username of the account that created this group, if reported. */
+    createdBy?: string;
+    /** Whether the authenticated account owns this group. */
+    isOwner: boolean;
+    /** Whether the authenticated account can edit this group. */
+    canEdit: boolean;
+    /** When the group was created. */
+    createdAt: Date;
+    /** When the group was last modified. */
+    updatedAt: Date;
+    /** Whether the group is in the trash. */
+    trashed: boolean;
+    /** When the group was trashed, if it is. */
+    trashedAt?: Date;
+}
+/**
+ * Sort field for {@link GroupsResource.list}, optionally `-`-prefixed for descending.
+ *
+ * @group Enumerations
+ */
+export type GroupOrderBy = "name" | "-name";
+/**
+ * Named filters for {@link GroupsResource.list}.
+ *
+ * All fields are optional — omit any to leave that filter unconstrained.
+ *
+ * @group Enumerations
+ */
+export interface GroupListOptions {
+    /** Free-text search against the group's name. */
+    search?: string;
+    /** Field to sort by. Defaults to `"name"`. */
+    orderBy?: GroupOrderBy;
+    /** Caps the total number of groups the stream yields across the whole
+     * iteration. Omit to iterate every match. */
+    limit?: number;
 }
 /**
  * A recorded video file from an activity.
@@ -186,22 +311,56 @@ export interface ActivityTypeInfo {
     displayName: string;
 }
 /**
- * Sort order for activity lists.
- *
- * Sort by most recently updated.
+ * Field to sort `client.activities.list(...)` results by, optionally prefixed
+ * with `"-"` for descending.
  *
  * @group Enumerations
  * @example
  * ```typescript
- * const activities = await client.activitiesForSubject(
- *   subjectId,
- *   0,
- *   20,
- *   "updated_at"
- * );
+ * const activities = client.activities.list({ orderBy: "-createdAt" });
  * ```
  */
-export type ActivitySort = "updated_at";
+export type ActivityOrderBy = "createdAt" | "-createdAt" | "status" | "-status" | "createdBy" | "-createdBy" | "activityType" | "-activityType";
+/**
+ * Named filters for {@link ActivitiesResource.list}.
+ *
+ * All fields are optional — omit any to leave that filter unconstrained.
+ *
+ * @group Enumerations
+ */
+export interface ActivityListOptions {
+    /** Only activities belonging to this subject. Accepts a {@link Subject} or its id. */
+    subject?: Subject | number;
+    /** Only activities recorded under this calibration session. Accepts a {@link Session} or its id. */
+    calibrationSession?: Session | string;
+    /** Only activities of this type. */
+    activityType?: ActivityType;
+    /** Excludes calibration and neutral-pose activities. Default `true`. */
+    excludeCalibration?: boolean;
+    /** Only activities created on or after this date (inclusive). A `Date` counts as
+     * the day it falls on in the local time zone, not in UTC. A string must read
+     * `YYYY-MM-DD`. */
+    createdAfter?: Date | string;
+    /** Only activities created on or before this date (inclusive). A `Date` counts as
+     * the day it falls on in the local time zone, not in UTC. A string must read
+     * `YYYY-MM-DD`. */
+    createdBefore?: Date | string;
+    /** Free-text search against the activity's name. */
+    search?: string;
+    /** Only activities carrying every tag in this list. */
+    tags?: string[];
+    /** Only activities belonging to one of these accounts, by numeric account id.*/
+    createdBy?: number[];
+    /** Only activities whose analysis has finished. */
+    onlyCompleted?: boolean;
+    /** Excludes activities whose analysis failed. */
+    excludeAnalysisError?: boolean;
+    /** Field to sort by. Defaults to `"-createdAt"`. */
+    orderBy?: ActivityOrderBy;
+    /** Caps the total number of activities the stream yields across the whole
+     * iteration. Omit to iterate every match. */
+    limit?: number;
+}
 /**
  * A tag that can be applied to activities for categorization.
  *
@@ -865,5 +1024,31 @@ export interface AccountInfo {
     institution?: string;
     profession?: string;
     country?: string;
+}
+/**
+ * How verbose a log event stream should be.
+ *
+ * Each level includes every level above it: `"warn"` includes `"error"`, `"info"`
+ * includes both.
+ *
+ * @group Enumerations
+ */
+export type LogLevel = "off" | "error" | "warn" | "info";
+/**
+ * Which part of a session's lifecycle a log event describes.
+ *
+ * @group Enumerations
+ */
+export type LogCategory = "account" | "activity" | "analysis" | "metrics" | "sdk" | "session" | "subject" | "video";
+/**
+ * A single log event delivered to a handler registered via
+ * `ModelHealthClient.setLogHandler`.
+ */
+export interface LogEvent {
+    level: LogLevel;
+    category: LogCategory;
+    code: string;
+    message: string;
+    timestampMs: number;
 }
 //# sourceMappingURL=types.d.ts.map

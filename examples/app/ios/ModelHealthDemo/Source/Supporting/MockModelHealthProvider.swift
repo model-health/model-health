@@ -78,9 +78,42 @@ final class MockModelHealthProvider: ModelHealthProvider {
         }
     }
 
-    func subjectList() async throws -> [Subject] {
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        return subjects
+    func subjectsStream(
+        filterJSON: String,
+        activityTypeCode: Int32,
+        orderBy: String?,
+        limit: Int?
+    ) -> SubjectStream {
+        SubjectStream(limit.map { Array(subjects.prefix($0)) } ?? subjects)
+    }
+
+    func sessionsStream(filterJSON: String, orderBy: String?, limit: Int?) -> SessionStream {
+        let sessions = (1...3).map { index in
+            Session.forPreview { builder in
+                builder.id = "mock-session-\(index)"
+                builder.name = "Mock Session \(index)"
+                builder.sessionName = "Demo Session \(index)"
+                builder.user = 1
+                builder.public = false
+                builder.qrcode = nil
+                builder.subject = subjects.first?.id
+                builder.activitiesCount = index
+            }
+        }
+        return SessionStream(limit.map { Array(sessions.prefix($0)) } ?? sessions)
+    }
+
+    func groupsStream(filterJSON: String, orderBy: String?, limit: Int?) -> GroupStream {
+        let groups = [
+            SubjectGroup.forPreview(),
+            SubjectGroup.forPreview { builder in
+                builder.id = 2
+                builder.name = "Cohort B"
+                builder.subjectCount = 5
+                builder.totalActivities = 112
+            }
+        ]
+        return GroupStream(limit.map { Array(groups.prefix($0)) } ?? groups)
     }
 
     func createSubject(parameters: SubjectParameters) async throws -> Subject {
@@ -101,7 +134,15 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func activityList(for session: Session) async throws -> [Activity] {
         try? await Task.sleep(nanoseconds: 300_000_000)
-        return [
+        return previewActivities()
+    }
+
+    /// The stand-in activities, shared by `activityList(for:)` and `activitiesStream(...)`.
+    ///
+    /// Not async: opening a sequence does not wait for anything, so the items have to be
+    /// available without awaiting.
+    private func previewActivities() -> [Activity] {
+        [
             .forPreview { builder in
                 builder.id = "activity-001"
                 builder.session = "session-001"
@@ -127,15 +168,14 @@ final class MockModelHealthProvider: ModelHealthProvider {
         ]
     }
 
-    func activities(
-        forSubject subjectId: Int,
-        startIndex: Int,
-        count: Int,
-        sortedBy sort: ModelHealth.ActivitySort,
-        start: Date?,
-        end: Date?
-    ) async throws -> [ModelHealth.Activity] {
-        try await activityList(for: Session.forPreview())
+    func activitiesStream(
+        filterJSON: String,
+        activityTypeCode: Int32,
+        orderBy: String?,
+        limit: Int?
+    ) -> ActivityStream {
+        let activities = previewActivities()
+        return ActivityStream(limit.map { Array(activities.prefix($0)) } ?? activities)
     }
 
     func fetch(activity activityId: String) async throws -> Activity {

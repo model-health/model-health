@@ -45,7 +45,7 @@ from modelhealth import (
     SubjectParameters,
 )
 from _prompts import confirm, pick_one
-from _utils import ANALYSIS_DATA_EXT, DOWNLOADS_DIR, load_api_key, poll_analysis, save_file
+from _utils import ANALYSIS_DATA_EXT, DOWNLOADS_DIR, load_api_key, poll_analysis, save_file, attach_logging
 
 # ---------------------------------------------------------------------------
 # Activity type options for automatic analysis after recording
@@ -147,7 +147,9 @@ def _poll_activity(client, activity, interval=5):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -236,7 +238,7 @@ def _calibrate_cameras(client, session, checkerboard):
 def _pick_or_create_subject(client):
     print("\nFetching subjects...")
     try:
-        subjects = client.subject_list()
+        subjects = client.subjects.list().all()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch subjects: {exc}")
 

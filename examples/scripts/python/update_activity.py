@@ -16,34 +16,20 @@ from docopt import docopt
 
 from modelhealth import (
     ActivityConfig,
-    ActivitySort,
     ModelHealthError,
     ModelHealthClient,
 )
 from _prompts import confirm, pick_one
-from _utils import load_api_key
-
-# Activities created by the mobile app for internal use — exclude from lists.
-_INTERNAL_ACTIVITY_NAMES = {"calibration", "neutral"}
-
-_PAGE_SIZE = 50
-
+from _utils import load_api_key, attach_logging
 
 def _load_activities(client, subject):
-    """Fetch all non-internal activities for a subject."""
-    activities = []
-    offset = 0
-    while True:
-        page = client.activities_for_subject(
-            subject, start_index=offset, count=_PAGE_SIZE, sort=ActivitySort.updated_at
-        )
-        for a in page:
-            if (a.name or "").lower() not in _INTERNAL_ACTIVITY_NAMES:
-                activities.append(a)
-        if len(page) < _PAGE_SIZE:
-            break
-        offset += _PAGE_SIZE
-    return activities
+    """Every activity recorded for this subject, newest first.
+
+    ``list(...)`` returns a sequence that fetches as it is read; ``all()`` collects
+    it. Calibration and neutral-pose activities are left out by default, so there
+    is nothing to filter here.
+    """
+    return client.activities.list(subject=subject, order_by="-created_at").all()
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +39,9 @@ def _load_activities(client, subject):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -65,7 +53,7 @@ def _connect(api_key):
 def _pick_subject(client):
     print("\nFetching subjects...")
     try:
-        subjects = client.subject_list()
+        subjects = client.subjects.list().all()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch subjects: {exc}")
 
@@ -92,7 +80,8 @@ def _pick_activity(client, subject):
     activity = pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
+        lambda a: f"{a.name or a.id}  [{a.status}]"
+        + (f"  {a.activity_type.display_name}" if a.activity_type else ""),
     )
     print(f"  Selected: {activity.name or activity.id}")
     return activity
@@ -105,7 +94,7 @@ def _pick_activity(client, subject):
 def _prompt_edits(activity):
     """Returns (new_name, add_tags, remove_tags) — all falsy if nothing changed."""
     print("\nUpdate activity (press Enter to keep current value):")
-    print(f"  Current activity type: {activity.activity_type or '(none)'}")
+    print(f"  Current activity type: {activity.activity_type.display_name if activity.activity_type else '(none)'}")
     current_tags = ", ".join(activity.tags) if activity.tags else "(none)"
     print(f"  Current tags: {current_tags}")
 

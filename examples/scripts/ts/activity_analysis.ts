@@ -10,7 +10,7 @@ import { ModelHealthClient, ActivityType } from '@modelhealth/modelhealth';
 import type { AnalysisDataType } from '@modelhealth/modelhealth';
 import {
   loadApiKey, INTERNAL_ACTIVITY_NAMES, ANALYSIS_DATA_EXT,
-  pickOne, pickMulti, saveFile, pollAnalysis, sleep, closePrompts,
+  pickOne, pickMulti, saveFile, pollAnalysis, sleep, closePrompts, attachLogging,
 } from './_shared.js';
 
 const ANALYSIS_TYPES: [string, string][] = [
@@ -40,6 +40,7 @@ async function connect(apiKey: string): Promise<ModelHealthClient> {
   console.log('Connecting...');
   const client = new ModelHealthClient({ apiKey, autoInit: false });
   await client.init();
+  attachLogging(client);
   return client;
 }
 
@@ -71,7 +72,7 @@ async function pickActivity(client: ModelHealthClient, session: Awaited<ReturnTy
   return pickOne(
     activities,
     'Select activity',
-    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType}` : '')
+    a => `${a.name ?? a.id}  [${a.status}]` + (a.activityType ? `  ${a.activityType.displayName}` : '')
   );
 }
 
@@ -98,7 +99,7 @@ async function startAnalysis(
   session: Awaited<ReturnType<typeof pickSession>>
 ) {
   // Default to the activity's recorded type if available.
-  const defaultAnalysis = ANALYSIS_TYPES.find(t => t[0] === activity.activityType);
+  const defaultAnalysis = ANALYSIS_TYPES.find(t => t[0] === activity.activityType?.name);
   console.log('\nAnalysis type:\n');
   const [analysisType, analysisLabel] = await pickOne(
     ANALYSIS_TYPES, 'Select analysis type', t => t[1], defaultAnalysis

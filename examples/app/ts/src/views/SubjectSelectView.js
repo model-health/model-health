@@ -93,8 +93,13 @@ export function render(container, state, { setState, navigate }) {
     </div>
     ${error ? `<div class="status error">${escapeHtml(error)}</div>` : ''}
     <div class="card">
+      <div class="form-group">
+        <label for="subject-search">Search</label>
+        <input type="text" id="subject-search" placeholder="Search by name"
+               value="${escapeHtml(state.subjectSearch || '')}" ${loading ? 'disabled' : ''} />
+      </div>
       ${subjects.length === 0 && !loading ? `
-        <p class="muted">No subjects yet. Create one below.</p>
+        <p class="muted">${state.subjectSearch ? 'No subject matches that name.' : 'No subjects yet. Create one below.'}</p>
       ` : `
         <ul class="subject-list">
           ${subjects.map((s) => `
@@ -111,6 +116,11 @@ export function render(container, state, { setState, navigate }) {
   `;
 
   container.querySelector('#back-subject')?.addEventListener('click', () => navigate('sessions'));
+  // The server does the searching: `search` narrows the list before it is sent, so what arrives
+  // is already the answer. Committed on Enter or on leaving the field, not per keystroke.
+  container.querySelector('#subject-search')?.addEventListener('change', (event) => {
+    loadSubjects(setState, event.target.value.trim());
+  });
   container.querySelectorAll('.subject-item').forEach((el) => {
     el.addEventListener('click', () => {
       const id = Number(el.getAttribute('data-subject-id'));
@@ -121,17 +131,27 @@ export function render(container, state, { setState, navigate }) {
   container.querySelector('#show-create-subject')?.addEventListener('click', () => setState({ subjectCreateMode: true }));
 }
 
-export async function onEnter(container, state, ctx) {
+/**
+ * Reads the subjects matching `search`, or every subject when it is empty.
+ *
+ * `list(...)` hands back a sequence rather than an array; `all()` collects it, which is what a
+ * picker this size wants.
+ */
+async function loadSubjects(setState, search) {
   const client = getClient();
   if (!client)
     return;
+  setState({ loadingState: 'loading', errorMessage: null, subjectSearch: search });
+  try {
+    const subjects = await client.subjects.list({ search: search || undefined }).all();
+    setState({ subjects, loadingState: 'idle' });
+  } catch (err) {
+    setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to load subjects' });
+  }
+}
+
+export async function onEnter(container, state, ctx) {
   if ((state.subjects || []).length === 0 && state.loadingState !== 'loading' && !state.subjectCreateMode) {
-    ctx.setState({ loadingState: 'loading', errorMessage: null });
-    try {
-      const subjects = await client.subjectList();
-      ctx.setState({ subjects, loadingState: 'idle' });
-    } catch (err) {
-      ctx.setState({ loadingState: 'idle', errorMessage: err.message || 'Failed to load subjects' });
-    }
+    await loadSubjects(ctx.setState, state.subjectSearch || '');
   }
 }

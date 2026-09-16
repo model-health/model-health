@@ -135,7 +135,9 @@ struct ActivityRecording {
 private func connect(apiKey: String) -> ModelHealthClient {
     print("Connecting...")
     do {
-        return try ModelHealthClient(apiKey: apiKey)
+        let client = try ModelHealthClient(apiKey: apiKey)
+        attachLogging(client)
+        return client
     } catch {
         fputs("Failed to initialise: \(error)\n", stderr)
         exit(1)
@@ -238,7 +240,7 @@ private func pickOrCreateSubject(client: ModelHealthClient) async -> Subject {
     print("\nFetching subjects...")
     let subjects: [Subject]
     do {
-        subjects = try await client.subjectList()
+        subjects = try await client.subjects.list().all()
     } catch {
         fputs("Failed to fetch subjects: \(error)\n", stderr)
         exit(1)

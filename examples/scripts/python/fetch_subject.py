@@ -15,7 +15,7 @@ from docopt import docopt
 
 from modelhealth import ModelHealthError, ModelHealthClient
 from _prompts import pick_one
-from _utils import load_api_key
+from _utils import load_api_key, attach_logging
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,9 @@ from _utils import load_api_key
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -37,7 +39,7 @@ def _connect(api_key):
 def _pick_subject(client):
     print("\nFetching subjects...")
     try:
-        subjects = client.subject_list()
+        subjects = client.subjects.list().all()
     except ModelHealthError as exc:
         sys.exit(f"Failed to fetch subjects: {exc}")
 

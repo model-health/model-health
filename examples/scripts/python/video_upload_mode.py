@@ -19,7 +19,7 @@ from modelhealth import (
     VideoUploadMode,
 )
 from _prompts import pick_one
-from _utils import load_api_key
+from _utils import load_api_key, attach_logging
 
 _MODES = [VideoUploadMode.enabled, VideoUploadMode.disabled, VideoUploadMode.flush]
 
@@ -34,6 +34,7 @@ def main(api_key):
     print("Connecting...")
     try:
         client = ModelHealthClient(api_key)
+        attach_logging(client)
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 

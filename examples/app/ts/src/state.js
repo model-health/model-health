@@ -2,6 +2,19 @@
  * Application state and navigation.
  * No auth — SDK uses API key only; app starts at session list.
  */
+/** The shape a browse screen starts in. One per screen, so the four never disturb each other. */
+function emptyBrowse() {
+  return {
+    items: [],
+    total: null, // how many match, read once and kept
+    streamState: 'none', // 'none' | 'open' | 'exhausted' | 'failed'
+    busy: false,
+    error: null,
+    refs: {}, // the subjects/sessions/groups this screen's pickers are built from
+    refsLoaded: false,
+  };
+}
+
 const initialState = {
   screen: 'sessions',
   sessions: [],
@@ -13,6 +26,7 @@ const initialState = {
   // Create-session flow (newSession set after createSession())
   newSession: null,
   subjectCreateMode: false, // true when showing create-subject form inside subject-select
+  subjectSearch: '', // what the subject list was last filtered by, on the server
   // Record activity
   activities: [],
   activityStates: {}, // id -> { processingStatus }
@@ -28,6 +42,12 @@ const initialState = {
   analysisResultDataItems: null,
   analysisResultSelectedIndex: 0,
   activityDataItems: null,
+  // The open sequence itself is not here — it has a lifetime and something has to release it,
+  // which each screen owns. Only what a screen draws lives in state.
+  activitiesBrowse: emptyBrowse(),
+  subjectsBrowse: emptyBrowse(),
+  sessionsBrowse: emptyBrowse(),
+  groupsBrowse: emptyBrowse(),
 };
 
 let state = { ...initialState };

@@ -27,7 +27,7 @@ from modelhealth import (
     AnalysisDataType,
 )
 from _prompts import pick_one, pick_multi
-from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key, poll_analysis
+from _utils import save_file, ANALYSIS_DATA_EXT, load_api_key, poll_analysis, attach_logging
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -88,7 +88,9 @@ def _poll_processing(client, activity, interval=10):
 def _connect(api_key):
     print("Connecting...")
     try:
-        return ModelHealthClient(api_key)
+        client = ModelHealthClient(api_key)
+        attach_logging(client)
+        return client
     except ModelHealthError as exc:
         sys.exit(f"Failed to initialise: {exc}")
 
@@ -127,7 +129,8 @@ def _pick_activity(client, session):
     return pick_one(
         activities,
         "Select activity",
-        lambda a: f"{a.name or a.id}  [{a.status}]" + (f"  {a.activity_type}" if a.activity_type else ""),
+        lambda a: f"{a.name or a.id}  [{a.status}]"
+        + (f"  {a.activity_type.display_name}" if a.activity_type else ""),
     )
 
 
@@ -159,7 +162,7 @@ def _ensure_ready(client, activity):
 def _start_analysis(client, activity, session):
     # Default to the activity's recorded type if available.
     default_analysis = next(
-        (t for t in ANALYSIS_TYPES if t[0] == activity.activity_type),
+        (t for t in ANALYSIS_TYPES if activity.activity_type and t[0] == activity.activity_type.name),
         None,
     )
     print("\nAnalysis type:\n")
