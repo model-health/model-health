@@ -8,11 +8,12 @@ struct BrowseSubjectsView: View {
 
     @State private var groups: [SubjectGroup] = []
     @State private var sessions: [Session] = []
+    @State private var activityTypes: [ActivityTypeInfo] = []
 
     @State private var search = ""
     @State private var groupID: Int?
     @State private var sessionID: String?
-    @State private var activityType: ActivityType?
+    @State private var activityTypeID: Int?
     @State private var tagsText = ""
     @State private var createdByText = ""
     @State private var activityComplete: Bool?
@@ -51,10 +52,10 @@ struct BrowseSubjectsView: View {
                     }
                 }
 
-                Picker("Has activity of type", selection: $activityType) {
-                    Text("Any type").tag(ActivityType?.none)
-                    ForEach(ActivityType.allCases, id: \.rawValue) { type in
-                        Text(type.rawValue).tag(ActivityType?.some(type))
+                Picker("Has activity of type", selection: $activityTypeID) {
+                    Text("Any type").tag(Int?.none)
+                    ForEach(activityTypes, id: \.id) { type in
+                        Text(type.displayName).tag(Int?.some(type.id))
                     }
                 }
 
@@ -89,6 +90,11 @@ struct BrowseSubjectsView: View {
             if sessions.isEmpty {
                 sessions = (try? await modelHealth.sessions.list().all()) ?? []
             }
+            // The types this account can use, rather than a list written into the app:
+            // an account can add its own, and a fixed list would never show them.
+            if activityTypes.isEmpty {
+                activityTypes = (try? await modelHealth.activityTypes()) ?? []
+            }
 
             if case .notStarted = model.state {
                 await apply()
@@ -107,7 +113,7 @@ private extension BrowseSubjectsView {
                 groups: groupID.map { [String($0)] },
                 tags: BrowseInput.list(tagsText),
                 createdBy: BrowseInput.ids(createdByText),
-                activityType: activityType,
+                activityType: activityTypes.first { $0.id == activityTypeID },
                 activityComplete: activityComplete,
                 session: sessions.first { $0.id == sessionID },
                 orderBy: order

@@ -43,13 +43,27 @@
   background: #151820;
 }
 
+/* Every property a host page's own `button` rule could otherwise supply is set
+   here. Left unsaid, a padding or margin from the surrounding app inflates these
+   and spaces them apart, and the row stops looking like a control strip. */
 .mh-playback-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
   width: 36px;
   height: 36px;
+  margin: 0;
+  padding: 0;
   border: 1px solid #374151;
   border-radius: 6px;
   background: #1f2430;
   color: #f3f4f6;
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: -0.05em;
+  line-height: 1;
   cursor: pointer;
 }
 

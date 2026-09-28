@@ -24,7 +24,7 @@ function computeDuration(...timeSeries) {
  * viewerRef.current?.play();
  * ```
  */
-export const View3D = forwardRef(function View3D({ transforms, markers = [], overlay, color = DEFAULT_BODY_COLOR, geometryBaseUrl, skipGeometries, trackedBodyKey, className, onPlayingChange, onDurationChange, }, ref) {
+export const View3D = forwardRef(function View3D({ transforms, markers = [], overlay, color = DEFAULT_BODY_COLOR, geometryBaseUrl, skipGeometries, trackedBodyKey, className, onPlayingChange, onDurationChange, externalClock = false, }, ref) {
     // currentTime is intentionally NOT React state: nothing in this component's
     // own render output depends on it (Scene3D/Body3D read the ref directly, per
     // frame, outside React's render cycle) now that there's no built-in scrubber
@@ -45,8 +45,15 @@ export const View3D = forwardRef(function View3D({ transforms, markers = [], ove
     useEffect(() => {
         onPlayingChange?.(playing);
     }, [playing, onPlayingChange]);
+    // Handing the clock over stops playback rather than only stopping the loop. Left
+    // as playing, the view would report itself playing while nothing moved, and taking
+    // the clock back would quietly start it running again.
     useEffect(() => {
-        if (!playing || duration <= 0)
+        if (externalClock)
+            setPlaying(false);
+    }, [externalClock]);
+    useEffect(() => {
+        if (!playing || duration <= 0 || externalClock)
             return;
         // Playback stops at the end with currentTime frozen at duration. Without
         // this, resuming would immediately recompute next >= duration on the very
@@ -72,9 +79,12 @@ export const View3D = forwardRef(function View3D({ transforms, markers = [], ove
         };
         frameId = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frameId);
-    }, [playing, duration, playbackSpeed]);
+    }, [playing, duration, playbackSpeed, externalClock]);
     useImperativeHandle(ref, () => ({
-        play: () => setPlaying(true),
+        play: () => {
+            if (!externalClock)
+                setPlaying(true);
+        },
         pause: () => setPlaying(false),
         seek: (time) => {
             currentTimeRef.current = Math.min(Math.max(time, 0), duration);
@@ -98,7 +108,7 @@ export const View3D = forwardRef(function View3D({ transforms, markers = [], ove
         get playbackSpeed() {
             return playbackSpeed;
         },
-    }), [duration, playing, playbackSpeed, transforms]);
+    }), [duration, playing, playbackSpeed, transforms, externalClock]);
     const markerLayers = useMemo(() => {
         const { baseX, baseZ } = computeBaseOffset(transforms, trackedBodyKey);
         return markers.map((layer) => ({

@@ -91,6 +91,20 @@ import { PlaybackControls } from '@modelhealth/viewer-react';
 `onPlayingChange` and `onDurationChange` props on `View3D` itself keep an external
 play/pause toggle or scrubber range in sync with the viewer's actual state.
 
+## Syncing to an external clock
+
+If something outside `View3D` already tracks playback position — a video player,
+for example — and you want the 3D view to strictly follow it instead of running
+its own clock, set `externalClock`:
+
+```tsx
+<View3D ref={viewerRef} transforms={transforms} externalClock />
+```
+
+While `externalClock` is set, call `viewerRef.current?.seek(time)` every time your
+own clock updates — safe to call as often as once per video frame. `play()` has no
+effect while `externalClock` is set.
+
 ## Overlays
 
 **Markers** — pass one or more augmented marker layers via the `markers` prop:
@@ -127,7 +141,7 @@ const overlay = sto ? parseExternalSto(sto) : undefined;
 
 - `View3D` — the viewer component. Props: `transforms`, `markers`, `overlay`, `color`,
   `geometryBaseUrl`, `skipGeometries`, `trackedBodyKey`, `className`, `onPlayingChange`,
-  `onDurationChange`.
+  `onDurationChange`, `externalClock`.
 - `PlaybackControls` — ready-made playback UI, driven entirely by props/callbacks.
 - `fetchAnimationTransforms(client, activity)` — fetches and parses `animation` motion data.
 - `fetchMarkerTransforms(client, activity)` — fetches and parses `markers_csv` motion data; returns `null` if unavailable.

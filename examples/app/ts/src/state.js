@@ -33,6 +33,7 @@ const initialState = {
   selectedActivityType: 'counter_movement_jump', // activity type for the next recording
   analysisCompleted: {}, // id -> true when analysis has completed for this activity
   currentRecording: null,
+  usage: null, // the account's plan state, read when the record screen opens
   currentActivityName: '',
   // Selected activity for results/data views
   selectedActivity: null,

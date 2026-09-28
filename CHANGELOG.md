@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.11.1
+
+### Added
+
+- `usage()` — retrieves the current billing/quota state (recording allowed,
+activity usage, plan, renewal) for your account.
+
+- `activityTypes()` (Swift and TypeScript) / `client.activity_types.list()` (Python) — the
+  activity types this account can use: the ones everybody has, plus any the account or its
+  organisation added. Read one from here to filter a list by it.
+
+- `slug` on `ActivityTypeInfo` — a machine-readable key, e.g. `"squat_exercise"`. Derived
+  from the name once and then fixed, so it survives a rename while `name` and
+  `displayName`/`display_name` follow one. Empty when none was reported.
+
+- `switchSubject(to:in:)` (Swift) / `switchSubject(subject, session)` (TypeScript) /
+  `switch_subject(subject, session)` (Python) — moves to the session to record another
+  subject in, and takes the cameras there. Subjects can be recorded in any order, including
+  returning to one recorded earlier: the session they were already in comes back when its
+  camera calibration and static pose are both still good, so their pose is not repeated.
+
+- `setExternalClock(_:)` on `View3DController` (Swift) and the `externalClock` prop on
+  `View3D` (TypeScript) — hands the 3D view's clock to a clock of your own, such as a
+  playing video's. Playback then never advances on its own and `seek` is the only thing
+  that moves the current time; it is safe to call once per video frame.
+
+### Fixed
+
+- `ActivityTypeInfo` (TypeScript) now declares `description` and `isCustom`. Both were
+  already being returned and only missing from the type.
+
+- `PlaybackControls` (`@modelhealth/viewer-react`) sizes its own buttons, whatever the
+  surrounding page's `button` rule says. Its step buttons read `❙◀` and `▶❙`.
+
+### Breaking
+
+- The `activityType`/`activity_type` filter on `client.activities.list(...)` and
+  `client.subjects.list(...)` takes an `ActivityTypeInfo` instead of a value from the fixed
+  `ActivityType` enum. Python and TypeScript also accept the type's id; Swift accepts only
+  an `ActivityTypeInfo`.
+
 ## 0.11.0
 
 ### Added

@@ -168,3 +168,12 @@ The same for subject groups. Search is the only filter a group list takes.
 ```bash
 python3 list_groups.py [<api_key>]
 ```
+
+### `get_usage.py` — Check account usage and plan state
+
+Fetches the authenticated account's current billing/quota state via `usage`
+and prints it, including whether recording is currently allowed.
+
+```bash
+python3 get_usage.py [<api_key>]
+```

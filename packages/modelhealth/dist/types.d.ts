@@ -75,6 +75,18 @@ export type Gender = "woman" | "man" | "transgender" | "non_binary" | "no_respon
  */
 export type Sex = "woman" | "man" | "intersex" | "not_listed" | "no_response";
 /**
+ * Why recording is currently blocked.
+ *
+ * @group Enumerations
+ */
+export type UsageReason = "no_active_plan" | "period_expired" | "limit_reached" | "payment_failed";
+/**
+ * How often a plan's usage period resets.
+ *
+ * @group Enumerations
+ */
+export type ResetPeriod = "monthly" | "annually";
+/**
  * An individual being monitored or assessed.
  *
  * @example
@@ -171,8 +183,9 @@ export interface SubjectListOptions {
     tags?: string[];
     /** Only subjects belonging to one of these accounts, by numeric account id. */
     createdBy?: number[];
-    /** Only subjects with at least one activity of this type. */
-    activityType?: ActivityType;
+    /** Only subjects with at least one activity of this type. Accepts a type from
+     * {@link ModelHealthClient.activityTypes} or its id. */
+    activityType?: ActivityTypeInfo | number;
     /** Only subjects whose activities have (`true`) or have not (`false`) all
      * finished analysis. */
     activityComplete?: boolean;
@@ -300,7 +313,7 @@ export interface Activity {
     /** When this activity was last updated. */
     updatedAt: Date;
 }
-/** The activity type as reported, carrying `{id, name, displayName}` through
+/** The activity type as reported, carrying `{id, name, slug, displayName}` through
  * unchanged — including a type this SDK build doesn't otherwise recognize.
  */
 export interface ActivityTypeInfo {
@@ -309,6 +322,21 @@ export interface ActivityTypeInfo {
     name: string;
     /** Human-readable label, e.g. `"Counter Movement Jump"`. */
     displayName: string;
+    /**
+     * Machine-readable key, e.g. `"squat_exercise"`.
+     *
+     * What to branch on: it is derived from the name once and then stays put, so
+     * renaming the type in the dashboard does not change it, while `name` and
+     * `displayName` both can. Empty when none was reported.
+     */
+    slug: string;
+    /** Freeform description, or `null` on a type reported alongside an activity. */
+    description: string | null;
+    /**
+     * Whether the type belongs to the account rather than being one everybody has,
+     * or `null` on a type reported alongside an activity.
+     */
+    isCustom: boolean | null;
 }
 /**
  * Field to sort `client.activities.list(...)` results by, optionally prefixed
@@ -333,8 +361,9 @@ export interface ActivityListOptions {
     subject?: Subject | number;
     /** Only activities recorded under this calibration session. Accepts a {@link Session} or its id. */
     calibrationSession?: Session | string;
-    /** Only activities of this type. */
-    activityType?: ActivityType;
+    /** Only activities of this type. Accepts a type from
+     * {@link ModelHealthClient.activityTypes} or its id. */
+    activityType?: ActivityTypeInfo | number;
     /** Excludes calibration and neutral-pose activities. Default `true`. */
     excludeCalibration?: boolean;
     /** Only activities created on or after this date (inclusive). A `Date` counts as
@@ -1024,6 +1053,33 @@ export interface AccountInfo {
     institution?: string;
     profession?: string;
     country?: string;
+}
+/**
+ * Current billing/quota state for the authenticated account.
+ *
+ * Returned by `ModelHealthClient.usage()`.
+ */
+export interface UsageInfo {
+    recordingAllowed: boolean;
+    /** Why recording is blocked. `undefined` when `recordingAllowed` is `true`. */
+    reason?: UsageReason;
+    /** Activities used in the current period. `undefined` when there is no active plan. */
+    activitiesUsed?: number;
+    /** Activities allowed in the current period. `undefined` when there is no active
+     * plan. `undefined` while a plan IS active means unlimited. */
+    activitiesMax?: number;
+    /** When the current usage period ends. `undefined` when there is no active plan. */
+    periodEnd?: Date;
+    /** Name of the active plan. `undefined` when there is no active plan. */
+    planName?: string;
+    /** Whether the account is on a free trial. `undefined` only when there is no org,
+     * or no plan and no prior plan history. */
+    isFreeTrial?: boolean;
+    /** How often the usage period resets. `undefined` when there is no active plan. */
+    resetPeriod?: ResetPeriod;
+    /** Whether the plan will automatically renew. `undefined` when there is no active
+     * plan or no subscription is linked. */
+    willAutoRenew?: boolean;
 }
 /**
  * How verbose a log event stream should be.

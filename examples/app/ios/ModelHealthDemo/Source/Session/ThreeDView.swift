@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 import ModelHealth
 import ModelHealthUI
@@ -11,6 +12,12 @@ struct ThreeDView: View {
 
     @StateObject private var controller: View3DController
     @State private var playbackSpeed: Double = 1.0
+
+    /// Whether the recorded video drives the model rather than the view's own clock.
+    @State private var syncToVideo = false
+    @State private var player: AVPlayer?
+    @State private var videoObserver: Any?
+    @State private var videoError: String?
 
     init(activity: Activity, client: ModelHealthClient) {
         self.activity = activity
@@ -35,7 +42,19 @@ struct ThreeDView: View {
                 errorStateView(message: lastError)
                 Spacer()
             } else {
+                if syncToVideo, let player {
+                    VideoPlayer(player: player)
+                        .frame(height: 220)
+                }
+
                 View3D(controller: controller)
+
+                if let videoError {
+                    Text(videoError)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                }
 
                 playbackControls
             }
@@ -48,13 +67,23 @@ struct ThreeDView: View {
 private extension ThreeDView {
     var playbackControls: some View {
         VStack(spacing: 12) {
+            // The point of the external clock: the model follows a clock it does not own.
+            // With it on, `play()` does nothing and only `seek(to:)` moves the model, so
+            // the video's own playhead is what drives it.
+            Toggle("Follow the recorded video", isOn: $syncToVideo)
+                .font(.subheadline)
+                .disabled(!controller.isReady)
+                .onChange(of: syncToVideo) { _, following in
+                    Task { await followVideo(following) }
+                }
+
             HStack(spacing: 16) {
                 Button {
                     controller.step(-1)
                 } label: {
                     Image(systemName: "backward.frame.fill")
                 }
-                .disabled(!controller.isReady)
+                .disabled(!controller.isReady || syncToVideo)
 
                 Button {
                     if controller.isPlaying {
@@ -107,6 +136,69 @@ private extension ThreeDView {
             }
         }
         .padding()
+    }
+
+    /// Hands the model's clock to the recorded video, or takes it back.
+    ///
+    /// While the video is in charge the model never advances on its own; every frame the
+    /// player reports is passed straight to ``View3DController/seek(to:)``, which is safe
+    /// at that rate because the controller coalesces rapid calls.
+    func followVideo(_ following: Bool) async {
+        controller.setExternalClock(following)
+
+        guard following else {
+            stopFollowing()
+            return
+        }
+
+        videoError = nil
+        let videos = await client.videos(for: activity, version: .synced)
+
+        // The download outlives the switch. Turned off while it ran, there is nothing to
+        // follow any more — and carrying on would leave a hidden video driving the model
+        // with its own clock switched off. Turned off and on again, a second player would
+        // take the first one's place and leave it running.
+        guard syncToVideo, player == nil else {
+            return
+        }
+
+        guard let data = videos.first else {
+            videoError = "This activity has no synced video to follow."
+            syncToVideo = false
+            controller.setExternalClock(false)
+            return
+        }
+
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+        do {
+            try data.write(to: file)
+        } catch {
+            videoError = "Could not open the video: \(error.localizedDescription)"
+            syncToVideo = false
+            controller.setExternalClock(false)
+            return
+        }
+
+        let player = AVPlayer(url: file)
+        // Once per frame at 60fps. The controller sends on at most ~20 per second, which
+        // is the whole reason a caller may drive it this fast.
+        let step = CMTime(seconds: 1.0 / 60.0, preferredTimescale: 600)
+        videoObserver = player.addPeriodicTimeObserver(forInterval: step, queue: .main) { time in
+            controller.seek(to: time.seconds)
+        }
+        self.player = player
+        player.play()
+    }
+
+    func stopFollowing() {
+        if let videoObserver {
+            player?.removeTimeObserver(videoObserver)
+        }
+        videoObserver = nil
+        player?.pause()
+        player = nil
     }
 
     func errorStateView(message: String) -> some View {

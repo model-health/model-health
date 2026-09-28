@@ -80,7 +80,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func subjectsStream(
         filterJSON: String,
-        activityTypeCode: Int32,
         orderBy: String?,
         limit: Int?
     ) -> SubjectStream {
@@ -170,7 +169,6 @@ final class MockModelHealthProvider: ModelHealthProvider {
 
     func activitiesStream(
         filterJSON: String,
-        activityTypeCode: Int32,
         orderBy: String?,
         limit: Int?
     ) -> ActivityStream {

@@ -14,6 +14,42 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+/** What the account's plan allows, and why recording is blocked when it is. */
+function renderUsage(usage) {
+  // Keyed as they arrive. Only object keys are camelized on the way in, so a reason
+  // stays the snake_case value the SDK defines.
+  const blocked = {
+    no_active_plan: 'no active plan',
+    period_expired: 'the billing period ended',
+    limit_reached: "the plan's activity limit is reached",
+    payment_failed: 'a payment failed',
+  };
+
+  let headline;
+  if (!usage.recordingAllowed) {
+    headline = `Recording blocked — ${blocked[usage.reason] || 'check the account'}`;
+  } else if (usage.activitiesUsed == null) {
+    headline = 'Recording allowed';
+  } else if (usage.activitiesMax == null) {
+    // No maximum while a plan is active means unlimited, which is not "not known".
+    headline = `${usage.activitiesUsed} activities recorded, no limit`;
+  } else {
+    headline = `${usage.activitiesUsed} of ${usage.activitiesMax} activities used`;
+  }
+
+  const detail = [];
+  if (usage.planName) detail.push(usage.isFreeTrial ? `${usage.planName}, free trial` : usage.planName);
+  if (usage.periodEnd) {
+    const resets = usage.resetPeriod === 'annually' ? 'resets yearly' : 'resets monthly';
+    detail.push(`${resets}, next on ${new Date(usage.periodEnd).toISOString().slice(0, 10)}`);
+  }
+  if (usage.willAutoRenew === false) detail.push('does not auto-renew');
+
+  return `<div class="status${usage.recordingAllowed ? '' : ' error'}">
+    ${escapeHtml(headline)}${detail.length ? `<br /><span class="muted">${escapeHtml(detail.join(' · '))}</span>` : ''}
+  </div>`;
+}
+
 export function render(container, state, { setState, navigate }) {
   const session = state.session;
   const subject = state.subject;
@@ -25,6 +61,10 @@ export function render(container, state, { setState, navigate }) {
   const activityName = state.currentActivityName || '';
   const loading = state.loadingState === 'loading';
   const error = state.errorMessage;
+  const usage = state.usage;
+  // The SDK asks callers to check this before starting a recording flow. Until the answer
+  // is in, the button stays as it was rather than flickering disabled.
+  const canRecord = usage ? usage.recordingAllowed : true;
 
   const activityTypeOptions = ANALYSIS_TYPES.map(
     (t) => `<option value="${t.value}" ${t.value === selectedActivityType ? 'selected' : ''}>${escapeHtml(t.label)}</option>`
@@ -46,11 +86,12 @@ export function render(container, state, { setState, navigate }) {
         <label>Activity type</label>
         <select id="activity-type-select" ${currentRecording ? 'disabled' : ''}>${activityTypeOptions}</select>
       </div>
+      ${usage ? renderUsage(usage) : ''}
       ${currentRecording ? `
         <div class="status">⏺ Recording: ${escapeHtml(currentRecording.name || activityName)} — click Stop when done.</div>
         <button type="button" class="btn danger" id="stop-recording">Stop Recording</button>
       ` : `
-        <button type="button" class="btn primary" id="start-recording" ${loading ? 'disabled' : ''}>Start Recording</button>
+        <button type="button" class="btn primary" id="start-recording" ${loading || !canRecord ? 'disabled' : ''}>Start Recording</button>
       `}
     </div>
     ${activities.length > 0 ? `
@@ -195,6 +236,12 @@ export async function onEnter(container, state, ctx) {
   if (!client)
     return;
   ctx.setState({ loadingState: 'loading', errorMessage: null });
+  try {
+    ctx.setState({ usage: await client.usage() });
+  } catch (_) {
+    // Not knowing the plan is no reason to keep the screen from loading; the button
+    // stays available and the request itself reports a quota that is spent.
+  }
   try {
     const list = await client.activityList(session.id);
     const activities = (list || []).filter((a) => a.name !== 'calibration' && a.name !== 'neutral');

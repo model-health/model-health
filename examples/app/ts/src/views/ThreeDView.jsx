@@ -26,6 +26,20 @@ import { getClient } from '../api.js';
 
 let root = null;
 let mountedContainer = null;
+let heldVideoURL = null;
+
+/** Lets go of the synced video held for the last activity.
+ *
+ * A blob URL keeps the whole video in memory until it is revoked, and a recording runs
+ * to tens of megabytes per camera. Without this, every activity opened here costs
+ * another one for as long as the page is up.
+ */
+function releaseVideo() {
+  if (heldVideoURL) {
+    URL.revokeObjectURL(heldVideoURL);
+    heldVideoURL = null;
+  }
+}
 
 const SYNC_TAG_SUFFIX = '-sync';
 
@@ -43,36 +57,130 @@ function detectExternalDataTag(activity) {
 // re-render every frame), so a consumer that wants a live readout polls it.
 const CURRENT_TIME_POLL_INTERVAL_MS = 100;
 
-function ViewerWithControls({ transforms, overlay }) {
+function ViewerWithControls({ transforms, overlay, videoURL }) {
   const viewerRef = useRef(null);
+  const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
+  const [followVideo, setFollowVideo] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);
+
+  // While the video is in charge it owns the clock, so the readout and the scrubber come
+  // from it rather than from the viewer.
+  const clock = followVideo
+    ? { current: currentTime, total: videoDuration }
+    : { current: currentTime, total: viewerRef.current?.duration ?? 0 };
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentTime(viewerRef.current?.currentTime ?? 0);
+      setCurrentTime(
+        followVideo
+          ? videoRef.current?.currentTime ?? 0
+          : viewerRef.current?.currentTime ?? 0
+      );
     }, CURRENT_TIME_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [followVideo]);
+
+  // Every frame the browser paints is handed to the viewer. That is far more often than
+  // it needs, which is the point: it coalesces the calls and acts on the latest time only.
+  useEffect(() => {
+    if (!followVideo) return undefined;
+    let frame = requestAnimationFrame(function tick() {
+      const video = videoRef.current;
+      if (video) viewerRef.current?.seek(video.currentTime);
+      frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [followVideo]);
+
+  /** Whichever clock is in charge, driven by the one set of controls below. */
+  const control = followVideo
+    ? {
+        play: () => videoRef.current?.play(),
+        pause: () => videoRef.current?.pause(),
+        seek: (time) => {
+          if (videoRef.current) videoRef.current.currentTime = time;
+        },
+        speed: (speed) => {
+          if (videoRef.current) videoRef.current.playbackRate = speed;
+        },
+        step: (direction) => {
+          const video = videoRef.current;
+          if (video) video.currentTime = Math.max(0, video.currentTime + direction / 60);
+        },
+      }
+    : {
+        play: () => viewerRef.current?.play(),
+        pause: () => viewerRef.current?.pause(),
+        seek: (time) => viewerRef.current?.seek(time),
+        speed: (speed) => viewerRef.current?.setPlaybackSpeed(speed),
+        step: (direction) => viewerRef.current?.step(direction),
+      };
+
+  const startFollowing = (following) => {
+    setFollowVideo(following);
+    setPlaying(false);
+    viewerRef.current?.pause();
+    videoRef.current?.pause();
+  };
 
   return (
     <>
+      <label className="viewer-sync">
+        <input
+          type="checkbox"
+          checked={followVideo}
+          disabled={!videoURL}
+          onChange={(event) => startFollowing(event.target.checked)}
+        />
+        {videoURL ? 'Follow the recorded video' : 'No synced video to follow'}
+      </label>
+
+      {/* No controls of its own: the ones below drive both. */}
+      <video
+        ref={videoRef}
+        src={videoURL ?? undefined}
+        muted
+        playsInline
+        onLoadedMetadata={(event) => setVideoDuration(event.currentTarget.duration)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        style={{
+          display: followVideo ? 'block' : 'none',
+          width: '100%',
+          maxHeight: '30vh',
+          objectFit: 'contain',
+          background: '#000',
+        }}
+      />
+
       <div style={{ flex: 1, minHeight: 0 }}>
-        <View3D ref={viewerRef} transforms={transforms} overlay={overlay} onPlayingChange={setPlaying} />
+        <View3D
+          ref={viewerRef}
+          transforms={transforms}
+          overlay={overlay}
+          externalClock={followVideo}
+          onPlayingChange={(next) => {
+            if (!followVideo) setPlaying(next);
+          }}
+        />
       </div>
+
       <PlaybackControls
-        currentTime={currentTime}
-        duration={viewerRef.current?.duration ?? 0}
+        currentTime={clock.current}
+        duration={clock.total}
         playing={playing}
         playbackSpeed={playbackSpeed}
-        onTimeChange={(time) => viewerRef.current?.seek(time)}
-        onPlayingChange={(next) => (next ? viewerRef.current?.play() : viewerRef.current?.pause())}
+        onTimeChange={control.seek}
+        onPlayingChange={(next) => (next ? control.play() : control.pause())}
         onPlaybackSpeedChange={(speed) => {
           setPlaybackSpeed(speed);
-          viewerRef.current?.setPlaybackSpeed(speed);
+          control.speed(speed);
         }}
-        onStep={(direction) => viewerRef.current?.step(direction)}
+        onStep={control.step}
       />
     </>
   );
@@ -113,7 +221,10 @@ function ensureShell(container, onBack) {
 }
 
 export function render(container, state, { navigate }) {
-  ensureShell(container, () => navigate('record-activity'));
+  ensureShell(container, () => {
+    releaseVideo();
+    navigate('record-activity');
+  });
 
   const statusEl = container.querySelector('#view-3d-status');
   const loading = state.loadingState === 'loading';
@@ -142,7 +253,13 @@ export function render(container, state, { navigate }) {
     return;
   }
 
-  root.render(<ViewerWithControls transforms={state.threeDTransforms} overlay={state.threeDOverlay} />);
+  root.render(
+    <ViewerWithControls
+      transforms={state.threeDTransforms}
+      overlay={state.threeDOverlay}
+      videoURL={state.threeDVideoURL}
+    />
+  );
 }
 
 export async function onEnter(container, state, ctx) {
@@ -163,9 +280,20 @@ export async function onEnter(container, state, ctx) {
     const externalSto = externalDataTag
       ? await fetchExternalSto(client, activity, externalDataTag)
       : null;
+    // The synced video, so the model can be driven by a clock it does not own. Its
+    // absence only costs the toggle, so it is not worth failing the screen for.
+    releaseVideo();
+    try {
+      const [video] = await client.videosForActivity(activity, 'synced');
+      if (video) heldVideoURL = URL.createObjectURL(new Blob([video], { type: 'video/mp4' }));
+    } catch {
+      // Left without one.
+    }
+
     ctx.setState({
       threeDTransforms: transforms,
       threeDOverlay: externalSto ? parseExternalSto(externalSto) : null,
+      threeDVideoURL: heldVideoURL,
       loadingState: 'idle',
     });
   } catch (err) {

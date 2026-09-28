@@ -572,3 +572,27 @@ input[type="date"] {
     content: '🔑 ';
   }
 }
+
+/* 3D view — the switch that hands the model's clock to the recorded video. Sits in its
+   own strip above the picture rather than floating over the scene. */
+.viewer-sync {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #1c1c1e;
+  border-bottom: 1px solid #2c2c2e;
+  color: #f2f2f7;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.viewer-sync input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.viewer-sync:has(input:disabled) {
+  color: #8e8e93;
+  cursor: default;
+}

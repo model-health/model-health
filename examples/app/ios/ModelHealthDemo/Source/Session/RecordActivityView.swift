@@ -39,6 +39,7 @@ struct RecordActivityView: View {
     @State private var selectedActivityFor3DView: Activity?
     @State private var loadingState: LoadingState = .notStarted
     @State private var errorMessage: String?
+    @State private var usage: UsageInfo?
 
     @EnvironmentObject private var modelHealth: ModelHealthClient
 
@@ -130,10 +131,15 @@ struct RecordActivityView: View {
                         .cornerRadius(8)
                 }
 
+                if let usage {
+                    UsageBanner(usage: usage)
+                }
+
                 LoadingButton(
                     title: isRecording ? "Stop Recording" : "Start Recording",
                     isLoading: false,
-                    isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty,
+                    isDisabled: activityName.trimmingCharacters(in: .whitespaces).isEmpty
+                        || !(usage?.recordingAllowed ?? true),
                 ) {
                     Task {
                         await isRecording ? stopRecordingActivity() : startRecordingActivity()
@@ -217,6 +223,10 @@ struct RecordActivityView: View {
                 guard case .notStarted = loadingState else {
                     return
                 }
+
+                // What the SDK asks you to check before starting a recording flow: an
+                // account out of activities, or off plan, cannot record at all.
+                usage = try? await modelHealth.usage()
 
                 await loadExistingActivities()
 
@@ -677,5 +687,76 @@ extension ActivityState {
             activity: .forPreview()
         )
         .environmentObject(ModelHealthClient(serviceProvider: MockModelHealthProvider()))
+    }
+}
+
+/// What the account's plan allows, and why recording is blocked when it is.
+///
+/// The SDK asks callers to check this before starting a recording flow, so the demo
+/// shows what that check has to work with rather than only obeying it.
+struct UsageBanner: View {
+    let usage: UsageInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: usage.recordingAllowed ? "checkmark.seal" : "exclamationmark.triangle.fill")
+                Text(headline)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+            }
+
+            if let detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background((usage.recordingAllowed ? Color.green : Color.orange).opacity(0.12))
+        .cornerRadius(8)
+    }
+
+    private var headline: String {
+        guard usage.recordingAllowed else {
+            return blockedReason
+        }
+
+        guard let used = usage.activitiesUsed else {
+            return "Recording allowed"
+        }
+
+        // No maximum while a plan is active means unlimited, which is not the same as
+        // "not known" — say so rather than printing an empty limit.
+        guard let max = usage.activitiesMax else {
+            return "\(used) activities recorded, no limit"
+        }
+
+        return "\(used) of \(max) activities used"
+    }
+
+    private var blockedReason: String {
+        switch usage.reason {
+        case .noActivePlan: return "Recording blocked — no active plan"
+        case .periodExpired: return "Recording blocked — the billing period ended"
+        case .limitReached: return "Recording blocked — the plan's activity limit is reached"
+        case .paymentFailed: return "Recording blocked — a payment failed"
+        case .none: return "Recording blocked"
+        }
+    }
+
+    private var detail: String? {
+        var parts: [String] = []
+        if let plan = usage.planName {
+            parts.append(usage.isFreeTrial == true ? "\(plan), free trial" : plan)
+        }
+        if let end = usage.periodEnd {
+            parts.append("\(usage.resetPeriod == .annually ? "resets yearly" : "resets monthly"), next on \(BrowseFormat.day(end))")
+        }
+        if usage.willAutoRenew == false {
+            parts.append("does not auto-renew")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

@@ -39,6 +39,14 @@ export interface View3DProps {
      * scrubber's range without needing a render to read `ref.current.duration`.
      */
     onDurationChange?: (duration: number) => void;
+    /**
+     * Set this when something outside `View3D` — a video player, for example —
+     * already tracks playback position and you want the 3D view to strictly
+     * follow it instead of running its own clock. While set, `play()` has no
+     * effect and playback never advances on its own; call `seek(time)` every
+     * time your own clock updates, as often as once per frame.
+     */
+    externalClock?: boolean;
 }
 /**
  * Imperative playback control, obtained via `ref`.

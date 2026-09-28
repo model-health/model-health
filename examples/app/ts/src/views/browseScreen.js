@@ -8,7 +8,6 @@
  */
 import { getClient } from '../api.js';
 import { getState, subscribe } from '../state.js';
-import { ANALYSIS_TYPES } from '../constants.js';
 
 /** How many items one press of "Load more" pulls out of the sequence. */
 const LOAD_STEP = 25;
@@ -109,8 +108,8 @@ export function createBrowseScreen(spec) {
         <select id="f-groups" multiple size="3">${options}</select>`));
     }
     if (has('activityType')) {
-      const options = ANALYSIS_TYPES.map(
-        (t) => `<option value="${t.value}">${escapeHtml(t.label)}</option>`
+      const options = (refs.activityTypes || []).map(
+        (t) => `<option value="${t.id}">${escapeHtml(t.displayName)}</option>`
       ).join('');
       parts.push(field(`<label for="f-type">Activity type</label>
         <select id="f-type"><option value="">(any)</option>${options}</select>`));
@@ -239,6 +238,7 @@ export function createBrowseScreen(spec) {
   function readOptions(container) {
     const value = (selector) => container.querySelector(selector)?.value.trim() || undefined;
     const has = (name) => spec.filters.includes(name);
+    const refs = read().refs || {};
     const options = {};
 
     /** A comma-separated field as a list, or nothing when it is empty. */
@@ -261,7 +261,10 @@ export function createBrowseScreen(spec) {
         .map((option) => option.value);
       if (chosen.length > 0) options.groups = chosen;
     }
-    if (has('activityType')) options.activityType = value('#f-type');
+    if (has('activityType')) {
+      const chosen = value('#f-type');
+      options.activityType = (refs.activityTypes || []).find((t) => String(t.id) === chosen);
+    }
     if (has('dates')) {
       options.createdAfter = value('#f-after');
       options.createdBefore = value('#f-before');
@@ -380,8 +383,8 @@ export function createBrowseScreen(spec) {
   }
 
   /**
-   * The lists the pickers are built from — subjects, sessions, groups — fetched only when a
-   * filter on this screen actually offers one.
+   * The lists the pickers are built from — subjects, sessions, groups, activity types —
+   * fetched only when a filter on this screen actually offers one.
    */
   async function loadReferences(ctx) {
     const has = (name) => spec.filters.includes(name);
@@ -391,6 +394,7 @@ export function createBrowseScreen(spec) {
       if (has('subject')) refs.subjects = await client.subjects.list().all();
       if (has('calibrationSession') || has('session')) refs.sessions = await client.sessions.list().all();
       if (has('groups')) refs.groups = await client.groups.list().all();
+      if (has('activityType')) refs.activityTypes = await client.activityTypes();
     } catch {
       // A picker with nothing in it still lets every other filter work, so a failure here is
       // not worth stopping the screen for.

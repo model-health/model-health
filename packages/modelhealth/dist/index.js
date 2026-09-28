@@ -244,7 +244,7 @@ function camelizeKeys(value) {
  * `Date` in place.
  * @internal
  */
-const DATE_FIELDS = ["createdAt", "updatedAt", "lastActivity", "trashedAt"];
+const DATE_FIELDS = ["createdAt", "updatedAt", "lastActivity", "trashedAt", "periodEnd"];
 /**
  * Recursively converts known timestamp fields found anywhere in the response tree to
  * `Date`, in place.
@@ -314,6 +314,19 @@ function decamelizeKeys(value) {
  * downstream could object to.
  * @internal
  */
+/**
+ * Splits an activity-type filter into the name to send and the id to resolve.
+ *
+ * A caller holding the whole record costs nothing; one holding a bare id has it looked
+ * up against the account's types before the request goes out.
+ * @internal
+ */
+function activityTypeFilter(value) {
+    if (value === undefined) {
+        return {};
+    }
+    return typeof value === "number" ? { id: value } : { name: value.name };
+}
 function formatFilterDate(value) {
     if (value === undefined || typeof value === "string") {
         return value;
@@ -392,10 +405,12 @@ export class ActivitiesResource {
         const createdAfter = formatFilterDate(options.createdAfter);
         const createdBefore = formatFilterDate(options.createdBefore);
         const orderBy = formatOrderBy(options.orderBy);
+        const activityType = activityTypeFilter(options.activityType);
         return this.client._activitiesStream({
             subject_id: subjectId,
             calibration_session_id: calibrationSessionId,
-            activity_type: options.activityType,
+            activity_type: activityType.name,
+            activity_type_id: activityType.id,
             exclude_calibrate: excludeCalibration,
             exclude_neutral: excludeCalibration,
             created_after: createdAfter,
@@ -437,6 +452,7 @@ export class SubjectsResource {
         const createdAfter = formatFilterDate(options.createdAfter);
         const createdBefore = formatFilterDate(options.createdBefore);
         const orderBy = formatOrderBy(options.orderBy);
+        const activityType = activityTypeFilter(options.activityType);
         return this.client._subjectsStream({
             search: options.search,
             created_after: createdAfter,
@@ -444,7 +460,8 @@ export class SubjectsResource {
             groups: options.groups,
             tags: options.tags,
             created_by: options.createdBy,
-            activity_type: options.activityType,
+            activity_type: activityType.name,
+            activity_type_id: activityType.id,
             activity_complete: options.activityComplete,
             session_id: sessionId,
         }, orderBy, options.limit);
@@ -633,6 +650,51 @@ export class ModelHealthClient {
         const result = await this.wasmClient.accountInfo();
         return this.parseResponse(result);
     }
+    /**
+     * Returns the current billing/quota state for the authenticated account.
+     *
+     * Use this to show usage bars and plan limits, and to block recording in your own
+     * UI when the quota is exhausted or the subscription has lapsed.
+     *
+     * @returns The current usage and plan state.
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const usage = await client.usage();
+     * if (!usage.recordingAllowed) {
+     *   console.log(`Recording blocked: ${usage.reason}`);
+     * }
+     * ```
+     */
+    async usage() {
+        this.ensureInitialized();
+        const result = await this.wasmClient.usage();
+        return this.parseResponse(result);
+    }
+    /**
+     * The activity types this account can use: the ones everybody has, plus any this
+     * account or its organisation added.
+     *
+     * The list is the account's own and grows, which is why a list filters by a type taken
+     * from here rather than by a name known in advance.
+     *
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const types = await client.activityTypes();
+     * const squats = types.find(t => t.displayName === "Squat Exercise")!;
+     * for await (const activity of client.activities.list({ activityType: squats })) {
+     *   console.log(activity.name);
+     * }
+     * ```
+     */
+    async activityTypes() {
+        this.ensureInitialized();
+        const result = await this.wasmClient.activityTypes();
+        return this.parseResponse(result);
+    }
     // MARK: - Authentication
     // MARK: - Sessions
     /**
@@ -685,6 +747,39 @@ export class ModelHealthClient {
     async getSession(sessionId) {
         this.ensureInitialized();
         const result = await this.wasmClient.getSession(sessionId);
+        return this.parseResponse(result);
+    }
+    /**
+     * Points the cameras at the session to record this subject in.
+     *
+     * Use this to move between subjects in any order, including going back to someone
+     * recorded earlier. The session already recording that subject is reused when its camera
+     * calibration and static pose are both still good, so the pose does not have to be
+     * repeated. Otherwise a new session is started from `session`, exactly as
+     * {@link ModelHealthClient.newSessionFromSession} would.
+     *
+     * @param subject The subject to record next.
+     * @param session The session the cameras are pointed at now.
+     * @returns The session to record in — one that already existed, the one passed in, or a
+     *   new one.
+     * @throws On network failure, if the session or subject is not found, or if the API
+     *   version in use cannot hand the cameras back to an existing session.
+     *
+     * @example
+     * ```typescript
+     * // Everyone does exercise 1, then everyone does exercise 2
+     * for (const exercise of ["CMJ", "Squat"]) {
+     *   for (const subject of subjects) {
+     *     session = await client.switchSubject(subject, session);
+     *     await client.startRecording(exercise, session);
+     *     await client.stopRecording(session);
+     *   }
+     * }
+     * ```
+     */
+    async switchSubject(subject, session) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.switchSubject(session.id, subject.id);
         return this.parseResponse(result);
     }
     /**

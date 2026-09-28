@@ -16,7 +16,7 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivityListOptions, ActivityTag, GroupListOptions, SubjectListOptions, SessionListOptions, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, VideoUploadMode, LogLevel, LogEvent } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivityListOptions, ActivityTag, ActivityTypeInfo, GroupListOptions, SubjectListOptions, SessionListOptions, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, UsageInfo, VideoUploadMode, LogLevel, LogEvent } from "./types.js";
 import type { ActivityStream, GroupStream, SessionStream, SubjectStream } from "./streams.js";
 /**
  * Recursively convert all object keys from snake_case to camelCase.
@@ -288,6 +288,43 @@ export declare class ModelHealthClient {
      */
     accountInfo(): Promise<AccountInfo>;
     /**
+     * Returns the current billing/quota state for the authenticated account.
+     *
+     * Use this to show usage bars and plan limits, and to block recording in your own
+     * UI when the quota is exhausted or the subscription has lapsed.
+     *
+     * @returns The current usage and plan state.
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const usage = await client.usage();
+     * if (!usage.recordingAllowed) {
+     *   console.log(`Recording blocked: ${usage.reason}`);
+     * }
+     * ```
+     */
+    usage(): Promise<UsageInfo>;
+    /**
+     * The activity types this account can use: the ones everybody has, plus any this
+     * account or its organisation added.
+     *
+     * The list is the account's own and grows, which is why a list filters by a type taken
+     * from here rather than by a name known in advance.
+     *
+     * @throws If the API key is invalid or expired, or the request fails.
+     *
+     * @example
+     * ```typescript
+     * const types = await client.activityTypes();
+     * const squats = types.find(t => t.displayName === "Squat Exercise")!;
+     * for await (const activity of client.activities.list({ activityType: squats })) {
+     *   console.log(activity.name);
+     * }
+     * ```
+     */
+    activityTypes(): Promise<ActivityTypeInfo[]>;
+    /**
      * Retrieves all sessions for the account associated with the API key.
      *
      * Use this to list existing sessions before creating a new one, or to resume a previous
@@ -331,6 +368,35 @@ export declare class ModelHealthClient {
      * ```
      */
     getSession(sessionId: string): Promise<Session>;
+    /**
+     * Points the cameras at the session to record this subject in.
+     *
+     * Use this to move between subjects in any order, including going back to someone
+     * recorded earlier. The session already recording that subject is reused when its camera
+     * calibration and static pose are both still good, so the pose does not have to be
+     * repeated. Otherwise a new session is started from `session`, exactly as
+     * {@link ModelHealthClient.newSessionFromSession} would.
+     *
+     * @param subject The subject to record next.
+     * @param session The session the cameras are pointed at now.
+     * @returns The session to record in — one that already existed, the one passed in, or a
+     *   new one.
+     * @throws On network failure, if the session or subject is not found, or if the API
+     *   version in use cannot hand the cameras back to an existing session.
+     *
+     * @example
+     * ```typescript
+     * // Everyone does exercise 1, then everyone does exercise 2
+     * for (const exercise of ["CMJ", "Squat"]) {
+     *   for (const subject of subjects) {
+     *     session = await client.switchSubject(subject, session);
+     *     await client.startRecording(exercise, session);
+     *     await client.stopRecording(session);
+     *   }
+     * }
+     * ```
+     */
+    switchSubject(subject: Subject, session: Session): Promise<Session>;
     /**
      * Creates a new session from a previous session, inheriting its calibration setup.
      *
