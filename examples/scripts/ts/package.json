@@ -1,6 +1,6 @@
 {
   "name": "modelhealth-ts-scripts",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "type": "module",
   "scripts": {
     "add-external-data": "tsx add_external_data.ts",
@@ -19,7 +19,7 @@
     "get-usage": "tsx get_usage.ts"
   },
   "dependencies": {
-    "@modelhealth/modelhealth": "^0.11.1"
+    "@modelhealth/modelhealth": "^0.11.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

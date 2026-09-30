@@ -18,6 +18,19 @@ struct ThreeDView: View {
     @State private var player: AVPlayer?
     @State private var videoObserver: Any?
     @State private var videoError: String?
+    /// Whether the video is running, which is what the transport reports while the
+    /// video is the one being driven.
+    @State private var videoIsPlaying = false
+    /// Where the thumb is being held, while it is being held.
+    ///
+    /// The playhead a drag asks for and the playhead the player reports are not the same
+    /// thing for as long as the seek is in flight, and a slider bound to the second one
+    /// snaps back to it under the finger. This holds the first until the drag ends.
+    @State private var scrubTime: Double?
+    /// The latest place the video has been asked to go, not yet asked for.
+    @State private var pendingSeek: Double?
+    /// Whether a seek is out and unanswered. See ``requestVideoSeek(_:)``.
+    @State private var seekInFlight = false
 
     init(activity: Activity, client: ModelHealthClient) {
         self.activity = activity
@@ -43,8 +56,18 @@ struct ThreeDView: View {
                 Spacer()
             } else {
                 if syncToVideo, let player {
-                    VideoPlayer(player: player)
+                    // Deliberately not `VideoPlayer`: it brings its own transport, and a
+                    // second set of controls beside the view's own is one the customer
+                    // has to choose between. Here the video is what is driven, not what
+                    // drives, so the controls below stay the only ones.
+                    VideoSurface(player: player)
                         .frame(height: 220)
+                        .onReceive(player.publisher(for: \.timeControlStatus)) { status in
+                            // `!= .paused` rather than `== .playing`: a player waiting to
+                            // reach its rate has been asked to play, and a button that
+                            // flips back to "Play" while it does reads as a misfire.
+                            videoIsPlaying = status != .paused
+                        }
                 }
 
                 View3D(controller: controller)
@@ -79,28 +102,24 @@ private extension ThreeDView {
 
             HStack(spacing: 16) {
                 Button {
-                    controller.step(-1)
+                    step(-1)
                 } label: {
                     Image(systemName: "backward.frame.fill")
                 }
-                .disabled(!controller.isReady || syncToVideo)
+                .disabled(!controller.isReady)
 
                 Button {
-                    if controller.isPlaying {
-                        controller.pause()
-                    } else {
-                        controller.play()
-                    }
+                    isPlaying ? pause() : resume()
                 } label: {
                     Label(
-                        controller.isPlaying ? "Pause" : "Play",
-                        systemImage: controller.isPlaying ? "pause.fill" : "play.fill"
+                        isPlaying ? "Pause" : "Play",
+                        systemImage: isPlaying ? "pause.fill" : "play.fill"
                     )
                 }
                 .disabled(!controller.isReady)
 
                 Button {
-                    controller.step(1)
+                    step(1)
                 } label: {
                     Image(systemName: "forward.frame.fill")
                 }
@@ -111,14 +130,26 @@ private extension ThreeDView {
             HStack(spacing: 12) {
                 Slider(
                     value: Binding(
-                        get: { controller.currentTime },
-                        set: { controller.seek(to: $0) }
+                        get: { scrubTime ?? controller.currentTime },
+                        set: { time in
+                            scrubTime = time
+                            seek(to: time)
+                        }
                     ),
-                    in: 0...max(controller.duration, 0.01)
+                    in: 0...max(controller.duration, 0.01),
+                    onEditingChanged: { editing in
+                        if editing {
+                            // Nothing should run out from under the finger: a playhead
+                            // moving on its own turns a drag into a tug of war.
+                            pause()
+                        } else {
+                            finishScrub()
+                        }
+                    }
                 )
                 .disabled(!controller.isReady)
 
-                Text(String(format: "%.2f / %.2f s", controller.currentTime, controller.duration))
+                Text(String(format: "%.2f / %.2f s", scrubTime ?? controller.currentTime, controller.duration))
                     .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
                     .fixedSize()
@@ -132,10 +163,125 @@ private extension ThreeDView {
             .pickerStyle(.segmented)
             .disabled(!controller.isReady)
             .onChange(of: playbackSpeed) { _, newSpeed in
-                controller.setPlaybackSpeed(newSpeed)
+                setSpeed(newSpeed)
             }
         }
         .padding()
+    }
+
+    // MARK: - Transport
+    //
+    // One set of controls, whichever clock is running. While the video drives, these
+    // drive the video and the model follows it through the time observer; otherwise they
+    // drive the view directly. Which one it is stays inside these five, so the buttons
+    // above never ask.
+
+    var isPlaying: Bool {
+        syncToVideo ? videoIsPlaying : controller.isPlaying
+    }
+
+    func resume() {
+        guard let player, syncToVideo else {
+            controller.play()
+            return
+        }
+        // Play at the end of the video is a request to watch it, not to sit still at the
+        // last frame — which is what `play()` alone would do there.
+        if let end = player.currentItem?.duration.seconds, end.isFinite,
+           player.currentTime().seconds >= end - 0.05 {
+            player.seek(to: .zero)
+        }
+        // `defaultRate` rather than `rate`: setting the rate is itself a request to
+        // play, so writing it while paused would start the video behind the button.
+        player.defaultRate = Float(playbackSpeed)
+        player.play()
+    }
+
+    func pause() {
+        guard let player, syncToVideo else {
+            controller.pause()
+            return
+        }
+        player.pause()
+    }
+
+    func seek(to time: Double) {
+        guard player != nil, syncToVideo else {
+            controller.seek(to: time)
+            return
+        }
+        // The model is not moved here: the player's own time observer reports the new
+        // playhead a moment later, and moving it twice would fight that.
+        requestVideoSeek(time)
+    }
+
+    /// Asks the video for a playhead, one request at a time.
+    ///
+    /// A new `seek` cancels the one before it, so a drag that asks sixty times a second
+    /// cancels every one of them and the video does not move until the finger lifts.
+    /// Only the latest request is worth making, so it is kept and sent when the one out
+    /// there answers — the model follows along because each answered seek is a time jump
+    /// the player's own observer reports.
+    func requestVideoSeek(_ time: Double) {
+        pendingSeek = time
+        sendNextSeek()
+    }
+
+    func sendNextSeek() {
+        guard !seekInFlight, let player, let time = pendingSeek else { return }
+
+        pendingSeek = nil
+        seekInFlight = true
+        // Exactly, not nearly: a tolerant seek lands where it likes, and the thumb is
+        // released onto wherever the player reports.
+        player.seek(
+            to: CMTime(seconds: time, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        ) { _ in
+            Task { @MainActor in
+                seekInFlight = false
+                sendNextSeek()
+            }
+        }
+    }
+
+    /// Lets go of the thumb, onto where the drag left it.
+    ///
+    /// The model is moved there first, so letting go does not read the playhead the video
+    /// has got to — during a drag that is behind, and the thumb would jump back to it.
+    ///
+    /// Deliberately not waiting on the video's own seek to answer: `AVPlayer` reports a
+    /// seek as unfinished when anything else moves its timeline, `play()` included, and a
+    /// thumb that is only released by that answer stays stuck when one goes missing.
+    func finishScrub() {
+        guard let time = scrubTime else { return }
+
+        scrubTime = nil
+        controller.seek(to: time)
+        if syncToVideo {
+            requestVideoSeek(time)
+        }
+    }
+
+    func step(_ direction: Int) {
+        guard let item = player?.currentItem, syncToVideo else {
+            controller.step(direction)
+            return
+        }
+        item.step(byCount: direction)
+    }
+
+    func setSpeed(_ speed: Double) {
+        guard let player, syncToVideo else {
+            controller.setPlaybackSpeed(speed)
+            return
+        }
+        player.defaultRate = Float(speed)
+        // Only while running: on a paused video this would be a play request.
+        if player.timeControlStatus == .playing {
+            player.rate = Float(speed)
+        }
     }
 
     /// Hands the model's clock to the recorded video, or takes it back.
@@ -189,7 +335,6 @@ private extension ThreeDView {
             controller.seek(to: time.seconds)
         }
         self.player = player
-        player.play()
     }
 
     func stopFollowing() {
@@ -199,6 +344,10 @@ private extension ThreeDView {
         videoObserver = nil
         player?.pause()
         player = nil
+        videoIsPlaying = false
+        scrubTime = nil
+        pendingSeek = nil
+        seekInFlight = false
     }
 
     func errorStateView(message: String) -> some View {
@@ -247,6 +396,36 @@ private extension ThreeDView {
         }
 
         return String(tag.dropLast(syncTagSuffix.count))
+    }
+}
+
+/// The video, and nothing else — no transport of its own.
+///
+/// `VideoPlayer` would bring its own controls, and this screen already has one set that
+/// drives both the video and the model. Two would be a choice the customer has to make
+/// and can only get wrong.
+private struct VideoSurface: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> PlayerView {
+        let view = PlayerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        return view
+    }
+
+    func updateUIView(_ view: PlayerView, context: Context) {
+        if view.playerLayer.player !== player {
+            view.playerLayer.player = player
+        }
+    }
+
+    /// A view backed by `AVPlayerLayer`, so the layer resizes with it rather than
+    /// needing its frame kept in step by hand.
+    final class PlayerView: UIView {
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
+        // swiftlint:disable:next force_cast
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
     }
 }
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.2
+
+# Entries for the next release
+
+Add user-facing changes here as they land. Each entry should use `###` headers
+(Added, Changed, Fixed, Breaking). The version header and Changelog title are
+added automatically at release time — do not include them here.
+
+See docs/releasing.md for guidance on what belongs in the changelog.
+
+### Fixed
+
+- TypeScript: `@modelhealth/modelhealth` now ships the WebAssembly module it runs on.
+
+
 ## 0.11.1
 
 ### Added
