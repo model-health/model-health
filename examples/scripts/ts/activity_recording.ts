@@ -2,6 +2,11 @@
  * Model Health TypeScript SDK — capture workflow.
  * Mirrors examples/python/activity_recording.py.
  *
+ * The cameras are calibrated once, in a session of their own. Each subject then
+ * gets their own session that shares that calibration. Switching subject moves the
+ * cameras to that subject's session, so subjects can be recorded in any order,
+ * including going back to one recorded earlier without repeating their neutral pose.
+ *
  * Usage:
  *   npx tsx activity_recording.ts [<api_key>]
  */
@@ -220,6 +225,34 @@ async function calibrateSubject(
   console.log('Subject calibration complete.');
 }
 
+function hasNeutralPose(session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>): boolean {
+  return session.activities.some(a => a.name === 'neutral' && a.status === 'done' && !a.trashed);
+}
+
+/**
+ * Moves the cameras to the session for `subject` and returns it.
+ *
+ * The first time a subject is picked, a new session is created from the
+ * calibration and the subject records their neutral pose. Picking them
+ * again returns that same session, with the neutral pose already done.
+ */
+async function switchToSubject(
+  client: ModelHealthClient,
+  subject: Awaited<ReturnType<typeof pickOrCreateSubject>>,
+  session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>
+) {
+  console.log(`\nSwitching to ${subject.name}...`);
+  const next = await client.switchSubject(subject, session);
+  console.log(`  Session ID: ${next.id}`);
+
+  if (hasNeutralPose(next)) {
+    console.log(`  ${subject.name} is already calibrated in this session.`);
+  } else {
+    await calibrateSubject(client, subject, next);
+  }
+  return next;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const client = await connect(loadApiKey(args[0]));
@@ -230,19 +263,31 @@ async function main() {
   const checkerboard = await configureCheckerboard();
   await calibrateCameras(client, session, checkerboard);
 
+  // `session` holds the camera calibration only. Each subject is recorded in
+  // a session of their own, which switchSubject creates or returns.
+  let subject = await pickOrCreateSubject(client);
+  session = await switchToSubject(client, subject, session);
+
   for (;;) {
-    const subject = await pickOrCreateSubject(client);
-    await calibrateSubject(client, subject, session);
+    console.log();
+    const { action } = await pickOne(
+      [
+        { action: 'record', label: `Record an activity for ${subject.name}` },
+        { action: 'switch', label: 'Switch subject' },
+        { action: 'quit',   label: 'Quit' },
+      ],
+      'What next?',
+      a => a.label
+    );
 
-    // Recording loop
-    do {
+    if (action === 'record') {
       await recordOne(client, session, subject);
-    } while (await confirm('\nRecord another activity?', true));
-
-    if (!(await confirm('\nCalibrate another subject with the same camera setup?', true))) {
+    } else if (action === 'switch') {
+      subject = await pickOrCreateSubject(client);
+      session = await switchToSubject(client, subject, session);
+    } else {
       break;
     }
-    session = await client.newSessionFromSession(session);
   }
 
   console.log('\nDone.');

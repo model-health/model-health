@@ -1,5 +1,10 @@
 /// Model Health Swift examples — full capture workflow.
 ///
+/// The cameras are calibrated once, in a session of their own. Each subject then
+/// gets their own session that shares that calibration. Switching subject moves the
+/// cameras to that subject's session, so subjects can be recorded in any order,
+/// including going back to one recorded earlier without repeating their neutral pose.
+///
 /// Usage:
 ///   swift run ActivityRecording [<api_key>]
 
@@ -107,24 +112,35 @@ struct ActivityRecording {
         let checkerboard = configureCheckerboard()
         await calibrateCameras(client: client, session: session, checkerboard: checkerboard)
 
-        repeat {
-            let subject = await pickOrCreateSubject(client: client)
-            await calibrateSubject(client: client, subject: subject, session: session)
+        // `session` holds the camera calibration only. Each subject is recorded in
+        // a session of their own, which switchSubject creates or returns.
+        var subject = await pickOrCreateSubject(client: client)
+        session = await switchToSubject(client: client, subject: subject, session: session)
 
-            repeat {
+        loop: while true {
+            print()
+            let action = pickOne(
+                from: [
+                    ("record", "Record an activity for \(subject.name)"),
+                    ("switch", "Switch subject"),
+                    ("quit", "Quit")
+                ],
+                prompt: "What next?",
+                label: { $0.1 }
+            ).0
+
+            switch action {
+            case "record":
                 await recordOne(client: client, session: session, subject: subject)
-            } while confirm("\nRecord another activity?", default: true)
 
-            guard confirm("\nCalibrate another subject with the same camera setup?", default: true) else {
-                break
+            case "switch":
+                subject = await pickOrCreateSubject(client: client)
+                session = await switchToSubject(client: client, subject: subject, session: session)
+
+            default:
+                break loop
             }
-            do {
-                session = try await client.newSession(from: session)
-            } catch {
-                print("Failed to create new session: \(error)")
-                break
-            }
-        } while true
+        }
 
         print("\nDone.")
     }
@@ -285,6 +301,34 @@ private func calibrateSubject(client: ModelHealthClient, subject: Subject, sessi
         exit(1)
     }
     print("Subject calibration complete.")
+}
+
+private func hasNeutralPose(_ session: Session) -> Bool {
+    session.activities.contains { $0.name == "neutral" && $0.status == "done" && !$0.trashed }
+}
+
+/// Moves the cameras to the session for `subject` and returns it.
+///
+/// The first time a subject is picked, a new session is created from the
+/// calibration and the subject records their neutral pose. Picking them
+/// again returns that same session, with the neutral pose already done.
+private func switchToSubject(client: ModelHealthClient, subject: Subject, session: Session) async -> Session {
+    print("\nSwitching to \(subject.name)...")
+    let next: Session
+    do {
+        next = try await client.switchSubject(to: subject, in: session)
+    } catch {
+        fputs("Failed to switch subject: \(error)\n", stderr)
+        exit(1)
+    }
+    print("  Session ID: \(next.id)")
+
+    if hasNeutralPose(next) {
+        print("  \(subject.name) is already calibrated in this session.")
+    } else {
+        await calibrateSubject(client: client, subject: subject, session: next)
+    }
+    return next
 }
 
 // MARK: - Recording cycle

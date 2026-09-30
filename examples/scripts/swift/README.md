@@ -51,7 +51,9 @@ swift run ActivityMetrics [<api_key>]
 ### `ActivityRecording` — Full capture workflow
 
 Walks through creating a session, calibrating cameras and subject, recording an
-activity and waiting for processing. Requires cameras connected via the [Model
+activity and waiting for processing. Cameras are calibrated once; you can then
+switch between subjects in any order with `switchSubject(to:in:)`, and each subject
+keeps a single session and does their neutral pose once. Requires cameras connected via the [Model
 Health companion iOS app](https://apps.apple.com/nl/app/model-health/id6748835391).
 
 ```bash

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.3
+
+### Added
+
+- The `activity_recording` example scripts (Swift, TypeScript and Python) now show
+  `switchSubject`/`switch_subject`: cameras are calibrated once, in a session of their
+  own, and each subject then gets a session sharing that calibration. Switching moves the
+  cameras there, so subjects can be recorded in any order — and returning to an earlier
+  one picks their session back up without repeating their static pose.
+
 ## 0.11.2
 
 ### Fixed

@@ -3,13 +3,17 @@
 
 Walks through the full capture workflow:
   1. Create a session (QR code saved locally for pairing)
-  2. Select an existing subject or create a new one
-  3. Calibrate cameras using a checkerboard pattern
+  2. Calibrate cameras using a checkerboard pattern
+  3. Select an existing subject or create a new one
   4. Calibrate the subject (neutral standing pose)
-  5. Record one or more movement activities in a loop
+  5. Record an activity, switch subject, or quit
   6. For each activity: wait for upload/processing, optionally run analysis,
      then optionally update activity metadata
-  7. After each activity, choose to record another or quit
+
+The cameras are calibrated once, in a session of their own. Each subject then
+gets their own session that shares that calibration. Switching subject moves the
+cameras to that subject's session, so subjects can be recorded in any order,
+including going back to one recorded earlier without repeating their neutral pose.
 
 Requires cameras to be connected and ready via the Model Health companion iOS app.
 
@@ -277,6 +281,34 @@ def _calibrate_subject(client, subject, session):
     print("Subject calibration complete.")
 
 
+def _has_neutral_pose(session):
+    return any(
+        a.name == "neutral" and a.status == "done" and not a.trashed
+        for a in session.activities
+    )
+
+
+def _switch_to_subject(client, subject, session):
+    """Move the cameras to the session for ``subject`` and return it.
+
+    The first time a subject is picked, a new session is created from the
+    calibration and the subject records their neutral pose. Picking them
+    again returns that same session, with the neutral pose already done.
+    """
+    print(f"\nSwitching to {subject.name}...")
+    try:
+        session = client.switch_subject(subject, session)
+    except ModelHealthError as exc:
+        sys.exit(f"Failed to switch subject: {exc}")
+    print(f"  Session ID: {session.id}")
+
+    if _has_neutral_pose(session):
+        print(f"  {subject.name} is already calibrated in this session.")
+    else:
+        _calibrate_subject(client, subject, session)
+    return session
+
+
 # ---------------------------------------------------------------------------
 # Single recording loop iteration
 # ---------------------------------------------------------------------------
@@ -413,23 +445,18 @@ def _update_activity_metadata(client, activity):
 
 
 def _record_one(client, session, subject):
-    """Run a single record → process → (optionally analyse) → (optionally update) cycle.
-
-    Returns True to continue recording, False to quit.
-    """
+    """Run a single record → process → (optionally analyse) → (optionally update) cycle."""
     activity_name, activity_type_value, activity_type_label, recording_config = _prompt_recording_config()
 
     activity = _start_recording(client, session, subject, activity_name, activity_type_value, recording_config)
     if activity is None:
-        return confirm("\nRecord another activity?", default=True)
+        return
 
     if not _stop_recording(client, session):
-        return confirm("\nRecord another activity?", default=True)
+        return
 
     activity = _wait_and_process_results(client, activity, activity_type_label)
     _update_activity_metadata(client, activity)
-
-    return confirm("\nRecord another activity?", default=True)
 
 
 # ---------------------------------------------------------------------------
@@ -445,17 +472,30 @@ def main(api_key):
     checkerboard = _configure_checkerboard()
     _calibrate_cameras(client, session, checkerboard)
 
+    # `session` holds the camera calibration only. Each subject is recorded in
+    # a session of their own, which switch_subject creates or returns.
+    subject = _pick_or_create_subject(client)
+    session = _switch_to_subject(client, subject, session)
+
     while True:
-        subject = _pick_or_create_subject(client)
-        _calibrate_subject(client, subject, session)
+        print()
+        action = pick_one(
+            [
+                ("record", f"Record an activity for {subject.name}"),
+                ("switch", "Switch subject"),
+                ("quit",   "Quit"),
+            ],
+            "What next?",
+            lambda a: a[1],
+        )[0]
 
-        # Recording loop
-        while _record_one(client, session, subject):
-            pass
-
-        if not confirm("\nCalibrate another subject with the same camera setup?", default=True):
+        if action == "record":
+            _record_one(client, session, subject)
+        elif action == "switch":
+            subject = _pick_or_create_subject(client)
+            session = _switch_to_subject(client, subject, session)
+        else:
             break
-        session = client.new_session_from_session(session)
 
     print("\nDone.")
 
