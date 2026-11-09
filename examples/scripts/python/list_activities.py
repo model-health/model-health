@@ -5,6 +5,7 @@ Walks through what an activity list can be asked for:
   1. Every activity: how many match, and what the first few look like
   2. How many match each filter, without reading any of them
   3. Which activity comes first under each order
+  4. The activities of several subjects and types, in one request
 
 Usage:
     list_activities.py [<api_key>]
@@ -82,6 +83,25 @@ def _show_order(client):
         print(f"  {order_by:<14} {_describe(first[0]) if first else '(nothing matched)'}")
 
 
+def _show_several(client):
+    print("\nSeveral subjects and types in one request")
+    # Both are drawn from real, recent activities, so the filter is sure to match something.
+    recent = [
+        a for a in _first_few(client.activities.list(order_by="-created_at"), 50)
+        if a.subject_info and a.activity_type
+    ]
+    subjects = list({a.subject_info.id: a.subject_info for a in recent}.values())[:2]
+    types = list({a.activity_type.name: a.activity_type for a in recent}.values())[:2]
+    if len(subjects) < 2:
+        print("  (needs recent activities of at least two subjects)")
+        return
+    stream = client.activities.list(subjects=[s.id for s in subjects], activity_types=types)
+    print(f"  {stream.total} match, across {', '.join(s.name for s in subjects)}")
+    for activity in _first_few(stream, 5):
+        who = activity.subject_info.name if activity.subject_info else "(no subject)"
+        print(f"    {who}: {_describe(activity)}")
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -94,6 +114,7 @@ def main():
         _show_everything(client)
         _show_filters(client)
         _show_order(client)
+        _show_several(client)
     except ModelHealthError as exc:
         sys.exit(f"Failed to list activities: {exc}")
 

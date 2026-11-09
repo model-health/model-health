@@ -268,7 +268,9 @@ def wait_for_activities(mh_client, session, poll_interval=5):
         session: The Session returned by :func:`copy_session`.
         poll_interval: Seconds between status polls. Default: 5.
     """
-    pending = [a for a in session.activities if a.name.lower() not in ("calibration", "neutral")]
+    pending = [
+        a for a in session.activities() if a.name.lower() not in ("calibration", "neutral")
+    ]
 
     if not pending:
         return

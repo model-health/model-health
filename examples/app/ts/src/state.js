@@ -43,6 +43,9 @@ const initialState = {
   analysisResultDataItems: null,
   analysisResultSelectedIndex: 0,
   activityDataItems: null,
+  // Results screen: the activity opened from the activities list, and what fetching it gave
+  resultsActivity: null,
+  activityResults: null,
   // The open sequence itself is not here — it has a lifetime and something has to release it,
   // which each screen owns. Only what a screen draws lives in state.
   activitiesBrowse: emptyBrowse(),

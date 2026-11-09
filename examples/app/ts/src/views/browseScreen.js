@@ -69,6 +69,7 @@ export function createBrowseScreen(spec) {
         <button type="button" class="btn primary" id="browse-apply">Apply</button>
         <button type="button" class="btn secondary" id="browse-more">Load ${LOAD_STEP} more</button>
       </div>
+      ${spec.hint ? `<p class="muted">${escapeHtml(spec.hint)}</p>` : ''}
       <div class="browse-stats" id="browse-stats"></div>
       <div id="browse-error"></div>
       <div id="browse-results"></div>
@@ -221,11 +222,14 @@ export function createBrowseScreen(spec) {
         : '<div class="empty-state"><p>Nothing matches this filter</p></div>';
       return;
     }
-    const header = `<li class="browse-row head"><span class="idx">#</span>${
+    // Cells after the first one share the width the grid has left, however many there are.
+    const restColumns = `--rest: ${spec.headers.length - 1}`;
+    const header = `<li class="browse-row head" style="${restColumns}"><span class="idx">#</span>${
       spec.headers.map((h) => `<span class="browse-cell">${escapeHtml(h)}</span>`).join('')
     }</li>`;
+    const rowClass = spec.onSelect ? 'browse-row clickable' : 'browse-row';
     const rows = items.map((item, index) => `
-      <li class="browse-row"><span class="idx">${index + 1}</span>${
+      <li class="${rowClass}" style="${restColumns}" data-index="${index}"><span class="idx">${index + 1}</span>${
         spec.columns(item).map((value) => `<span class="browse-cell">${escapeHtml(value ?? '—')}</span>`).join('')
       }</li>
     `).join('');
@@ -380,6 +384,16 @@ export function createBrowseScreen(spec) {
     on('#browse-back', () => ctx.navigate('sessions'));
     on('#browse-apply', () => openSequence(container, ctx));
     on('#browse-more', () => readMore(LOAD_STEP, ctx));
+
+    // One listener on the list rather than one per row, because the rows are rebuilt every
+    // time a batch arrives.
+    if (spec.onSelect) {
+      container.querySelector('#browse-results')?.addEventListener('click', (event) => {
+        const row = event.target.closest('.browse-row.clickable');
+        const item = row && read().items?.[Number(row.dataset.index)];
+        if (item) spec.onSelect(item, ctx);
+      });
+    }
   }
 
   /**

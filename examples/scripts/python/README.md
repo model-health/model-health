@@ -139,11 +139,22 @@ python3 opencap_import.py [--api-key=<key>] [--opencap-token=<token>] <opencap_s
 ### `list_activities.py` — Browse activities
 
 Shows what an activity list can be asked for: how many match, what the first
-few look like, how each filter changes the count without reading anything, and
-which activity comes first under each order.
+few look like, how each filter changes the count without reading anything,
+which activity comes first under each order, and the activities of several
+subjects and types in one request.
 
 ```bash
 python3 list_activities.py [<api_key>]
+```
+
+### `download_results.py` — Save an activity's results
+
+Takes the most recent activity whose processing has finished, fetches its metrics,
+report, data bundle and kinematics into memory with `fetch_artifacts`, says why any
+is missing, and saves them into a directory with `download_activity`.
+
+```bash
+python3 download_results.py [<api_key>] [--directory=<path>]
 ```
 
 ### `list_subjects.py` — Browse subjects

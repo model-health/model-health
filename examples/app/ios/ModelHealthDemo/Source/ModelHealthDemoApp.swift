@@ -80,6 +80,9 @@ extension ModelHealthError {
 
         case .notSupported:
             return "This API is no longer supported"
+
+        case .notAttached(let message), .ambiguousMatch(let message), .notAvailable(let message):
+            return message
         }
     }
 }

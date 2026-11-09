@@ -500,7 +500,7 @@ input[type="date"] {
 
 .browse-row {
   display: grid;
-  grid-template-columns: 3em minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: 3em minmax(0, 2fr) repeat(var(--rest, 4), minmax(0, 1fr));
   gap: 12px;
   align-items: center;
   padding: 8px 12px;
@@ -516,6 +516,11 @@ input[type="date"] {
 }
 
 .browse-row:not(.head):nth-child(odd) { background: #fafafa; }
+.browse-row.clickable { cursor: pointer; }
+.browse-row.clickable:hover { background: #eef0ff; }
+
+/* The fetched results have no index cell: name, size, then the button. */
+.results-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
 
 .browse-entries {
   display: flex;

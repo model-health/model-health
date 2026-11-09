@@ -117,11 +117,22 @@ npm run video-upload-mode -- [<api_key>]
 ### `list_activities.ts` — Browse activities
 
 Shows what an activity list can be asked for: how many match, what the first
-few look like, how each filter changes the count without reading anything, and
-which activity comes first under each order.
+few look like, how each filter changes the count without reading anything,
+which activity comes first under each order, and the activities of several
+subjects and types in one request.
 
 ```bash
 npm run list-activities -- [<api_key>]
+```
+
+### `download_results.ts` — Fetch an activity's results
+
+Takes the most recent activity whose processing has finished, fetches its metrics,
+report, data bundle and kinematics into memory with `fetchArtifacts`, says why any
+is missing, and writes the rest to files.
+
+```bash
+npm run download-results -- [<api_key>]
 ```
 
 ### `list_subjects.ts` — Browse subjects

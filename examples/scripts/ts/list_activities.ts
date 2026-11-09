@@ -77,6 +77,25 @@ async function showOrder(client: ModelHealthClient): Promise<void> {
   }
 }
 
+/** Several subjects and types at once: one request, and each activity says whose it is. */
+async function showSeveral(client: ModelHealthClient): Promise<void> {
+  console.log('\nSeveral subjects and types in one request');
+  // Both are drawn from real, recent activities, so the filter is sure to match something.
+  const recent = (await firstFew(client.activities.list({ orderBy: '-createdAt' }), 50))
+    .filter(a => a.subjectInfo && a.activityType);
+  const subjects = [...new Map(recent.map(a => [a.subjectInfo!.id, a.subjectInfo!])).values()].slice(0, 2);
+  const types = [...new Map(recent.map(a => [a.activityType!.name, a.activityType!])).values()].slice(0, 2);
+  if (subjects.length < 2) {
+    console.log('  (needs recent activities of at least two subjects)');
+    return;
+  }
+  const stream = client.activities.list({ subjects: subjects.map(s => s.id), activityTypes: types });
+  console.log(`  ${await stream.total} match, across ${subjects.map(s => s.name).join(', ')}`);
+  for (const activity of await firstFew(stream, 5)) {
+    console.log(`    ${activity.subjectInfo?.name ?? '(no subject)'}: ${describe(activity)}`);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const client = await connect(loadApiKey(args[0]));
@@ -84,6 +103,7 @@ async function main() {
   await showEverything(client);
   await showFilters(client);
   await showOrder(client);
+  await showSeveral(client);
 }
 
 main().catch(err => { console.error(`Error: ${err.message ?? err}`); process.exit(1); });

@@ -284,7 +284,7 @@ def _calibrate_subject(client, subject, session):
 def _has_neutral_pose(session):
     return any(
         a.name == "neutral" and a.status == "done" and not a.trashed
-        for a in session.activities
+        for a in session.activities(exclude_calibration=False)
     )
 
 

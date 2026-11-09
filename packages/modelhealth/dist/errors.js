@@ -72,6 +72,38 @@ export class UnsupportedOperationError extends ModelHealthError {
         this.name = "UnsupportedOperationError";
     }
 }
+/**
+ * A record could not reach the client it was read through.
+ *
+ * Records the SDK hands back carry their links. A copy made by hand — a spread, a
+ * `JSON.parse` round-trip, a literal — carries the fields and not the links, so calling
+ * a link on such a copy is a `TypeError`, not this error. Read the record through the
+ * client to navigate from it.
+ */
+export class NotAttachedError extends ModelHealthError {
+    constructor(message, code = ERROR_CODE.NOT_ATTACHED, subCode = -1, statusCode = 0) {
+        super(message, code, subCode, statusCode);
+        this.name = "NotAttachedError";
+    }
+}
+/** A lookup by name matched more than one record. The message lists their ids. */
+export class AmbiguousMatchError extends ModelHealthError {
+    constructor(message, code, subCode, statusCode) {
+        super(message, code, subCode, statusCode);
+        this.name = "AmbiguousMatchError";
+    }
+}
+/**
+ * An activity has no such result: it is still being processed, or processing finished
+ * without producing it. The message says which, so you can tell whether trying again later
+ * can help.
+ */
+export class NotAvailableError extends ModelHealthError {
+    constructor(message, code, subCode, statusCode) {
+        super(message, code, subCode, statusCode);
+        this.name = "NotAvailableError";
+    }
+}
 // MARK: - Mapping
 /**
  * Wire discriminants matching `ModelHealthError::wire_codes`.  `code` selects
@@ -87,6 +119,9 @@ const ERROR_CODE = {
     INVALID_API_KEY: 5,
     INVALID_INPUT: 6,
     NOT_SUPPORTED: 7,
+    NOT_ATTACHED: 8,
+    AMBIGUOUS_MATCH: 9,
+    NOT_AVAILABLE: 10,
 };
 const HTTP_SUB_CODE = {
     CLIENT_ERROR: 0,
@@ -134,6 +169,12 @@ export function mapModelHealthError(err) {
             return new NetworkError(message, code, subCode, statusCode);
         case ERROR_CODE.NOT_SUPPORTED:
             return new UnsupportedOperationError(message, code, subCode, statusCode);
+        case ERROR_CODE.NOT_ATTACHED:
+            return new NotAttachedError(message, code, subCode, statusCode);
+        case ERROR_CODE.AMBIGUOUS_MATCH:
+            return new AmbiguousMatchError(message, code, subCode, statusCode);
+        case ERROR_CODE.NOT_AVAILABLE:
+            return new NotAvailableError(message, code, subCode, statusCode);
         default:
             return new ModelHealthError(message, code, subCode, statusCode);
     }

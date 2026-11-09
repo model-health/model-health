@@ -13,7 +13,7 @@ struct BrowseActivitiesView: View {
 
     @State private var search = ""
     @State private var subjectID: Int?
-    @State private var calibrationSessionID: String?
+    @State private var sessionID: String?
     @State private var activityTypeID: Int?
     @State private var tagsText = ""
     @State private var createdByText = ""
@@ -50,7 +50,7 @@ struct BrowseActivitiesView: View {
                     }
                 }
 
-                Picker("Calibrated under", selection: $calibrationSessionID) {
+                Picker("Session", selection: $sessionID) {
                     Text("Any session").tag(String?.none)
                     ForEach(sessions) { session in
                         Text(session.name).tag(String?.some(session.id))
@@ -87,7 +87,11 @@ struct BrowseActivitiesView: View {
                 }
             }
         } row: { activity in
-            BrowseActivityRow(activity: activity)
+            NavigationLink {
+                ActivityResultsView(activity: activity)
+            } label: {
+                BrowseActivityRow(activity: activity)
+            }
         }
         .task {
             if subjects.isEmpty {
@@ -114,7 +118,7 @@ private extension BrowseActivitiesView {
         await model.open(step: browseLoadStep) {
             modelHealth.activities.list(
                 subject: subjects.first { $0.id == subjectID },
-                calibrationSession: sessions.first { $0.id == calibrationSessionID },
+                session: sessions.first { $0.id == sessionID },
                 activityType: activityTypes.first { $0.id == activityTypeID },
                 excludeCalibration: excludeCalibration,
                 createdAfter: hasCreatedAfter ? createdAfter : nil,

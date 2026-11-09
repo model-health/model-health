@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.12.0
+
+### Breaking
+
+- Three fields were renamed, because the old names now read the linked record instead (see
+  "Records link to each other" below):
+  - `Session.subject` (the subject's id) is `subjectId` / `subjectId` / `subject_id`.
+  - `Activity.session` (the session's id) is `sessionId` / `sessionId` / `session_id`.
+  - `Session.activities` (the activities the server sent inside the session record) is
+    `embeddedActivities` / `embeddedActivities` / `embedded_activities`. For the full list of a
+    session's activities use `session.activities(...)`.
+
+  `session.subject`, `activity.session` and `activity.subject` still exist, but they now return the
+  `Subject` or `Session` record, not an id, and they read it from the server: `await` the property in
+  Swift, call the method `session.subject()` / `activity.session()` / `activity.subject()` in TypeScript
+  and Python. Code that used the old fields as ids needs the new names.
+
+- Swift: `ModelHealthError` has three new cases, `.notAttached`, `.ambiguousMatch` and `.notAvailable`.
+  A `switch` over it that has no `default` has to handle them.
+
+### Added
+
+- Records link to each other. Starting from an `Activity`, `Session` or `Subject` you can read the
+  records it belongs to and the ones that belong to it, without looking ids up by hand:
+  `activity.session`, `activity.subject`, `session.subject`, `subject.sessions(...)`,
+  `subject.activities(...)` and `session.activities(...)`. The lists are streams that take the same
+  filters as `client.sessions.list` and `client.activities.list`. A record read once is remembered;
+  `refresh()` forgets what it knows and reads it again. Records of the same kind compare equal when
+  their ids do (`equals(_:)` in TypeScript). A record built by hand has no client to read through and
+  reports `notAttached` / `NotAttachedError` / `ModelHealthError`.
+
+- `activities.list(session:)` / `activities.list({ session })` / `activities.list(session=...)` — only the
+  activities recorded in the given session (a `Session` or its id).
+
+- `subjects.find(name:)` / `subjects.find(name)` / `subjects.find(name)` — the subject with exactly this
+  name, ignoring case. It gives `nil` / `undefined` / `None` when there is none, and an `ambiguousMatch` /
+  `AmbiguousMatchError` / `AmbiguousMatchError` listing the ids when several match.
+
+- `activities.list(subjects:activityTypes:)` / `activities.list({ subjects, activityTypes })` /
+  `activities.list(subjects=..., activity_types=...)` — list the activities of several subjects and
+  several activity types in one request, instead of one request per subject. Together with
+  `subject` and `activityType`/`activity_type` they match either (a union). Swift takes subjects and activity types as objects;
+  TypeScript and Python also take their ids. Every subject must be one you may view. An empty list is
+  refused rather than read as every subject or every type: leave the parameter out to match them all.
+  Not available under API v1.
+
+- `Activity.subjectInfo` / `Activity.subjectInfo` / `Activity.subject_info` — the subject an activity
+  was recorded for, as an `ActivitySubject` with `id`, `name`, `firstName`/`lastName`
+  (`first_name`/`last_name`). It lets a list that spans several subjects say whose activity each row
+  is, without a request. It is `nil` / `undefined` / `None` for an activity with no subject.
+
+- `fetchArtifacts(_:for:)` / `fetchArtifacts` / `fetch_artifacts` — fetch an activity's results into
+  memory, each on its own, choosing among the `ArtifactType` values `metrics`, `report`, `data` and
+  `kinematics_csv` (`.kinematicsCsv` in Swift). One that is missing or fails does not stop the others.
+  A result an activity does not have comes back as `NotAvailableError` (`ModelHealthError.notAvailable`
+  in Swift), whose message says whether trying again later can help.
+
+- `downloadActivity(_:to:artifacts:stem:)` / `download_activity` (Swift and Python) — save an activity's
+  results into a directory, one file each. TypeScript has no `downloadActivity`: write the bytes
+  `fetchArtifacts` returns.
+
+- `artifactFileName(activity, artifact, stem)` (TypeScript) — the file name `downloadActivity` saves a
+  result under in Swift and Python, so bytes written from `fetchArtifacts` get the same names.
+
+- `Activity.hasResults` / `has_results` — whether processing has finished, so results
+  can be downloaded.
+
+- Core engine v2.0 (`SessionCoreEngine.v2_0`; `"v2.0"` in TypeScript). v1.0 remains the default.
+- The core engine can now be set per recording with `RecordingConfig.core_engine` (`coreEngine` in Swift and TypeScript), overriding the session's setting for that recording.
+- Activities now report their per-recording settings: `framerate`, `filter_frequency` and `core_engine` (`filterFrequency` and `coreEngine` in Swift and TypeScript). Each is the value the server stores, or empty when the activity uses its session's setting.
+
+### Fixed
+
+- The session's core engine (`SessionConfig.core_engine`) is now saved when configuring a session. It was sent under the wrong parameter name, so the backend ignored it and sessions were processed with the default engine.
+
 ## 0.11.3
 
 ### Added

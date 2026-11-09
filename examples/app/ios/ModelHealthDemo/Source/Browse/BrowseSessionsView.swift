@@ -71,7 +71,7 @@ struct BrowseSessionRow: View {
                 .font(.subheadline)
 
             HStack(spacing: 8) {
-                Text(session.subject.map { "subject #\($0)" } ?? "no subject")
+                Text(session.subjectId.map { "subject #\($0)" } ?? "no subject")
                 Text("\(session.activitiesCount) activities")
                 Spacer()
                 Text(BrowseFormat.day(session.createdAt))

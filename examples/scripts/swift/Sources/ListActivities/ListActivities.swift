@@ -17,6 +17,7 @@ struct ListActivities {
         await showEverything(client: client)
         await showFilters(client: client)
         await showOrder(client: client)
+        await showSeveral(client: client)
     }
 }
 
@@ -99,5 +100,41 @@ private func showOrder(client: ModelHealthClient) async {
             fputs("Failed to list activities by \(order.rawValue): \(error)\n", stderr)
             exit(1)
         }
+    }
+}
+
+/// Several subjects and types at once: one request, and each activity says whose it is.
+private func showSeveral(client: ModelHealthClient) async {
+    print("\nSeveral subjects and types in one request")
+    do {
+        // Both are drawn from real, recent activities, so the filter is sure to match something.
+        let recent = try await firstFew(client.activities.list(orderBy: .createdAtDescending), 50)
+        var subjectIds: [Int] = []
+        var types: [ActivityTypeInfo] = []
+        for activity in recent {
+            guard let subject = activity.subjectInfo, let type = activity.activityType else { continue }
+            if subjectIds.count < 2, !subjectIds.contains(subject.id) {
+                subjectIds.append(subject.id)
+            }
+            if types.count < 2, !types.contains(where: { $0.id == type.id }) {
+                types.append(type)
+            }
+        }
+        guard subjectIds.count >= 2 else {
+            print("  (needs recent activities of at least two subjects)")
+            return
+        }
+        var subjects: [Subject] = []
+        for id in subjectIds {
+            subjects.append(try await client.fetch(subject: id))
+        }
+        let stream = client.activities.list(subjects: subjects, activityTypes: types)
+        print("  \(try await stream.total) match, across \(subjects.map(\.name).joined(separator: ", "))")
+        for activity in try await firstFew(stream, 5) {
+            print("    \(activity.subjectInfo?.name ?? "(no subject)"): \(describe(activity))")
+        }
+    } catch {
+        fputs("Failed to list activities of several subjects: \(error)\n", stderr)
+        exit(1)
     }
 }

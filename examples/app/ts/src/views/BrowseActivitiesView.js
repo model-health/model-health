@@ -15,12 +15,18 @@ export const { render, onEnter } = createBrowseScreen({
   ],
   orderBy: ['createdAt', 'status', 'createdBy', 'activityType'],
   defaultOrder: '-createdAt',
-  headers: ['Name', 'Type', 'Analysis', 'Recorded'],
+  headers: ['Name', 'Type', 'Analysis', 'Results', 'Recorded'],
   columns: (activity) => [
     activity.name || activity.id,
     // Whatever the server reported, including a type this SDK build does not itself name.
     activity.activityType?.displayName,
     activity.analysisStatus || activity.status,
+    activity.hasResults ? 'yes' : 'no',
     day(activity.createdAt),
   ],
+  hint: 'Select an activity to fetch its results.',
+  onSelect: (activity, ctx) => ctx.navigate('activity-results', {
+    resultsActivity: activity,
+    activityResults: null,
+  }),
 });

@@ -23,6 +23,8 @@
  * await client.calibrateCamera(session, details, () => {});
  * ```
  */
+import type { ModelHealthError } from "./errors.js";
+import type { ActivityStream, SessionStream } from "./streams.js";
 export interface Session {
     id: string;
     user: number;
@@ -30,15 +32,30 @@ export interface Session {
     name: string;
     sessionName: string;
     qrcode?: string;
-    activities: Activity[];
-    /** ID of the subject this session belongs to, if assigned. A bare ID, not a
-     * {@link Subject} object. */
-    subject?: number;
+    /** ID of the subject this session belongs to, if assigned. Reading it costs nothing;
+     * for the subject itself, read on first access, see {@link Session.subject}. */
+    subjectId?: number;
     activitiesCount: number;
+    /** The activities that arrived with this session, as they were when it was read.
+     * Everything recorded in it, calibration and neutral included, unfiltered. Reading it
+     * sends nothing; for a filtered list read now, see {@link Session.activities}. */
+    embeddedActivities: Activity[];
     /** When this session was created. */
     createdAt: Date;
     /** When this session was last updated. */
     updatedAt: Date;
+    /** The subject this session belongs to, or `undefined` when it has none. Sends one
+     * request the first time; the answer is kept. {@link Session.subjectId} sends none. */
+    subject(): Promise<Subject | undefined>;
+    /** The activities recorded in this session. Takes the same options as
+     * {@link ActivitiesResource.list}; only the session is already decided. Sends nothing
+     * until the stream is read. */
+    activities(options?: ActivityListOptions): ActivityStream;
+    /** Reads this session again, forgetting what was remembered of it and of its subject.
+     * Returns a new session; this one is unchanged. */
+    refresh(): Promise<Session>;
+    /** Whether this is the same record, by id. */
+    equals(other: Session): boolean;
 }
 /**
  * Sort field for {@link SessionsResource.list}, optionally `-`-prefixed for descending.
@@ -126,6 +143,15 @@ export interface Subject {
     createdAt?: Date;
     /** When this subject record was last modified, if reported. */
     updatedAt?: Date;
+    /** The sessions this subject was recorded in. Sends nothing until the stream is read. */
+    sessions(options?: SessionListOptions): SessionStream;
+    /** The activities recorded for this subject. Takes the same options as
+     * {@link ActivitiesResource.list}; only the subject is already decided. */
+    activities(options?: ActivityListOptions): ActivityStream;
+    /** Reads this subject again, forgetting what was remembered of it. */
+    refresh(): Promise<Subject>;
+    /** Whether this is the same record, by id. */
+    equals(other: Subject): boolean;
 }
 /**
  * Parameters for creating a new subject.
@@ -283,8 +309,9 @@ export interface Video {
  */
 export interface Activity {
     id: string;
-    /** ID of the parent session. A bare ID, not a {@link Session} object. */
-    session: string;
+    /** ID of the parent session. Reading it costs nothing; for the session itself, read
+     * on first access, see {@link Activity.session}. */
+    sessionId: string;
     name?: string;
     status: string;
     videos: Video[];
@@ -297,6 +324,15 @@ export interface Activity {
     activityType?: ActivityTypeInfo;
     /** Tags attached to the activity. */
     tags: string[];
+    /**
+     * A summary of the subject the activity was recorded for, if it has one.
+     *
+     * Lets a list that spans several subjects tell whose activity each row is. Reading it
+     * costs nothing; for the subject itself, read on first access, see {@link Activity.subject}.
+     * `undefined` for an activity whose session has no subject, and for one loaded
+     * through a path that does not report it (for example, nested inside a session).
+     */
+    subjectInfo?: ActivitySubject;
     /** Free-text notes attached to the activity, if any. */
     notes?: string;
     /** Username of the account that owns the parent session, if known. */
@@ -306,12 +342,54 @@ export interface Activity {
      * (for example, nested inside a session).
      */
     analysisStatus?: string;
+    /** Frame rate this activity was recorded at, as the server stores it (e.g. `"120"`),
+     * or `undefined` when it uses the session's setting.
+     */
+    framerate?: string;
+    /** Low-pass filter frequency for this activity, as the server stores it (`"default"`
+     * or a value in Hz such as `"12"`), or `undefined` when it uses the session's setting.
+     */
+    filterFrequency?: string;
+    /** Core engine version for this activity, as the server stores it (e.g. `"v2.0"`),
+     * or `undefined` when it uses the session's setting.
+     */
+    coreEngine?: string;
     /** Whether the activity is in the trash. */
     trashed: boolean;
     /** When this activity was created. */
     createdAt: Date;
     /** When this activity was last updated. */
     updatedAt: Date;
+    /** The session this activity belongs to. Sends one request the first time; the answer
+     * is kept. {@link Activity.sessionId} sends none. */
+    session(): Promise<Session>;
+    /** The subject this activity belongs to, or `undefined` when its session has none.
+     * Reached through the session, so up to two requests the first time; both are kept. */
+    subject(): Promise<Subject | undefined>;
+    /** Reads this activity again, forgetting what was remembered of it and of what it
+     * reaches. */
+    refresh(): Promise<Activity>;
+    /** Whether this is the same record, by id. */
+    equals(other: Activity): boolean;
+    /** Whether processing has finished, so results can be downloaded. Also true for an
+     * activity that finished without analysis output: its motion data is there, but a
+     * report or metrics may not be. */
+    get hasResults(): boolean;
+}
+/**
+ * The subject an activity was recorded for, as reported alongside the activity: a
+ * summary of {@link Subject}, enough to label a row. Read the full record with
+ * `client.subjects.get(...)` when more is needed.
+ */
+export interface ActivitySubject {
+    /** The subject's id, as in {@link Subject.id}. */
+    id: number;
+    /** The subject's full name, joined from `firstName` and `lastName`. */
+    name: string;
+    /** Given name, if reported. */
+    firstName?: string;
+    /** Family name, if reported. */
+    lastName?: string;
 }
 /** The activity type as reported, carrying `{id, name, slug, displayName}` through
  * unchanged — including a type this SDK build doesn't otherwise recognize.
@@ -359,11 +437,38 @@ export type ActivityOrderBy = "createdAt" | "-createdAt" | "status" | "-status" 
 export interface ActivityListOptions {
     /** Only activities belonging to this subject. Accepts a {@link Subject} or its id. */
     subject?: Subject | number;
-    /** Only activities recorded under this calibration session. Accepts a {@link Session} or its id. */
+    /**
+     * Only activities belonging to any of these subjects, in one request rather than one
+     * per subject. Accepts {@link Subject} objects or their ids. Together with `subject`,
+     * matches activities of `subject` *or* any of `subjects` (a union, not an
+     * intersection). Every subject must be one you may view. Each activity's
+     * {@link Activity.subjectInfo} says whose it is.
+     *
+     * Meant for a handful of subjects, as each one is sent in the request. An empty list
+     * throws a `TypeError` from `list()`, rather than being read as every subject: omit it
+     * to match them all. Requires the V2 API: on a V1 provider, reading the stream throws
+     * a not-supported error.
+     */
+    subjects?: (Subject | number)[];
+    /** Only activities recorded under this calibration session: the session itself and every
+     * session that reuses its calibration. Accepts a {@link Session} or its id. */
     calibrationSession?: Session | string;
+    /** Only activities recorded in this session, and that session only. Accepts a
+     * {@link Session} or its id. */
+    session?: Session | string;
     /** Only activities of this type. Accepts a type from
      * {@link ModelHealthClient.activityTypes} or its id. */
     activityType?: ActivityTypeInfo | number;
+    /**
+     * Only activities of any of these types. Accepts types from
+     * {@link ModelHealthClient.activityTypes} or their ids. Together with `activityType`,
+     * matches either (a union). Ids are looked up together, with one read of the
+     * account's types.
+     *
+     * An empty list throws a `TypeError` from `list()`, rather than being read as every
+     * type: omit it to match them all. Requires the V2 API, as `subjects`.
+     */
+    activityTypes?: (ActivityTypeInfo | number)[];
     /** Excludes calibration and neutral-pose activities. Default `true`. */
     excludeCalibration?: boolean;
     /** Only activities created on or after this date (inclusive). A `Date` counts as
@@ -593,6 +698,38 @@ export interface AnalysisData {
     data: Uint8Array;
 }
 /**
+ * The results an activity can produce, as one fetch names them.
+ *
+ * Pass one or more values to {@link ModelHealthClient.fetchArtifacts}. Each type has a
+ * fixed format.
+ *
+ * @group Enumerations
+ */
+export type ArtifactType = 
+/** The activity's metrics, grouped as they are shown on the dashboard. JSON format. */
+"metrics"
+/** Analysis report. PDF format. */
+ | "report"
+/** Raw analysis data. ZIP format. */
+ | "data"
+/** Joint angles over time. CSV format. */
+ | "kinematics_csv";
+/**
+ * What fetching an activity's results produced.
+ *
+ * Every result asked for is in exactly one of the two maps: one result failing does not
+ * stop the others.
+ */
+export interface FetchedArtifacts {
+    /** The bytes of each result that was fetched, by result type. */
+    data: Partial<Record<ArtifactType, Uint8Array>>;
+    /**
+     * Why each of the others was not fetched, by result type. A result the activity does not
+     * have is a {@link NotAvailableError}.
+     */
+    errors: Partial<Record<ArtifactType, ModelHealthError>>;
+}
+/**
  * Orientation of the calibration checkerboard relative to the camera.
  *
  * @example
@@ -765,6 +902,8 @@ export interface RecordingConfig {
     framerate?: SessionFramerate;
     /** Low-pass filter frequency override. Undefined uses the session default. */
     filterFrequency?: FilterFrequency;
+    /** Core engine version override. Undefined uses the session default. */
+    coreEngine?: SessionCoreEngine;
 }
 /**
  * Configuration for starting or updating a recording.
@@ -931,7 +1070,7 @@ export type SessionScalingSetup = "upright_standing_pose" | "any_pose";
  *
  * @group Enumerations
  */
-export type SessionCoreEngine = "v0.2" | "v0.3" | "v1.0";
+export type SessionCoreEngine = "v0.2" | "v0.3" | "v1.0" | "v2.0";
 /**
  * Frequency of the low-pass Butterworth filter applied to 2D video keypoints.
  *

@@ -45,7 +45,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.user = 1
                 builder.public = false
                 builder.qrcode = nil
-                builder.subject = nil
+                builder.subjectId = nil
                 builder.activitiesCount = 0
             }
         ]
@@ -59,7 +59,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.user = 1
             builder.public = false
             builder.qrcode = nil
-            builder.subject = nil
+            builder.subjectId = nil
             builder.activitiesCount = 0
         }
     }
@@ -73,7 +73,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.user = 1
             builder.public = false
             builder.qrcode = nil
-            builder.subject = session.subject
+            builder.subjectId = session.subjectId
             builder.activitiesCount = 0
         }
     }
@@ -95,7 +95,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
                 builder.user = 1
                 builder.public = false
                 builder.qrcode = nil
-                builder.subject = subjects.first?.id
+                builder.subjectId = subjects.first?.id
                 builder.activitiesCount = index
             }
         }
@@ -144,7 +144,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         [
             .forPreview { builder in
                 builder.id = "activity-001"
-                builder.session = "session-001"
+                builder.sessionId = "session-001"
                 builder.name = "CMJ Test 1"
                 builder.status = "done"
                 builder.videos = [
@@ -228,7 +228,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
             builder.user = 1
             builder.public = false
             builder.qrcode = nil
-            builder.subject = nil
+            builder.subjectId = nil
             builder.activitiesCount = 0
         }
     }
@@ -294,7 +294,7 @@ final class MockModelHealthProvider: ModelHealthProvider {
         try? await Task.sleep(nanoseconds: 500_000_000)
         return .forPreview { builder in
             builder.id = "activity-\(UUID().uuidString.prefix(8))"
-            builder.session = session.id
+            builder.sessionId = session.id
             builder.name = name
             builder.status = "recording"
             builder.videos = []

@@ -104,7 +104,7 @@ private extension SessionListView {
         }
         .listStyle(.plain)
         .navigationDestination(for: Session.self) { session in
-            let subject = loadingState.subjects.first { $0.id == session.subject }
+            let subject = loadingState.subjects.first { $0.id == session.subjectId }
 
             guard let subject else {
                 fatalError("Subject not found for session")
@@ -169,7 +169,7 @@ private extension SessionListView {
             async let subjectsAsync = try await modelHealth.subjects.list().all()
 
             let (sessions, subjects) = try await (sessionsAsync, subjectsAsync)
-            loadingState = .loaded(sessions.filter { $0.subject != nil }, subjects)
+            loadingState = .loaded(sessions.filter { $0.subjectId != nil }, subjects)
         } catch let error as ModelHealthError {
             loadingState = .error(error.message)
         } catch {
@@ -205,7 +205,7 @@ struct SessionRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                if session.subject != nil {
+                if session.subjectId != nil {
                     Label("Subject", systemImage: "person")
                         .font(.caption)
                         .foregroundColor(.secondary)

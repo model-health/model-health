@@ -118,11 +118,22 @@ swift run VideoUploadMode [<api_key>]
 ### `ListActivities` — Browse activities
 
 Shows what an activity list can be asked for: how many match, what the first
-few look like, how each filter changes the count without reading anything, and
-which activity comes first under each order.
+few look like, how each filter changes the count without reading anything,
+which activity comes first under each order, and the activities of several
+subjects and types in one request.
 
 ```bash
 swift run ListActivities [<api_key>]
+```
+
+### `DownloadResults` — Save an activity's results
+
+Takes the most recent activity whose processing has finished, fetches its metrics,
+report, data bundle and kinematics into memory with `fetchArtifacts`, says why any
+is missing, and saves them into a directory with `downloadActivity`.
+
+```bash
+swift run DownloadResults [<api_key>]
 ```
 
 ### `ListSubjects` — Browse subjects

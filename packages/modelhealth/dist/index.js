@@ -240,6 +240,61 @@ function camelizeKeys(value) {
     return value;
 }
 /**
+ * The filter behind every way of listing activities.
+ *
+ * Shared by `client.activities.list(...)` and by the links a record carries, so all of
+ * them accept the same spellings and send the same shape.
+ * @internal
+ */
+function activityFilterFrom(options) {
+    const activityType = activityTypeFilter(options.activityType);
+    const activityTypes = activityTypesFilter(options.activityTypes);
+    const excludeCalibration = options.excludeCalibration ?? true;
+    return {
+        subject_id: options.subject === undefined ? undefined : subjectIdOf(options.subject, "subject"),
+        subject_ids: subjectIdsFilter(options.subjects),
+        calibration_session_id: typeof options.calibrationSession === "object" ? options.calibrationSession.id : options.calibrationSession,
+        session_id: typeof options.session === "object" ? options.session.id : options.session,
+        activity_type: activityType.name,
+        activity_type_id: activityType.id,
+        activity_types: activityTypes.names,
+        activity_type_ids: activityTypes.ids,
+        exclude_calibrate: excludeCalibration,
+        exclude_neutral: excludeCalibration,
+        created_after: formatFilterDate(options.createdAfter),
+        created_before: formatFilterDate(options.createdBefore),
+        search: options.search,
+        tags: options.tags,
+        created_by: options.createdBy,
+        only_completed: options.onlyCompleted ?? false,
+        exclude_analysis_error: options.excludeAnalysisError ?? false,
+    };
+}
+/**
+ * The filter behind every way of listing sessions.
+ *
+ * Shared by `client.sessions.list(...)` and by `subject.sessions(...)`, so both accept
+ * the same spellings and send the same shape.
+ * @internal
+ */
+function sessionFilterFrom(options) {
+    return {
+        subject_id: typeof options.subject === "object" ? options.subject.id : options.subject,
+    };
+}
+/**
+ * Hangs a member on a model without it counting as one of the model's fields.
+ *
+ * A record is handed back as plain data, and anything that walks its own properties —
+ * sending it onward, serialising it, copying it — must see the fields and nothing else.
+ * A non-enumerable member is invisible to all of those, which is what lets a record
+ * carry its links without them travelling as data.
+ * @internal
+ */
+function hide(target, name, value) {
+    Object.defineProperty(target, name, { value, enumerable: false, configurable: true });
+}
+/**
  * Field names that carry an ISO-8601 timestamp anywhere in a response, converted to
  * `Date` in place.
  * @internal
@@ -322,10 +377,83 @@ function decamelizeKeys(value) {
  * @internal
  */
 function activityTypeFilter(value) {
-    if (value === undefined) {
+    return value === undefined ? {} : activityTypeOf(value, "activityType");
+}
+/**
+ * Reduces one activity type, or its id, to the name to send or the id to resolve.
+ * @internal
+ */
+function activityTypeOf(value, option) {
+    if (typeof value === "number" && Number.isInteger(value)) {
+        return { id: value };
+    }
+    if (value !== null && typeof value === "object" && typeof value.name === "string") {
+        return { name: value.name };
+    }
+    throw new TypeError(`${option} takes a type from client.activityTypes(), or its id; got ${String(value)}`);
+}
+/**
+ * Splits several activity types into the names to send and the ids to resolve.
+ *
+ * As {@link activityTypeFilter}, for a list. An empty list is refused here rather than
+ * read as every type.
+ * @internal
+ */
+function activityTypesFilter(values) {
+    if (values === undefined) {
         return {};
     }
-    return typeof value === "number" ? { id: value } : { name: value.name };
+    if (!Array.isArray(values)) {
+        throw new TypeError("activityTypes takes an array; use activityType for a single type");
+    }
+    if (values.length === 0) {
+        throw new TypeError("activityTypes must not be empty; omit it to match every type");
+    }
+    const names = [];
+    const ids = [];
+    for (const value of values) {
+        const { name, id } = activityTypeOf(value, "activityTypes");
+        if (name !== undefined) {
+            names.push(name);
+        }
+        else if (id !== undefined) {
+            ids.push(id);
+        }
+    }
+    return {
+        names: names.length > 0 ? names : undefined,
+        ids: ids.length > 0 ? ids : undefined,
+    };
+}
+/**
+ * Reduces a subject, or its id, to the id to send.
+ * @internal
+ */
+function subjectIdOf(value, option) {
+    if (typeof value === "number" && Number.isInteger(value)) {
+        return value;
+    }
+    if (value !== null && typeof value === "object" && typeof value.id === "number") {
+        return value.id;
+    }
+    throw new TypeError(`${option} takes subjects from client.subjects.list(), or their ids; got ${String(value)}`);
+}
+/**
+ * Reduces several subjects, or their ids, to the ids to send. An empty list is refused
+ * here rather than read as every subject.
+ * @internal
+ */
+function subjectIdsFilter(values) {
+    if (values === undefined) {
+        return undefined;
+    }
+    if (!Array.isArray(values)) {
+        throw new TypeError("subjects takes an array; use subject for a single subject");
+    }
+    if (values.length === 0) {
+        throw new TypeError("subjects must not be empty; omit it to match every subject");
+    }
+    return values.map((value) => subjectIdOf(value, "subjects"));
 }
 function formatFilterDate(value) {
     if (value === undefined || typeof value === "string") {
@@ -396,31 +524,22 @@ export class ActivitiesResource {
      *
      * const total = await client.activities.list({ tags: ["study-a"] }).total;
      * const all = await client.activities.list({ tags: ["study-a"] }).all();
+     *
+     * // Several subjects and types in one request. Pick a handful: every one is sent in
+     * // the request, so a whole account's worth would not fit. To match everything,
+     * // leave the filters out.
+     * const [alice, bob] = await client.subjects.list({ limit: 2 }).all();
+     * const [squats, hops] = (await client.activityTypes()).slice(0, 2);
+     * for await (const activity of client.activities.list({
+     *   subjects: [alice, bob],
+     *   activityTypes: [squats, hops],
+     * })) {
+     *   console.log(activity.subjectInfo?.name, activity.name);
+     * }
      * ```
      */
     list(options = {}) {
-        const subjectId = typeof options.subject === "object" ? options.subject.id : options.subject;
-        const calibrationSessionId = typeof options.calibrationSession === "object" ? options.calibrationSession.id : options.calibrationSession;
-        const excludeCalibration = options.excludeCalibration ?? true;
-        const createdAfter = formatFilterDate(options.createdAfter);
-        const createdBefore = formatFilterDate(options.createdBefore);
-        const orderBy = formatOrderBy(options.orderBy);
-        const activityType = activityTypeFilter(options.activityType);
-        return this.client._activitiesStream({
-            subject_id: subjectId,
-            calibration_session_id: calibrationSessionId,
-            activity_type: activityType.name,
-            activity_type_id: activityType.id,
-            exclude_calibrate: excludeCalibration,
-            exclude_neutral: excludeCalibration,
-            created_after: createdAfter,
-            created_before: createdBefore,
-            search: options.search,
-            tags: options.tags,
-            created_by: options.createdBy,
-            only_completed: options.onlyCompleted ?? false,
-            exclude_analysis_error: options.excludeAnalysisError ?? false,
-        }, orderBy, options.limit);
+        return this.client._activitiesStream(activityFilterFrom(options), formatOrderBy(options.orderBy), options.limit);
     }
 }
 /**
@@ -432,6 +551,30 @@ export class SubjectsResource {
     /** @internal */
     constructor(client) {
         this.client = client;
+    }
+    /**
+     * The subject with exactly this name, or `undefined` when nobody has it.
+     *
+     * `search` on {@link SubjectsResource.list} narrows by substring; this matches the
+     * whole name, ignoring case. A prefix is not a name, and no match is `undefined`
+     * rather than an error.
+     *
+     * @param name The subject's full name.
+     * @returns The subject, or `undefined` when nobody has this name.
+     * @throws {AmbiguousMatchError} When more than one subject has this name — the message
+     *   lists their ids, so you can pick one with {@link ModelHealthClient.fetchSubject}.
+     *   A blank name is refused before anything is sent.
+     *
+     * @example
+     * ```typescript
+     * const subject = await client.subjects.find("Antoine Falisse");
+     * if (subject) {
+     *   for await (const activity of subject.activities()) console.log(activity.name);
+     * }
+     * ```
+     */
+    async find(name) {
+        return this.client._findSubject(name);
     }
     /**
      * Lazily lists subjects matching the given filters.
@@ -490,9 +633,7 @@ export class SessionsResource {
      * ```
      */
     list(options = {}) {
-        const subjectId = typeof options.subject === "object" ? options.subject.id : options.subject;
-        const orderBy = formatOrderBy(options.orderBy);
-        return this.client._sessionsStream({ subject_id: subjectId }, orderBy, options.limit);
+        return this.client._sessionsStream(sessionFilterFrom(options), formatOrderBy(options.orderBy), options.limit);
     }
 }
 /**
@@ -553,6 +694,45 @@ export class ModelHealthClient {
          * of a generic "not initialized" message.
          */
         this.initError = null;
+        /**
+         * Hangs a subject's links on it, so a record read through this client can reach the
+         * records next to it. The links are not fields — see {@link hide}.
+         */
+        this.bindSubject = (subject) => {
+            hide(subject, "sessions", (options = {}) => this.subjectSessions(subject.id, options));
+            hide(subject, "activities", (options = {}) => this.subjectActivities(subject.id, options));
+            hide(subject, "refresh", async () => this.parseResponse(await this.wasmClient.refreshSubject(subject.id), this.bindSubject));
+            hide(subject, "equals", (other) => other?.id === subject.id);
+            hide(subject, "toString", () => wasmModule.describeSubject(subject.id, subject.name));
+        };
+        this.bindSession = (session) => {
+            for (const activity of session.embeddedActivities ?? [])
+                this.bindActivity(activity);
+            hide(session, "subject", async () => this.parseResponse(await this.wasmClient.subjectOfSession(session.subjectId ?? undefined), this.bindSubject));
+            hide(session, "activities", (options = {}) => this.sessionActivities(session.id, options));
+            hide(session, "refresh", async () => this.parseResponse(await this.wasmClient.refreshSession(session.id), this.bindSession));
+            hide(session, "equals", (other) => other?.id === session.id);
+            hide(session, "toString", () => wasmModule.describeSession(session.id, session.name));
+        };
+        this.bindActivity = (activity) => {
+            hide(activity, "session", async () => this.parseResponse(await this.wasmClient.sessionOfActivity(activity.sessionId), this.bindSession));
+            hide(activity, "subject", async () => this.parseResponse(await this.wasmClient.subjectOfActivity(activity.sessionId), this.bindSubject));
+            hide(activity, "refresh", async () => this.parseResponse(await this.wasmClient.refreshActivity(activity.id), this.bindActivity));
+            hide(activity, "equals", (other) => other?.id === activity.id);
+            Object.defineProperty(activity, "hasResults", {
+                get: () => {
+                    try {
+                        return wasmModule.activityHasResults(decamelizeKeys(activity));
+                    }
+                    catch (err) {
+                        throw mapModelHealthError(err);
+                    }
+                },
+                enumerable: false,
+                configurable: true,
+            });
+            hide(activity, "toString", () => wasmModule.describeActivity(activity.id, activity.name));
+        };
         if (!config.apiKey) {
             throw new ModelHealthError("An API key is required. Pass apiKey in the config.");
         }
@@ -726,7 +906,7 @@ export class ModelHealthClient {
     async sessionList() {
         this.ensureInitialized();
         const result = await this.wasmClient.sessionList();
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     /**
      * Retrieves a specific session by ID with its populated activities.
@@ -747,7 +927,7 @@ export class ModelHealthClient {
     async getSession(sessionId) {
         this.ensureInitialized();
         const result = await this.wasmClient.getSession(sessionId);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     /**
      * Points the cameras at the session to record this subject in.
@@ -780,7 +960,7 @@ export class ModelHealthClient {
     async switchSubject(subject, session) {
         this.ensureInitialized();
         const result = await this.wasmClient.switchSubject(session.id, subject.id);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     /**
      * Creates a new session from a previous session, inheriting its calibration setup.
@@ -800,7 +980,7 @@ export class ModelHealthClient {
     async newSessionFromSession(session) {
         this.ensureInitialized();
         const result = await this.wasmClient.newSessionFromSessionId(session.id);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     /**
      * Creates a session.
@@ -820,7 +1000,7 @@ export class ModelHealthClient {
     async createSession() {
         this.ensureInitialized();
         const result = await this.wasmClient.createSession();
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     /**
      * Applies settings to an existing session.
@@ -914,13 +1094,20 @@ export class ModelHealthClient {
         const jsCallback = (statusJson) => {
             statusCallback(statusJson);
         };
-        await wasmModule.calibrateSubject(this.config.apiKey, "typescript", decamelizeKeys(subject), decamelizeKeys(session), jsCallback);
+        try {
+            await wasmModule.calibrateSubject(this.config.apiKey, "typescript", decamelizeKeys(subject), decamelizeKeys(session), jsCallback);
+        }
+        finally {
+            // Calibrating moves the session to this subject, even when a later step fails:
+            // what was remembered of it may point at the subject it had before.
+            this.wasmClient.forgetSession(session.id);
+        }
     }
     // MARK: - Subjects
     /**
      * Retrieves a subject by its ID.
      *
-     * Use this to resolve a subject ID (e.g. from `Session.subject`) into full
+     * Use this to resolve a subject ID (e.g. from `Session.subjectId`) into full
      * subject details without fetching the entire subject list.
      *
      * @param subjectId The unique identifier of the subject.
@@ -929,14 +1116,14 @@ export class ModelHealthClient {
      *
      * @example
      * ```typescript
-     * const subject = await client.fetchSubject(session.subject);
+     * const subject = await client.fetchSubject(session.subjectId);
      * console.log(`Subject: ${subject.name}`);
      * ```
      */
     async fetchSubject(subjectId) {
         this.ensureInitialized();
         const result = await this.wasmClient.fetchSubject(subjectId);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSubject);
     }
     /**
      * Creates a subject profile.
@@ -969,7 +1156,52 @@ export class ModelHealthClient {
     async createSubject(parameters) {
         this.ensureInitialized();
         const result = await this.wasmClient.createSubject(decamelizeKeys(parameters));
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSubject);
+    }
+    // MARK: - Links between records
+    /**
+     * The subject with exactly this name.
+     *
+     * Not part of the SDK's public surface — {@link SubjectsResource.find} calls it.
+     * @internal
+     */
+    async _findSubject(name) {
+        this.ensureInitialized();
+        try {
+            return this.parseResponse(await this.wasmClient.findSubject(name), this.bindSubject);
+        }
+        catch (error) {
+            throw mapModelHealthError(error);
+        }
+    }
+    /**
+     * Opens the sessions a subject was recorded in.
+     *
+     * Reached through {@link Session} and {@link Subject}; not called directly.
+     * @internal
+     */
+    subjectSessions(subjectId, options) {
+        this.ensureInitialized();
+        const source = this.wasmClient.subjectSessionsStream(subjectId, decamelizeKeys(sessionFilterFrom(options)), formatOrderBy(options.orderBy) ?? null, options.limit ?? undefined);
+        return new ItemStream(this.shapeItems(source, this.bindSession));
+    }
+    /**
+     * Opens the activities recorded for a subject.
+     * @internal
+     */
+    subjectActivities(subjectId, options) {
+        this.ensureInitialized();
+        const source = this.wasmClient.subjectActivitiesStream(subjectId, decamelizeKeys(activityFilterFrom(options)), formatOrderBy(options.orderBy) ?? null, options.limit ?? undefined);
+        return new ItemStream(this.shapeItems(source, this.bindActivity));
+    }
+    /**
+     * Opens the activities recorded in a session.
+     * @internal
+     */
+    sessionActivities(sessionId, options) {
+        this.ensureInitialized();
+        const source = this.wasmClient.sessionActivitiesStream(sessionId, decamelizeKeys(activityFilterFrom(options)), formatOrderBy(options.orderBy) ?? null, options.limit ?? undefined);
+        return new ItemStream(this.shapeItems(source, this.bindActivity));
     }
     // MARK: - Activity Management
     /**
@@ -981,7 +1213,7 @@ export class ModelHealthClient {
     _activitiesStream(filter, orderBy, limit) {
         this.ensureInitialized();
         const source = this.wasmClient.activitiesStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
-        return new ItemStream(this.shapeItems(source));
+        return new ItemStream(this.shapeItems(source, this.bindActivity));
     }
     /**
      * Opens a filtered list of subjects.
@@ -992,7 +1224,7 @@ export class ModelHealthClient {
     _subjectsStream(filter, orderBy, limit) {
         this.ensureInitialized();
         const source = this.wasmClient.subjectsStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
-        return new ItemStream(this.shapeItems(source));
+        return new ItemStream(this.shapeItems(source, this.bindSubject));
     }
     /**
      * Opens a filtered list of sessions.
@@ -1003,7 +1235,7 @@ export class ModelHealthClient {
     _sessionsStream(filter, orderBy, limit) {
         this.ensureInitialized();
         const source = this.wasmClient.sessionsStream(decamelizeKeys(filter), orderBy ?? null, limit ?? undefined);
-        return new ItemStream(this.shapeItems(source));
+        return new ItemStream(this.shapeItems(source, this.bindSession));
     }
     /**
      * Opens a filtered list of groups.
@@ -1036,7 +1268,7 @@ export class ModelHealthClient {
     async fetchActivity(activityId) {
         this.ensureInitialized();
         const result = await this.wasmClient.fetchActivity(activityId);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindActivity);
     }
     /**
      * Updates an activity.
@@ -1060,7 +1292,7 @@ export class ModelHealthClient {
     async updateActivity(activity, config) {
         this.ensureInitialized();
         const result = await this.wasmClient.updateActivity(decamelizeKeys(activity), config ? decamelizeKeys(config) : null);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindActivity);
     }
     /**
      * Deletes an activity.
@@ -1130,7 +1362,7 @@ export class ModelHealthClient {
     async activityList(sessionId) {
         this.ensureInitialized();
         const result = await this.wasmClient.trialList(sessionId);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindActivity);
     }
     /**
      * Downloads video data for a specific activity.
@@ -1239,6 +1471,80 @@ export class ModelHealthClient {
         const parsed = this.parseResponse(result);
         return parsed.map((item) => ({ ...item, data: new Uint8Array(item.data) }));
     }
+    /**
+     * Fetches an activity's results, each on its own.
+     *
+     * Every result asked for ends up in one of two places on the returned object: `data`
+     * holds the bytes of each result that was fetched, and `errors` holds the reason for
+     * each of the others. One result failing does not stop the others. A result the activity
+     * does not have is in `errors` as a {@link NotAvailableError}, whose message says whether
+     * trying again later can help.
+     *
+     * Use `activity.hasResults` to tell whether processing has finished.
+     *
+     * @param activity The activity whose results to fetch.
+     * @param artifacts The result types to fetch.
+     * @returns A {@link FetchedArtifacts}.
+     * @throws {ModelHealthError} If the client is not initialized or `artifacts` holds an
+     * invalid value. A failure while fetching, such as a lost network, does not reject: it is
+     * in `errors`.
+     *
+     * @example
+     * ```typescript
+     * const fetched = await client.fetchArtifacts(activity, ["metrics", "report"]);
+     * for (const [kind, error] of Object.entries(fetched.errors)) {
+     *   console.log(`no ${kind}: ${error.message}`);
+     * }
+     * const report = fetched.data.report; // a Uint8Array holding the PDF
+     * ```
+     */
+    async fetchArtifacts(activity, artifacts) {
+        this.ensureInitialized();
+        const result = await this.wasmClient.fetchArtifacts(decamelizeKeys(activity), artifacts);
+        const fetched = { data: {}, errors: {} };
+        for (const [kind, bytes] of Object.entries(result.data)) {
+            fetched.data[kind] = bytes;
+        }
+        for (const [kind, error] of Object.entries(result.errors)) {
+            fetched.errors[kind] = mapModelHealthError(error);
+        }
+        return fetched;
+    }
+    /**
+     * The file name a result of this activity is saved under, for writing the bytes
+     * {@link fetchArtifacts} returns.
+     *
+     * The name is `{stem}{suffix}`, the suffix fixed by the result type (`_report.pdf`,
+     * `_kinematics.csv`, ...). Without a `stem`, the activity's name made safe for a file
+     * name and the first 8 characters of its id are used, or its whole id when it has no
+     * name, so two activities of the same name do not overwrite each other's files. Python
+     * and Swift save under the same names.
+     *
+     * @param activity The activity the result belongs to.
+     * @param artifact The result type.
+     * @param stem The start of the file name, if not the default.
+     * @returns The file name, without a directory.
+     * @throws {ModelHealthError} If the client is not initialized or `stem` is not a plain
+     * file name, such as one holding a path separator.
+     *
+     * @example
+     * ```typescript
+     * const fetched = await client.fetchArtifacts(activity, ["report"]);
+     * const report = fetched.data.report;
+     * if (report) {
+     *   await writeFile(client.artifactFileName(activity, "report"), report);
+     * }
+     * ```
+     */
+    artifactFileName(activity, artifact, stem) {
+        this.ensureInitialized();
+        try {
+            return wasmModule.artifactFileName(decamelizeKeys(activity), artifact, stem);
+        }
+        catch (err) {
+            throw mapModelHealthError(err);
+        }
+    }
     // MARK: - Recording & Analysis
     /**
      * Creates an activity and starts recording a dynamic movement trial.
@@ -1262,7 +1568,7 @@ export class ModelHealthClient {
     async startRecording(activityName, session, config) {
         this.ensureInitialized();
         const result = await this.wasmClient.startRecording(activityName, decamelizeKeys(session), config ? decamelizeKeys(config) : null);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindActivity);
     }
     /**
      * Stops the active recording for a movement trial.
@@ -1402,7 +1708,7 @@ export class ModelHealthClient {
             data: f.data,
         }));
         const result = await this.wasmClient.addMotionDataToActivity(decamelizeKeys(activity), wireFiles);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindActivity);
     }
     // MARK: - Import
     /**
@@ -1472,7 +1778,7 @@ export class ModelHealthClient {
             statusCallback(status);
         };
         const result = await this.wasmClient.importSession(activitiesJson, decamelizeKeys(subject), decamelizeKeys(config), jsCallback);
-        return this.parseResponse(result);
+        return this.parseResponse(result, this.bindSession);
     }
     // MARK: - Archive
     /**
@@ -1686,9 +1992,16 @@ export class ModelHealthClient {
      * @param value Value from WASM (JsValue or JSON string)
      * @returns Parsed, camelised TypeScript object
      */
-    parseResponse(value) {
+    parseResponse(value, bind) {
         const parsed = typeof value === "string" ? JSON.parse(value) : value;
-        return parseDates(camelizeKeys(parsed));
+        const shaped = parseDates(camelizeKeys(parsed));
+        if (bind) {
+            for (const model of Array.isArray(shaped) ? shaped : [shaped]) {
+                if (model !== null && typeof model === "object")
+                    bind(model);
+            }
+        }
+        return shaped;
     }
     /**
      * Applies the SDK's usual response shaping to every item a list hands over.
@@ -1696,8 +2009,8 @@ export class ModelHealthClient {
      * The core layer speaks `snake_case` and ISO strings; the same conversion every other
      * method goes through has to apply here too, item by item as they arrive.
      */
-    shapeItems(source) {
-        const shape = (items) => this.parseResponse(items);
+    shapeItems(source, bind) {
+        const shape = (items) => this.parseResponse(items, bind);
         return {
             nextItems: async () => shape(await source.nextItems()),
             total: () => source.total(),
@@ -1754,5 +2067,9 @@ export const __internal = {
     camelizeKeys,
     decamelizeKeys,
     parseDates,
+    hide,
+    activityFilterFrom,
+    sessionFilterFrom,
+    initWasm,
 };
 //# sourceMappingURL=index.js.map

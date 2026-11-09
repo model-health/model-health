@@ -16,14 +16,49 @@
  * const sessions = await client.sessionList();
  * ```
  */
-import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivityListOptions, ActivityTag, ActivityTypeInfo, GroupListOptions, SubjectListOptions, SessionListOptions, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, UsageInfo, VideoUploadMode, LogLevel, LogEvent } from "./types.js";
+import type { CheckerboardDetails, Session, SessionConfig, Subject, SubjectParameters, Activity, ActivityListOptions, ActivityTag, ActivityTypeInfo, GroupListOptions, SubjectListOptions, SessionListOptions, VideoVersion, MotionDataType, MotionData, AnalysisDataType, AnalysisData, ArtifactType, FetchedArtifacts, ActivityType, ActivityConfig, Analysis, AnalysisStatus, ActivityStatus, CalibrationStatus, ImportStatus, Archive, ArchiveStatus, ExternalResultFile, ActivityMetrics, AccountInfo, UsageInfo, VideoUploadMode, LogLevel, LogEvent } from "./types.js";
 import type { ActivityStream, GroupStream, SessionStream, SubjectStream } from "./streams.js";
+/**
+ * Initialize the WASM module.
+ *
+ * This must be called before using the SDK. It loads and initializes
+ * the WebAssembly module containing the core SDK functionality.
+ *
+ * @internal
+ */
+declare function initWasm(): Promise<void>;
 /**
  * Recursively convert all object keys from snake_case to camelCase.
  * Used to normalize WASM responses to idiomatic TypeScript.
  * @internal
  */
 declare function camelizeKeys(value: unknown): unknown;
+/**
+ * The filter behind every way of listing activities.
+ *
+ * Shared by `client.activities.list(...)` and by the links a record carries, so all of
+ * them accept the same spellings and send the same shape.
+ * @internal
+ */
+declare function activityFilterFrom(options: ActivityListOptions): Record<string, unknown>;
+/**
+ * The filter behind every way of listing sessions.
+ *
+ * Shared by `client.sessions.list(...)` and by `subject.sessions(...)`, so both accept
+ * the same spellings and send the same shape.
+ * @internal
+ */
+declare function sessionFilterFrom(options: SessionListOptions): Record<string, unknown>;
+/**
+ * Hangs a member on a model without it counting as one of the model's fields.
+ *
+ * A record is handed back as plain data, and anything that walks its own properties —
+ * sending it onward, serialising it, copying it — must see the fields and nothing else.
+ * A non-enumerable member is invisible to all of those, which is what lets a record
+ * carry its links without them travelling as data.
+ * @internal
+ */
+declare function hide(target: object, name: string, value: unknown): void;
 /**
  * Recursively converts known timestamp fields found anywhere in the response tree to
  * `Date`, in place.
@@ -133,6 +168,18 @@ export declare class ActivitiesResource {
      *
      * const total = await client.activities.list({ tags: ["study-a"] }).total;
      * const all = await client.activities.list({ tags: ["study-a"] }).all();
+     *
+     * // Several subjects and types in one request. Pick a handful: every one is sent in
+     * // the request, so a whole account's worth would not fit. To match everything,
+     * // leave the filters out.
+     * const [alice, bob] = await client.subjects.list({ limit: 2 }).all();
+     * const [squats, hops] = (await client.activityTypes()).slice(0, 2);
+     * for await (const activity of client.activities.list({
+     *   subjects: [alice, bob],
+     *   activityTypes: [squats, hops],
+     * })) {
+     *   console.log(activity.subjectInfo?.name, activity.name);
+     * }
      * ```
      */
     list(options?: ActivityListOptions): ActivityStream;
@@ -146,6 +193,28 @@ export declare class SubjectsResource {
     private readonly client;
     /** @internal */
     constructor(client: ModelHealthClient);
+    /**
+     * The subject with exactly this name, or `undefined` when nobody has it.
+     *
+     * `search` on {@link SubjectsResource.list} narrows by substring; this matches the
+     * whole name, ignoring case. A prefix is not a name, and no match is `undefined`
+     * rather than an error.
+     *
+     * @param name The subject's full name.
+     * @returns The subject, or `undefined` when nobody has this name.
+     * @throws {AmbiguousMatchError} When more than one subject has this name — the message
+     *   lists their ids, so you can pick one with {@link ModelHealthClient.fetchSubject}.
+     *   A blank name is refused before anything is sent.
+     *
+     * @example
+     * ```typescript
+     * const subject = await client.subjects.find("Antoine Falisse");
+     * if (subject) {
+     *   for await (const activity of subject.activities()) console.log(activity.name);
+     * }
+     * ```
+     */
+    find(name: string): Promise<Subject | undefined>;
     /**
      * Lazily lists subjects matching the given filters.
      *
@@ -511,7 +580,7 @@ export declare class ModelHealthClient {
     /**
      * Retrieves a subject by its ID.
      *
-     * Use this to resolve a subject ID (e.g. from `Session.subject`) into full
+     * Use this to resolve a subject ID (e.g. from `Session.subjectId`) into full
      * subject details without fetching the entire subject list.
      *
      * @param subjectId The unique identifier of the subject.
@@ -520,7 +589,7 @@ export declare class ModelHealthClient {
      *
      * @example
      * ```typescript
-     * const subject = await client.fetchSubject(session.subject);
+     * const subject = await client.fetchSubject(session.subjectId);
      * console.log(`Subject: ${subject.name}`);
      * ```
      */
@@ -554,6 +623,30 @@ export declare class ModelHealthClient {
      * ```
      */
     createSubject(parameters: SubjectParameters): Promise<Subject>;
+    /**
+     * The subject with exactly this name.
+     *
+     * Not part of the SDK's public surface — {@link SubjectsResource.find} calls it.
+     * @internal
+     */
+    _findSubject(name: string): Promise<Subject | undefined>;
+    /**
+     * Opens the sessions a subject was recorded in.
+     *
+     * Reached through {@link Session} and {@link Subject}; not called directly.
+     * @internal
+     */
+    private subjectSessions;
+    /**
+     * Opens the activities recorded for a subject.
+     * @internal
+     */
+    private subjectActivities;
+    /**
+     * Opens the activities recorded in a session.
+     * @internal
+     */
+    private sessionActivities;
     /**
      * Opens a filtered list of activities.
      *
@@ -767,6 +860,61 @@ export declare class ModelHealthClient {
      *
      */
     analysisDataForActivity(activity: Activity, dataTypes: AnalysisDataType[]): Promise<AnalysisData[]>;
+    /**
+     * Fetches an activity's results, each on its own.
+     *
+     * Every result asked for ends up in one of two places on the returned object: `data`
+     * holds the bytes of each result that was fetched, and `errors` holds the reason for
+     * each of the others. One result failing does not stop the others. A result the activity
+     * does not have is in `errors` as a {@link NotAvailableError}, whose message says whether
+     * trying again later can help.
+     *
+     * Use `activity.hasResults` to tell whether processing has finished.
+     *
+     * @param activity The activity whose results to fetch.
+     * @param artifacts The result types to fetch.
+     * @returns A {@link FetchedArtifacts}.
+     * @throws {ModelHealthError} If the client is not initialized or `artifacts` holds an
+     * invalid value. A failure while fetching, such as a lost network, does not reject: it is
+     * in `errors`.
+     *
+     * @example
+     * ```typescript
+     * const fetched = await client.fetchArtifacts(activity, ["metrics", "report"]);
+     * for (const [kind, error] of Object.entries(fetched.errors)) {
+     *   console.log(`no ${kind}: ${error.message}`);
+     * }
+     * const report = fetched.data.report; // a Uint8Array holding the PDF
+     * ```
+     */
+    fetchArtifacts(activity: Activity, artifacts: ArtifactType[]): Promise<FetchedArtifacts>;
+    /**
+     * The file name a result of this activity is saved under, for writing the bytes
+     * {@link fetchArtifacts} returns.
+     *
+     * The name is `{stem}{suffix}`, the suffix fixed by the result type (`_report.pdf`,
+     * `_kinematics.csv`, ...). Without a `stem`, the activity's name made safe for a file
+     * name and the first 8 characters of its id are used, or its whole id when it has no
+     * name, so two activities of the same name do not overwrite each other's files. Python
+     * and Swift save under the same names.
+     *
+     * @param activity The activity the result belongs to.
+     * @param artifact The result type.
+     * @param stem The start of the file name, if not the default.
+     * @returns The file name, without a directory.
+     * @throws {ModelHealthError} If the client is not initialized or `stem` is not a plain
+     * file name, such as one holding a path separator.
+     *
+     * @example
+     * ```typescript
+     * const fetched = await client.fetchArtifacts(activity, ["report"]);
+     * const report = fetched.data.report;
+     * if (report) {
+     *   await writeFile(client.artifactFileName(activity, "report"), report);
+     * }
+     * ```
+     */
+    artifactFileName(activity: Activity, artifact: ArtifactType, stem?: string): string;
     /**
      * Creates an activity and starts recording a dynamic movement trial.
      *
@@ -1118,6 +1266,13 @@ export declare class ModelHealthClient {
      */
     private parseResponse;
     /**
+     * Hangs a subject's links on it, so a record read through this client can reach the
+     * records next to it. The links are not fields — see {@link hide}.
+     */
+    private bindSubject;
+    private bindSession;
+    private bindActivity;
+    /**
      * Applies the SDK's usual response shaping to every item a list hands over.
      *
      * The core layer speaks `snake_case` and ISO strings; the same conversion every other
@@ -1156,5 +1311,9 @@ export declare const __internal: {
     camelizeKeys: typeof camelizeKeys;
     decamelizeKeys: typeof decamelizeKeys;
     parseDates: typeof parseDates;
+    hide: typeof hide;
+    activityFilterFrom: typeof activityFilterFrom;
+    sessionFilterFrom: typeof sessionFilterFrom;
+    initWasm: typeof initWasm;
 };
 //# sourceMappingURL=index.d.ts.map

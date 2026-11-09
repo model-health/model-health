@@ -48,6 +48,29 @@ export declare class UnsupportedOperationError extends ModelHealthError {
     constructor(message: string, code: number, subCode: number, statusCode: number);
 }
 /**
+ * A record could not reach the client it was read through.
+ *
+ * Records the SDK hands back carry their links. A copy made by hand — a spread, a
+ * `JSON.parse` round-trip, a literal — carries the fields and not the links, so calling
+ * a link on such a copy is a `TypeError`, not this error. Read the record through the
+ * client to navigate from it.
+ */
+export declare class NotAttachedError extends ModelHealthError {
+    constructor(message: string, code?: 8, subCode?: number, statusCode?: number);
+}
+/** A lookup by name matched more than one record. The message lists their ids. */
+export declare class AmbiguousMatchError extends ModelHealthError {
+    constructor(message: string, code: number, subCode: number, statusCode: number);
+}
+/**
+ * An activity has no such result: it is still being processed, or processing finished
+ * without producing it. The message says which, so you can tell whether trying again later
+ * can help.
+ */
+export declare class NotAvailableError extends ModelHealthError {
+    constructor(message: string, code: number, subCode: number, statusCode: number);
+}
+/**
  * Reconstructs the specific `ModelHealthError` subclass from a thrown WASM error.
  *
  * Falls back to the generic `ModelHealthError` (or wraps a non-Error throw as one) when
