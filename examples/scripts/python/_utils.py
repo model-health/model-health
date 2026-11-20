@@ -54,6 +54,27 @@ def load_api_key(cli_arg=None):
     return key
 
 
+PRODUCTION_API_URL = "https://api.modelhealth.io/api/v2"
+DEV_API_URL = "https://dev.modelhealth.io/api/v2"
+
+
+def load_api_url():
+    """Return the API base URL, for the few calls a script makes without the SDK.
+
+    The SDK itself has its server compiled in: release builds (PyPI) talk to production,
+    pre-release builds (TestPyPI, e.g. ``0.12.0rc2``) to dev. This must name the same
+    server, so by default it follows the installed build. ``MODEL_HEALTH_API_URL``
+    (in .env or the environment) overrides it.
+    """
+    url = _env().get("MODEL_HEALTH_API_URL") or os.environ.get("MODEL_HEALTH_API_URL")
+    if url:
+        return url.rstrip("/")
+    from importlib.metadata import version
+    import re
+    is_prerelease = re.search(r"(a|b|rc|\.dev)\d*$", version("modelhealth")) is not None
+    return DEV_API_URL if is_prerelease else PRODUCTION_API_URL
+
+
 # File extensions for motion data types (keyed by MotionData.type string).
 MOTION_DATA_EXT = {
     "animation":      "json",
