@@ -17,6 +17,9 @@ export const ANALYSIS_TYPES = [
   { value: 'sprint', label: 'Sprint' },
   { value: 'lateral_stepdown', label: 'Lateral Step Down' },
   { value: 'lunge', label: 'Lunge' },
+  { value: 'drop_jump_less', label: 'Drop Vertical Jump - LESS Evaluation' },
+  { value: 'cycling', label: 'Cycling (beta)' },
+  { value: 'deceleration', label: 'Deceleration (beta)' },
 ];
 
 export const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY ?? 'YOUR_API_KEY_HERE';

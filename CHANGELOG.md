@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.12.1
+
+# Entries for the next release
+
+Add user-facing changes here as they land. Each entry should use `###` headers
+(Added, Changed, Fixed, Breaking). The version header and Changelog title are
+added automatically at release time — do not include them here.
+
+See docs/releasing.md for guidance on what belongs in the changelog.
+
+### Added
+
+- Three activity types: Drop Vertical Jump - LESS Evaluation, Cycling and Deceleration —
+  `.dropJumpLess`, `.cycling`, `.deceleration` (Swift) / `ActivityType.DropJumpLess`,
+  `ActivityType.Cycling`, `ActivityType.Deceleration` (TypeScript) / `ActivityType.drop_jump_less`,
+  `ActivityType.cycling`, `ActivityType.deceleration` (Python). Recording with one of them starts its
+  analysis automatically, as with the other types.
+
+### Changed
+
+- `activities.list(...)` and `subject.activities(...)` now leave out other users' public sessions, so
+  they list only your own activities and those of subjects you may view. Listing a given session
+  (`activities.list(session:)` or `session.activities(...)`) still returns its activities when it is a
+  public session you have the id of.
+
 ## 0.12.0
 
 ### Breaking

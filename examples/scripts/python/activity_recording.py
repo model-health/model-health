@@ -72,6 +72,9 @@ _ACTIVITY_TYPES = [
     (ActivityType.sprint,                "Sprint"),
     (ActivityType.lateral_stepdown,      "Lateral Step Down"),
     (ActivityType.lunge,                 "Lunge"),
+    (ActivityType.drop_jump_less,        "Drop Vertical Jump - LESS Evaluation"),
+    (ActivityType.cycling,               "Cycling (beta)"),
+    (ActivityType.deceleration,          "Deceleration (beta)"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -282,10 +285,15 @@ def _calibrate_subject(client, subject, session):
 
 
 def _has_neutral_pose(session):
-    return any(
-        a.name == "neutral" and a.status == "done" and not a.trashed
-        for a in session.activities(exclude_calibration=False)
-    )
+    try:
+        return any(
+            a.name == "neutral" and a.status == "done" and not a.trashed
+            for a in session.activities(exclude_calibration=False)
+        )
+    except ModelHealthError as exc:
+        # Recording the neutral pose again is harmless; ending the script would lose the camera setup.
+        print(f"Couldn't check for an existing neutral pose ({exc}); recording it again.", file=sys.stderr)
+        return False
 
 
 def _switch_to_subject(client, subject, session):

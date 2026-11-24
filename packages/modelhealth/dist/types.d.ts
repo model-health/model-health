@@ -867,6 +867,12 @@ export declare const ActivityType: {
     readonly LateralStepdown: "lateral_stepdown";
     /** Lunge */
     readonly Lunge: "lunge";
+    /** Drop Vertical Jump - LESS Evaluation */
+    readonly DropJumpLess: "drop_jump_less";
+    /** Cycling */
+    readonly Cycling: "cycling";
+    /** Deceleration */
+    readonly Deceleration: "deceleration";
 };
 /** @hidden */
 export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];

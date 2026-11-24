@@ -29,6 +29,9 @@ const ANALYSIS_TYPES: [string, string][] = [
   [ActivityType.Sprint,              'Sprint'],
   [ActivityType.LateralStepdown,     'Lateral Step Down'],
   [ActivityType.Lunge,               'Lunge'],
+  [ActivityType.DropJumpLess,        'Drop Vertical Jump - LESS Evaluation'],
+  [ActivityType.Cycling,             'Cycling (beta)'],
+  [ActivityType.Deceleration,        'Deceleration (beta)'],
 ];
 
 const RESULT_TYPES: [AnalysisDataType, string][] = [

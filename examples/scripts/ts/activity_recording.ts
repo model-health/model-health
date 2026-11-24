@@ -79,6 +79,9 @@ const ACTIVITY_TYPE_OPTIONS: ActivityTypeOption[] = [
   { type: ActivityType.Sprint,                label: 'Sprint'                          },
   { type: ActivityType.LateralStepdown,       label: 'Lateral Step Down'               },
   { type: ActivityType.Lunge,                 label: 'Lunge'                           },
+  { type: ActivityType.DropJumpLess,          label: 'Drop Vertical Jump - LESS Evaluation' },
+  { type: ActivityType.Cycling,               label: 'Cycling (beta)'                  },
+  { type: ActivityType.Deceleration,          label: 'Deceleration (beta)'             },
 ];
 
 interface FramerateOption {
@@ -225,8 +228,15 @@ async function calibrateSubject(
   console.log('Subject calibration complete.');
 }
 
-function hasNeutralPose(session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>): boolean {
-  return session.activities.some(a => a.name === 'neutral' && a.status === 'done' && !a.trashed);
+async function hasNeutralPose(session: Awaited<ReturnType<typeof createSessionAndSaveQrCode>>): Promise<boolean> {
+  try {
+    const activities = await session.activities({ excludeCalibration: false }).all();
+    return activities.some(a => a.name === 'neutral' && a.status === 'done' && !a.trashed);
+  } catch (err) {
+    // Recording the neutral pose again is harmless; ending the script would lose the camera setup.
+    console.warn(`Couldn't check for an existing neutral pose (${err}); recording it again.`);
+    return false;
+  }
 }
 
 /**
@@ -245,7 +255,7 @@ async function switchToSubject(
   const next = await client.switchSubject(subject, session);
   console.log(`  Session ID: ${next.id}`);
 
-  if (hasNeutralPose(next)) {
+  if (await hasNeutralPose(next)) {
     console.log(`  ${subject.name} is already calibrated in this session.`);
   } else {
     await calibrateSubject(client, subject, next);

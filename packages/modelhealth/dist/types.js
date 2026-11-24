@@ -50,6 +50,12 @@ export const ActivityType = {
     LateralStepdown: "lateral_stepdown",
     /** Lunge */
     Lunge: "lunge",
+    /** Drop Vertical Jump - LESS Evaluation */
+    DropJumpLess: "drop_jump_less",
+    /** Cycling */
+    Cycling: "cycling",
+    /** Deceleration */
+    Deceleration: "deceleration",
 };
 // MARK: - Profile
 /**

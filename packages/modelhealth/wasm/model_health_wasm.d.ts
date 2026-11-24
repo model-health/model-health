@@ -718,8 +718,8 @@ export interface InitOutput {
     readonly subjectstreamsource_cachedTotal: (a: number) => number;
     readonly subjectstreamsource_nextItems: (a: number) => number;
     readonly subjectstreamsource_total: (a: number) => number;
-    readonly __wasm_bindgen_func_elem_2157: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_2171: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2161: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2175: (a: number, b: number, c: number, d: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

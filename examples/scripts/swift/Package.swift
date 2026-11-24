@@ -20,7 +20,7 @@ let package = Package(
     name: "ModelHealthExamples",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/model-health/model-health-swift", from: "0.12.0")
+        .package(url: "https://github.com/model-health/model-health-swift", from: "0.12.1")
     ],
     targets: [
         .target(

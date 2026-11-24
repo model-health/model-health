@@ -49,6 +49,9 @@ ANALYSIS_TYPES = [
     (ActivityType.sprint,                "Sprint"),
     (ActivityType.lateral_stepdown,      "Lateral Step Down"),
     (ActivityType.lunge,                 "Lunge"),
+    (ActivityType.drop_jump_less,        "Drop Vertical Jump - LESS Evaluation"),
+    (ActivityType.cycling,               "Cycling (beta)"),
+    (ActivityType.deceleration,          "Deceleration (beta)"),
 ]
 
 RESULT_TYPES = [

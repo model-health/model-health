@@ -46,7 +46,10 @@ private let activityTypeOptions: [ActivityTypeOption] = [
     ActivityTypeOption(type: .cut, label: "Cutting Maneuver"),
     ActivityTypeOption(type: .sprint, label: "Sprint"),
     ActivityTypeOption(type: .lateralStepdown, label: "Lateral Step Down"),
-    ActivityTypeOption(type: .lunge, label: "Lunge")
+    ActivityTypeOption(type: .lunge, label: "Lunge"),
+    ActivityTypeOption(type: .dropJumpLess, label: "Drop Vertical Jump - LESS Evaluation"),
+    ActivityTypeOption(type: .cycling, label: "Cycling (beta)"),
+    ActivityTypeOption(type: .deceleration, label: "Deceleration (beta)")
 ]
 
 private struct FramerateOption {
@@ -303,8 +306,15 @@ private func calibrateSubject(client: ModelHealthClient, subject: Subject, sessi
     print("Subject calibration complete.")
 }
 
-private func hasNeutralPose(_ session: Session) -> Bool {
-    session.activities.contains { $0.name == "neutral" && $0.status == "done" && !$0.trashed }
+private func hasNeutralPose(_ session: Session) async -> Bool {
+    do {
+        let activities = try await session.activities(excludeCalibration: false).all()
+        return activities.contains { $0.name == "neutral" && $0.status == "done" && !$0.trashed }
+    } catch {
+        // Recording the neutral pose again is harmless; ending the script would lose the camera setup.
+        fputs("Couldn't check for an existing neutral pose (\(error)); recording it again.\n", stderr)
+        return false
+    }
 }
 
 /// Moves the cameras to the session for `subject` and returns it.
@@ -323,7 +333,7 @@ private func switchToSubject(client: ModelHealthClient, subject: Subject, sessio
     }
     print("  Session ID: \(next.id)")
 
-    if hasNeutralPose(next) {
+    if await hasNeutralPose(next) {
         print("  \(subject.name) is already calibrated in this session.")
     } else {
         await calibrateSubject(client: client, subject: subject, session: next)

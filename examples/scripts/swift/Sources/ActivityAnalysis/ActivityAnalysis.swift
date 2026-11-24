@@ -22,7 +22,10 @@ private let analysisTypes: [(ActivityType, String)] = [
     (.cut, "Cutting Maneuver"),
     (.sprint, "Sprint"),
     (.lateralStepdown, "Lateral Step Down"),
-    (.lunge, "Lunge")
+    (.lunge, "Lunge"),
+    (.dropJumpLess, "Drop Vertical Jump - LESS Evaluation"),
+    (.cycling, "Cycling (beta)"),
+    (.deceleration, "Deceleration (beta)")
 ]
 
 private let resultTypes: [(AnalysisDataType, String)] = [
